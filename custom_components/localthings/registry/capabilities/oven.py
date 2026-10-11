@@ -254,9 +254,10 @@ def _oven_mode_options(resources):
     fallback has to kick in when the device's own field is absent."""
     rep = resources.get("/mode/vs/0") or {}
     live = rep.get("x.com.samsung.da.supportedModes")
-    if not live:
+    # An empty list is a lower zone with its divider out (cook.share_mode_spec).
+    if not live and not cook.zoned(resources):
         return list(_OVEN_MODES)
-    live = cook.selectable_modes(live)
+    live = cook.selectable_modes(live or [])
     # Ranges (every range fixture, plus #404's) and the #277 wall oven idle
     # in NoOperation but leave it out of supportedModes; HA's select drops a
     # current option that isn't in the list, so the idle state showed as
@@ -279,9 +280,15 @@ def _oven_mode_validate(p, rep, resources):
     return None
 
 
-def _oven_mode_write(p, rep, href=None):
-    live = rep.get("x.com.samsung.da.supportedModes")
-    valid = cook.selectable_modes(live) if live else _OVEN_MODES
+def _oven_mode_write(p, rep, href=None, resources=None):
+    # The cavity's view, not its raw rep: a zoned lower cavity's modes come
+    # from the board's modeSpec (cook.share_mode_spec).
+    view = (resources or {}).get("/mode/vs/0") or rep
+    live = view.get("x.com.samsung.da.supportedModes")
+    if not live and not cook.zoned(resources or {}):
+        valid = _OVEN_MODES
+    else:
+        valid = cook.selectable_modes(live or [])
     if p not in valid:
         return None
     return ["mode", "vs", "0"], {"x.com.samsung.da.modes": [p]}

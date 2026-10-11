@@ -18,7 +18,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 
 from .const import CONF_DEVICE_TYPE, CONF_HOST, CONF_PORT, CONF_SERIAL, DOMAIN, PLATFORMS
-from .coordinator import LocalThingsCoordinator, snapshot_store
+from .coordinator import LocalThingsCoordinator, mode_spec_store, snapshot_store
 from .entity import async_load_instance_names
 from .registry.identity import resolve_serial
 from .rekey import rekey_entry
@@ -332,6 +332,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # legitimately have zero live entities (every one of them disabled, say).
     # Without this the entry loads once and never polls again (issue #295).
     entry.async_on_unload(coordinator.async_add_listener(lambda: None))
+    await coordinator.async_load_mode_specs()
 
     try:
         await coordinator.async_config_entry_first_refresh()
@@ -426,13 +427,15 @@ async def async_remove_config_entry_device(
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Delete the discovery snapshot this entry accumulated (issue #295).
+    """Delete the discovery snapshot (issue #295) and remembered modeSpecs
+    (#600) this entry accumulated.
 
     Nothing else would: the store is keyed on entry_id, so re-adding the same
     appliance mints a new one and the old file would linger in .storage
     forever.
     """
     await snapshot_store(hass, entry).async_remove()
+    await mode_spec_store(hass, entry).async_remove()
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

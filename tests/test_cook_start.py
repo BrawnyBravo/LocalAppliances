@@ -226,7 +226,7 @@ def _lower_cavity():
         resources, oic_res, seeds, ("oic.wk.d", "oic.d.range")
     )
     (lower,) = subdevices
-    shared = cook.share_mode_spec(full, [lower.to_actual(cook.MODE_HREF)])
+    shared = cook.share_mode_spec(full, [lower.to_actual])
     return lower, canonical_view(lower, shared, subdevices)
 
 

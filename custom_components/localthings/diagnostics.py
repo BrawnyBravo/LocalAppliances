@@ -155,6 +155,10 @@ async def async_get_config_entry_diagnostics(
                 "enabled": coordinator.learning_enabled,
                 "codes": coordinator.learned_snapshot(),
             },
+            # The last modeSpec with entries per mode href (#600), and whether
+            # it is standing in for an empty or missing one right now. Separate
+            # from `resources` for the same reason as learned_modes above.
+            "remembered_mode_specs": coordinator.remembered_mode_specs(),
             # Cloud "Download" programs discovered on this device (issue #342),
             # reported separately from `resources` for the same reason as
             # learned_modes above -- the dump there stays exactly what the device

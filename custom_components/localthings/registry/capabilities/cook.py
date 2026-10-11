@@ -16,7 +16,7 @@ What a cavity can run right now is its own live `supportedModes`, which
 is narrower: the NE9801T's modeSpec lists all 15 modes of both cavities
 while its upper cavity supports only the three Upper ones (#324).
 
-A dual-cavity range is two subdevices, each with its own collection and
+A dual-cavity oven is two subdevices, each with its own collection and
 its own mode, temperatures and operational state; only the upper
 cavity's `/mode/vs/0` carries the modeSpec (share_mode_spec). Each cavity
 starts from its own collection.
@@ -25,7 +25,7 @@ starts from its own collection.
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -37,7 +37,7 @@ OPERATION_HREF = "/operational/state/vs/0"
 CAVITY_HREF = "/oven/vs/0"
 
 _MODES = "x.com.samsung.da.modes"
-_MODE_SPEC = "x.com.samsung.da.modeSpec"
+MODE_SPEC = "x.com.samsung.da.modeSpec"
 _SUPPORTED_MODES = "x.com.samsung.da.supportedModes"
 _ITEMS = "x.com.samsung.da.items"
 _DESIRED = "x.com.samsung.da.desired"
@@ -220,16 +220,11 @@ _UNDECLARED_TIME_MIN = parse_hms("00:01:00")
 def mode_specs(resources: dict) -> dict[str, ModeSpec]:
     """{mode: ModeSpec} from `/mode/vs/0`'s modeSpec, which arrives as a
     JSON string; a board reporting none gets _specless_specs."""
-    raw = (resources.get(MODE_HREF) or {}).get(_MODE_SPEC)
+    raw = (resources.get(MODE_HREF) or {}).get(MODE_SPEC)
     if raw is None:
         return _specless_specs(resources)
-    if isinstance(raw, str):
-        try:
-            raw = json.loads(raw)
-        except ValueError:
-            return {}
     specs = {}
-    for entry in raw if isinstance(raw, list) else ():
+    for entry in _spec_entries(raw):
         if not isinstance(entry, dict) or not isinstance(entry.get("mode"), str):
             continue
         temps = {u: t for u in ("C", "F") if (t := _temp_spec(entry, u)) is not None}
@@ -245,25 +240,116 @@ def mode_specs(resources: dict) -> dict[str, ModeSpec]:
     return specs
 
 
-def share_mode_spec(resources: dict, mode_hrefs: list[str]) -> dict:
-    """`resources` with the upper cavity's modeSpec copied onto each of
-    `mode_hrefs` (a sibling cavity's actual `/mode` href) that has none.
+def _spec_entries(raw: Any) -> list:
+    """modeSpec's entries, parsed from the JSON string it arrives as."""
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            return []
+    return raw if isinstance(raw, list) else []
+
+
+def _is_empty_spec(spec: Any) -> bool:
+    """`[]` or a JSON string of one, as against missing or malformed."""
+    if isinstance(spec, str):
+        try:
+            spec = json.loads(spec)
+        except ValueError:
+            return False
+    return spec == []
+
+
+def has_entries(spec: Any) -> bool:
+    """Whether a modeSpec value has entries. An LCD_R18 board answers `"[]"`
+    until it is ready (#600) and on its lower zone (#597)."""
+    return bool(_spec_entries(spec))
+
+
+def _reports_mode_spec(rep: dict | None) -> bool:
+    return has_entries((rep or {}).get(MODE_SPEC))
+
+
+def with_cached_specs(resources: dict, cached: dict[str, Any]) -> dict:
+    """`resources` with each href's last modeSpec that had entries standing
+    in for an empty or missing one. An NV7B6665IAA reported `"[]"` after its
+    Wi-Fi board restarted until its power was cut (#600); the live
+    supportedModes still decides what can start. Returns `resources` itself
+    when nothing is filled in."""
+    filled = {
+        href: {**resources[href], MODE_SPEC: spec}
+        for href, spec in cached.items()
+        if href in resources and not _reports_mode_spec(resources[href])
+    }
+    return {**resources, **filled} if filled else resources
+
+
+CONNECTED_HREF = "/connected/vs/0"
+# Set on a cavity view whose cavity comes from the board's modeSpec rather
+# than from the cavity's own reps; read by cavity().
+_CAVITY_FIELD = "localthings.cavity"
+
+
+def share_mode_spec(resources: dict, siblings: Sequence[Callable[[str], str]]) -> dict:
+    """`resources` with the upper cavity's modeSpec copied onto each sibling
+    cavity's mode resource that has none. `siblings` are the other
+    subdevices' canonical-to-actual href mappers.
+
     It is one board-wide list -- the upper cavity's names the Lower modes
     too -- so a lower cavity is checked against it rather than getting no
-    start. Returns `resources` itself when there is nothing to share."""
-    spec = (resources.get(MODE_HREF) or {}).get(_MODE_SPEC)
-    targets = [h for h in mode_hrefs if h in resources and _MODE_SPEC not in resources[h]]
-    if spec is None or not targets:
+    start. The NV7B6665IAA's lower zone (#597) lists no modes of its own
+    (supportedModes only HOMECARE_WIZARD_V2), so it is given the modes the
+    spec tags `cavity: Lower`, none while its divider reads out, and the
+    upper cavity stops offering them: a Lower mode started through
+    `/device/0` answered OK and never ran. Returns `resources` itself when
+    there is nothing to share."""
+    main = resources.get(MODE_HREF) or {}
+    spec = main.get(MODE_SPEC)
+    entries = _spec_entries(spec)
+    if not entries:
         return resources
+    tagged = [
+        e["mode"]
+        for e in entries
+        if isinstance(e, dict) and e.get("cavity") == "Lower" and isinstance(e.get("mode"), str)
+    ]
+    main_live = main.get(_SUPPORTED_MODES)
+    offered = [m for m in tagged if m in main_live] if isinstance(main_live, list) else tagged
     shared = dict(resources)
-    for href in targets:
-        shared[href] = {**resources[href], _MODE_SPEC: spec}
-    return shared
+    copied = zoned = False
+    for to_actual in siblings:
+        href = to_actual(MODE_HREF)
+        rep = resources.get(href)
+        if rep is None or _reports_mode_spec(rep):
+            continue
+        rep = {**rep, MODE_SPEC: spec}
+        live = rep.get(_SUPPORTED_MODES)
+        # A cavity that lists no cooking mode at all (HOMECARE_WIZARD_V2 only
+        # on the NV7B6665IAA); one omitting the list is left as reported.
+        if tagged and isinstance(live, list) and not selectable_modes(live):
+            divider = (resources.get(to_actual(CONNECTED_HREF)) or {}).get(
+                "x.com.samsung.da.connected"
+            )
+            rep[_SUPPORTED_MODES] = [] if divider == "Off" else offered
+            rep[_CAVITY_FIELD] = "Lower"
+            zoned = True
+        shared[href] = rep
+        copied = True
+    if zoned and isinstance(main_live, list):
+        lower = set(tagged)
+        shared[MODE_HREF] = {**main, _SUPPORTED_MODES: [m for m in main_live if m not in lower]}
+    return shared if copied else resources
 
 
 _CAVITY_PREFIXES = ("Upper", "Lower")
 # The 8888 Flex Duo's lower cavity describes itself LCD_OV_WALL_16K_DIV (#572).
 _LOWER_CAVITY_SUFFIX = "_DIV"
+
+
+def zoned(resources: dict) -> bool:
+    """Whether this cavity's modes come from the board's modeSpec tags
+    (share_mode_spec) rather than its own supportedModes."""
+    return bool((resources.get(MODE_HREF) or {}).get(_CAVITY_FIELD))
 
 
 def cavity(resources: dict) -> str | None:
@@ -273,7 +359,10 @@ def cavity(resources: dict) -> str | None:
     Only those two prefixes count: every other defaultMode in the corpus is a
     plain cooking mode.
     """
-    mode = (resources.get(MODE_HREF) or {}).get("x.com.samsung.da.defaultMode")
+    rep = resources.get(MODE_HREF) or {}
+    if rep.get(_CAVITY_FIELD):
+        return rep[_CAVITY_FIELD]
+    mode = rep.get("x.com.samsung.da.defaultMode")
     if isinstance(mode, str):
         for prefix in _CAVITY_PREFIXES:
             if mode.startswith(prefix):
@@ -296,8 +385,14 @@ def startable_modes(resources: dict) -> list[str]:
 
 
 def can_start(rep: dict, resources: dict) -> bool:
-    """exists_fn for the start button."""
-    return bool(startable_modes(resources))
+    """exists_fn for the start button: a board that declares a startable
+    mode, whether or not this cavity offers one right now, or one whose
+    modeSpec is empty for now (#600). A press while nothing is startable is
+    refused by plan_start."""
+    spec = (resources.get(MODE_HREF) or {}).get(MODE_SPEC)
+    if _is_empty_spec(spec):
+        return True
+    return any(s.startable for s in mode_specs(resources).values())
 
 
 def _temp_item(resources: dict) -> dict:
@@ -372,8 +467,8 @@ class CookPlan:
 
         The bare `/devices/0` marker is not required on either board
         measured, but both measured payloads carried it, so the upper
-        cavity keeps it. A lower cavity leaves it out rather than guess
-        its spelling."""
+        cavity keeps it. A lower cavity leaves it out, which started the
+        NV7B6665IAA's lower zone (#597)."""
         actual = to_actual or (lambda href: href)
         elements: list[dict] = [{"href": "/devices/0"}] if to_actual is None else []
         elements.append({"href": actual(MODE_HREF), "rep": {_MODES: [self.mode]}})

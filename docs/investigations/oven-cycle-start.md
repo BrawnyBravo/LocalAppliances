@@ -119,45 +119,16 @@ So each cavity starts from its own collection: the measured batch to
 `/device/0` for the upper one, and to `/device/1` for the lower one with
 its elements at `/mode/vs/1`, `/temperatures/vs/1` and
 `/operational/state/vs/1` -- the spelling every read and write of that
-cavity already uses. **That inner spelling is the one unmeasured part.** A
-batch's inner hrefs go out verbatim, and whether `/device/1` wants `/vs/1`
-or `/vs/0` inside it is untested (the `/device/1` seed in the fixture is
-reconstructed, not captured). The lower cavity's batch also leaves out the
-`/devices/0` marker rather than guess its spelling; neither measured board
-needed it.
+cavity already uses. That spelling is measured on the NV7B6665IAA Dual
+Cook (#597): `LowerConvection` at 160 °C with a one-minute cook time,
+written to `/device/1` without the `/devices/0` marker, answered `2.04`,
+ran and ended on its own. The same mode started through `/device/0`
+answered OK and never ran.
 
-To settle it on the hardware, with the lower oven empty and Remote
-Control on, try the spelling LocalThings sends first:
-
-```yaml
-action: localthings.write_resource
-data:
-  device_id: PUT_YOUR_DEVICE_ID_HERE
-  verify_after: 30
-  writes:
-    - href: /device/1
-      readback: false
-      payload:
-        - href: /mode/vs/1
-          rep:
-            x.com.samsung.da.modes: ["LowerBake"]
-        - href: /temperatures/vs/1
-          rep:
-            x.com.samsung.da.items:
-              - x.com.samsung.da.id: "0"
-                x.com.samsung.da.desired: "350"
-                x.com.samsung.da.unit: "Fahrenheit"
-        - href: /operational/state/vs/1
-          rep:
-            x.com.samsung.da.operationTime: "00:10:00"
-            x.com.samsung.da.state: "Run"
-```
-
-`device_id` is the master's here: `write_resource` translates only the
-write's own href for a subdevice, never a batch's inner ones, so naming
-the master keeps `/device/1` as written. If that does not start the lower
-oven, the same batch with the three inner hrefs at `/vs/0` is the other
-spelling.
+That board's lower zone lists no modes of its own (`/mode/vs/1`
+`supportedModes` is only `HOMECARE_WIZARD_V2` and its `modeSpec` is
+`"[]"`); the modes it runs are the ones `/mode/vs/0`'s `modeSpec` tags
+`cavity: Lower`. See `cook.share_mode_spec`.
 
 ## What is measured
 

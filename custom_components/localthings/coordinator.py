@@ -133,6 +133,15 @@ def snapshot_store(hass: HomeAssistant, entry: ConfigEntry) -> Store[dict[str, A
     return Store(hass, _SNAPSHOT_VERSION, f"{DOMAIN}.{entry.entry_id}.discovery")
 
 
+_MODE_SPEC_STORE_VERSION = 1
+
+
+def mode_spec_store(hass: HomeAssistant, entry: ConfigEntry) -> Store[dict[str, Any]]:
+    """This entry's last modeSpec with entries, per actual mode href (#600);
+    see cook.with_cached_specs."""
+    return Store(hass, _MODE_SPEC_STORE_VERSION, f"{DOMAIN}.{entry.entry_id}.mode_specs")
+
+
 class _NoOpDescriptor:
     """No-op: StateCache requires an on_observation hook; this integration
     doesn't use per-capability observation hooks."""
@@ -435,6 +444,13 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._discovered = False
         self.bound = []
         self._snapshot_store = snapshot_store(hass, entry)
+        self._mode_spec_store = mode_spec_store(hass, entry)
+        # Loaded by async_load_mode_specs before the first refresh.
+        self._mode_specs: dict[str, Any] = {}
+        self._mode_specs_lock = threading.Lock()
+        # Set by async_close: a save queued from another thread after unload
+        # would recreate the file async_remove_entry deletes.
+        self._closed = False
         # Both set only when this entry loaded from a snapshot instead of a
         # live poll -- see async_rehydrate.
         self._rehydrate_resources: dict[str, dict] | None = None
@@ -573,9 +589,7 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         this per-subdevice means keying the store by actual href the way
         LearnedModes does, and migrating the persisted shape.
         """
-        snapshot = self._with_held_cooks(
-            cook.share_mode_spec(self.last_resources, self._cavity_mode_hrefs())
-        )
+        snapshot = self._with_held_cooks(self._cook_view(self.last_resources))
         rep = snapshot.get(cloudcourse.COURSE_HREF)
         if rep is None:
             return snapshot
@@ -662,7 +676,7 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         exists_fn counterpart to canonical_resources."""
         if self._rehydrate_resources is None:
             return self.canonical_resources(subdevice)
-        resources = cook.share_mode_spec(self._rehydrate_resources, self._cavity_mode_hrefs())
+        resources = self._cook_view(self._rehydrate_resources)
         return canonical_view(subdevice, resources, self.subdevices)
 
     # ------------------------------------------------------------------
@@ -727,6 +741,8 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         one the device reported, so there is nothing to learn from it."""
         if source == "optimistic":
             return
+        if cook.MODE_SPEC in rep:
+            self._remember_mode_spec(href, rep)
         if href == cloudcourse.COURSE_HREF:
             self._observe_cloud_courses(rep)
         if href not in self._learnable_hrefs:
@@ -1142,6 +1158,7 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 sess.close()
 
     async def async_close(self) -> None:
+        self._closed = True
         if self._subpoll_task is not None:
             self._subpoll_task.cancel()
             self._subpoll_task = None
@@ -2641,15 +2658,68 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     # Oven and microwave cook start (issue #473). See cook.py.
     # ------------------------------------------------------------------
 
-    def _cavity_mode_hrefs(self) -> list[str]:
-        return [sub.to_actual(cook.MODE_HREF) for sub in self.subdevices if sub != MAIN]
+    def _cook_view(self, resources: dict[str, dict]) -> dict[str, dict]:
+        """`resources` with remembered modeSpecs filled in and the upper
+        cavity's shared with the others (see cook.py)."""
+        resources = cook.with_cached_specs(resources, self._mode_specs)
+        siblings = [sub.to_actual for sub in self.subdevices if sub != MAIN]
+        return cook.share_mode_spec(resources, siblings)
+
+    async def async_load_mode_specs(self) -> None:
+        try:
+            stored = await self._mode_spec_store.async_load()
+        except Exception as e:  # corrupt or unreadable store
+            self._log.warning("could not read remembered modeSpecs: %s", e)
+            return
+        if isinstance(stored, dict):
+            self._mode_specs = {
+                href: spec for href, spec in stored.items() if cook.has_entries(spec)
+            }
+
+    def remembered_mode_specs(self) -> dict[str, dict[str, Any]]:
+        """For diagnostics: each remembered spec, and whether the device's
+        own rep for that href currently lacks one."""
+        live = self.last_resources
+        return {
+            href: {
+                "in_use": href in live and not cook.has_entries(live[href].get(cook.MODE_SPEC)),
+                "spec": spec,
+            }
+            for href, spec in sorted(self._mode_specs.items())
+        }
+
+    def _remember_mode_spec(self, href: str, rep: dict) -> None:
+        """Runs from _on_rep_applied, on whichever thread applied `rep`."""
+        spec = rep.get(cook.MODE_SPEC)
+        if not cook.has_entries(spec):
+            return
+        with self._mode_specs_lock:
+            if self._mode_specs.get(href) == spec:
+                return
+            self._mode_specs = {**self._mode_specs, href: spec}
+        self.hass.loop.call_soon_threadsafe(self._schedule_mode_spec_save)
+
+    @callback
+    def _schedule_mode_spec_save(self) -> None:
+        if self._closed:
+            return
+        # Tracked by the entry, so unloading it cancels a save that would
+        # otherwise land after async_remove_entry deleted the file.
+        self._entry.async_create_background_task(
+            self.hass, self._async_save_mode_specs(), "localthings_save_mode_specs"
+        )
+
+    async def _async_save_mode_specs(self) -> None:
+        try:
+            await self._mode_spec_store.async_save(dict(self._mode_specs))
+        except Exception as e:
+            self._log.warning("could not write remembered modeSpecs: %s", e)
 
     def _cavity_resources(self, subdevice: Subdevice) -> dict[str, dict]:
         """What the appliance reported for one cavity, in its canonical
         view, with the upper cavity's modeSpec shared -- the cook checks'
         input. Held choices are not in it."""
-        shared = cook.share_mode_spec(self.last_resources, self._cavity_mode_hrefs())
-        return canonical_view(subdevice, shared, self.subdevices)
+        return canonical_view(subdevice, self._cook_view(self.last_resources), self.subdevices)
 
     def _with_held_cooks(self, snapshot: dict[str, dict]) -> dict[str, dict]:
         """Each idle cavity's held choices, written over its own actual
@@ -2753,9 +2823,8 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 translation_placeholders=err.placeholders,
             ) from err
         path = list(subdevice.seed_path)
-        # Inner hrefs as this cavity's reads and writes already spell them.
-        # Which spelling a lower cavity's batch wants is unmeasured; see
-        # docs/investigations/oven-cycle-start.md.
+        # Inner hrefs as this cavity's reads and writes already spell them,
+        # which started the NV7B6665IAA's lower zone (#597).
         body = plan.batch(None if subdevice == MAIN else subdevice.to_actual)
         self._log.info("starting cook on /%s: %s", "/".join(path), plan)
         # No readback after the write: smartthings-local found the
