@@ -153,6 +153,12 @@
       },
       "wrinkle_prevent_active": {
         "name": "Wrinkle prevent active"
+      },
+      "cooktop_sync_control": {
+        "name": "Sync Control"
+      },
+      "cooktop_paused": {
+        "name": "Paused"
       }
     },
     "button": {
@@ -1608,6 +1614,18 @@
       },
       "auto_changeover_heat_secondary_offset": {
         "name": "Auto changeover heating secondary offset"
+      },
+      "cooktop_device_type": {
+        "name": "Device type code"
+      },
+      "cooktop_flex_coil": {
+        "name": "Flex coil code"
+      },
+      "main_timer_set": {
+        "name": "Main timer setting"
+      },
+      "burner_pan_size": {
+        "name": "Burner {number} pan size"
       }
     },
     "switch": {

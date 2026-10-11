@@ -58,6 +58,7 @@ REGISTRY = DeviceRegistry(
                 _BURNER_LIST_POWER,
                 # /mode/vs/0 options-array boards.
                 cooktop.COOKTOP_MODE,
+                cooktop.DIAGNOSIS,
                 cooktop.COOKTOP_CONNECTED,
                 # /cooktop/status/vs/0 burnerList boards.
                 range_caps.COOKTOP_STATUS,

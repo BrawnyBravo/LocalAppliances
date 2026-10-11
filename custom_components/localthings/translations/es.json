@@ -522,6 +522,12 @@
       },
       "wrinkle_prevent_active": {
         "name": "Anti-arrugas activo"
+      },
+      "cooktop_sync_control": {
+        "name": "Control sincronizado"
+      },
+      "cooktop_paused": {
+        "name": "En pausa"
       }
     },
     "button": {
@@ -1977,6 +1983,18 @@
       },
       "auto_changeover_heat_secondary_offset": {
         "name": "Cambio automático desfase secundario de calefacción"
+      },
+      "cooktop_device_type": {
+        "name": "Código de tipo de dispositivo"
+      },
+      "cooktop_flex_coil": {
+        "name": "Código de bobina flexible"
+      },
+      "main_timer_set": {
+        "name": "Ajuste del temporizador principal"
+      },
+      "burner_pan_size": {
+        "name": "Tamaño del recipiente de la zona {number}"
       }
     },
     "switch": {

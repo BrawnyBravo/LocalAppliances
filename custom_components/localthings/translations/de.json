@@ -153,6 +153,12 @@
       },
       "wrinkle_prevent_active": {
         "name": "Knitterschutz aktiv"
+      },
+      "cooktop_sync_control": {
+        "name": "Synchronsteuerung"
+      },
+      "cooktop_paused": {
+        "name": "Pausiert"
       }
     },
     "button": {
@@ -1608,6 +1614,18 @@
       },
       "auto_changeover_heat_secondary_offset": {
         "name": "Automatische Umschaltung Heizen sekundärer Versatz"
+      },
+      "cooktop_device_type": {
+        "name": "Gerätetypcode"
+      },
+      "cooktop_flex_coil": {
+        "name": "Flex-Spulencode"
+      },
+      "main_timer_set": {
+        "name": "Haupttimer-Einstellung"
+      },
+      "burner_pan_size": {
+        "name": "Kochzone {number} Topfgröße"
       }
     },
     "switch": {

@@ -153,6 +153,12 @@
       },
       "wrinkle_prevent_active": {
         "name": "구김 방지 작동 중"
+      },
+      "cooktop_sync_control": {
+        "name": "동기화 제어"
+      },
+      "cooktop_paused": {
+        "name": "일시 정지"
       }
     },
     "button": {
@@ -1608,6 +1614,18 @@
       },
       "auto_changeover_heat_secondary_offset": {
         "name": "자동 전환 난방 2차 편차"
+      },
+      "cooktop_device_type": {
+        "name": "기기 유형 코드"
+      },
+      "cooktop_flex_coil": {
+        "name": "플렉스 코일 코드"
+      },
+      "main_timer_set": {
+        "name": "메인 타이머 설정"
+      },
+      "burner_pan_size": {
+        "name": "화구 {number} 용기 크기"
       }
     },
     "switch": {

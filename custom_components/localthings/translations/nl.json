@@ -153,6 +153,12 @@
       },
       "wrinkle_prevent_active": {
         "name": "Kreukpreventie actief"
+      },
+      "cooktop_sync_control": {
+        "name": "Gesynchroniseerde bediening"
+      },
+      "cooktop_paused": {
+        "name": "Gepauzeerd"
       }
     },
     "button": {
@@ -1608,6 +1614,18 @@
       },
       "auto_changeover_heat_secondary_offset": {
         "name": "Automatisch omschakelen secundaire offset verwarmen"
+      },
+      "cooktop_device_type": {
+        "name": "Apparaattypecode"
+      },
+      "cooktop_flex_coil": {
+        "name": "Flexspoelcode"
+      },
+      "main_timer_set": {
+        "name": "Instelling hoofdtimer"
+      },
+      "burner_pan_size": {
+        "name": "Pangrootte kookzone {number}"
       }
     },
     "switch": {

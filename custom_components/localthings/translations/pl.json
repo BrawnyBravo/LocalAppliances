@@ -153,6 +153,12 @@
       },
       "wrinkle_prevent_active": {
         "name": "Bez zagnieceń aktywne"
+      },
+      "cooktop_sync_control": {
+        "name": "Sterowanie synchroniczne"
+      },
+      "cooktop_paused": {
+        "name": "Wstrzymano"
       }
     },
     "button": {
@@ -1608,6 +1614,18 @@
       },
       "auto_changeover_heat_secondary_offset": {
         "name": "Automatyczne przełączanie — dodatkowe przesunięcie grzania"
+      },
+      "cooktop_device_type": {
+        "name": "Kod typu urządzenia"
+      },
+      "cooktop_flex_coil": {
+        "name": "Kod cewki Flex"
+      },
+      "main_timer_set": {
+        "name": "Ustawienie głównego minutnika"
+      },
+      "burner_pan_size": {
+        "name": "Rozmiar naczynia pola {number}"
       }
     },
     "switch": {

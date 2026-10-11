@@ -153,6 +153,12 @@
       },
       "wrinkle_prevent_active": {
         "name": "Ochrana proti pomačkání aktivní"
+      },
+      "cooktop_sync_control": {
+        "name": "Synchronizované ovládání"
+      },
+      "cooktop_paused": {
+        "name": "Pozastaveno"
       }
     },
     "button": {
@@ -1608,6 +1614,18 @@
       },
       "auto_changeover_heat_secondary_offset": {
         "name": "Automatické přepínání sekundární odchylka topení"
+      },
+      "cooktop_device_type": {
+        "name": "Kód typu zařízení"
+      },
+      "cooktop_flex_coil": {
+        "name": "Kód cívky Flex"
+      },
+      "main_timer_set": {
+        "name": "Nastavení hlavního časovače"
+      },
+      "burner_pan_size": {
+        "name": "Velikost nádoby zóny {number}"
       }
     },
     "switch": {

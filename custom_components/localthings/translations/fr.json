@@ -153,6 +153,12 @@
       },
       "wrinkle_prevent_active": {
         "name": "Anti-froissage actif"
+      },
+      "cooktop_sync_control": {
+        "name": "Contrôle synchronisé"
+      },
+      "cooktop_paused": {
+        "name": "En pause"
       }
     },
     "button": {
@@ -1608,6 +1614,18 @@
       },
       "auto_changeover_heat_secondary_offset": {
         "name": "Basculement automatique : décalage secondaire en chauffage"
+      },
+      "cooktop_device_type": {
+        "name": "Code du type d'appareil"
+      },
+      "cooktop_flex_coil": {
+        "name": "Code de bobine Flex"
+      },
+      "main_timer_set": {
+        "name": "Réglage de la minuterie"
+      },
+      "burner_pan_size": {
+        "name": "Taille de casserole du foyer {number}"
       }
     },
     "switch": {

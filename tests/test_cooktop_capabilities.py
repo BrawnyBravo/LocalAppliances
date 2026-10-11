@@ -78,3 +78,20 @@ def test_variant_slot_outside_na9300k_layout_is_discovered():
 
     assert state["burner_7_state"] == "Ready"
     assert "burner_2_state" not in state
+
+
+def test_option_sensors_survive_an_unfetched_mode_resource():
+    """A stub /mode/vs/0 at setup must not drop the option sensors (#609)."""
+    resources = _load_device("cooktop_nv9300k")
+    resources["/mode/vs/0"] = {"href": "/mode/vs/0"}
+    bound = discover(
+        resources, cooktop.REGISTRY.capabilities, cooktop.REGISTRY.pattern_capabilities
+    )
+
+    keys = {b.desc.key for b in bound}
+    assert {
+        "main_timer_set",
+        "cooktop_paused",
+        "cooktop_sync_control",
+        "cooktop_device_type",
+    } <= keys

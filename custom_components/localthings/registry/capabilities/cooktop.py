@@ -1,18 +1,21 @@
 """Read-only capabilities for Samsung cooktops.
 
 The first verified device is an NA9300K-class five-burner gas cooktop; the
-NV9300K and NV8000T induction cooktops share its surface.  All of them report
+NV9300K and NV8000T induction cooktops share its surface, as does the
+NZ36K7570R radiant cooktop over the 8888 interface.  All of them report
 burner state as strings embedded in the ``x.com.samsung.da.options`` array on
 ``/mode/vs/0``.  Heat-producing controls are intentionally not exposed: the
 local write contract is unverified and a cooktop must not be remotely ignited
 by an automation.
 """
 
+import dataclasses
 import re
 
 from ..batch import is_stub_rep
 from ..capability import Capability
 from ..entities import BinarySensorDesc, SensorDesc
+from . import dishwasher
 
 _INACTIVE_OPERATION_STATES = {"Off", "Ready"}
 
@@ -79,12 +82,19 @@ def _hot_surface(options, slot):
     return None if value is None else value.lower() != "normal"
 
 
-def _slot_option_present(prefix, slot):
-    """exists_fn for a per-slot `<prefix><slot>_` option on /mode/vs/0."""
+def _option_present(prefix):
+    """exists_fn for a single `<prefix>_` option on /mode/vs/0."""
     return lambda rep, resources: (
-        is_stub_rep(rep)
-        or _option_value(rep.get("x.com.samsung.da.options"), f"{prefix}{slot}") is not None
+        is_stub_rep(rep) or _option_value(rep.get("x.com.samsung.da.options"), prefix) is not None
     )
+
+
+def _slot_option_present(prefix, slot):
+    return _option_present(f"{prefix}{slot}")
+
+
+def _option_on(options, prefix):
+    return {"On": True, "Off": False}.get(_option_value(options, prefix))
 
 
 COOKTOP_MODE = Capability(
@@ -152,7 +162,64 @@ COOKTOP_MODE = Capability(
             enabled_default=False,
             value_fn=lambda options: _int_or_none(_option_value(options, "MainTimerCurrent")),
         ),
+        # Reported by the NV9300K, NV8000T and NZ36K7570R (#609). Timer units,
+        # flex-coil encoding and the pan-size vocabulary are unverified, so
+        # they stay raw.
+        SensorDesc(
+            key="main_timer_set",
+            field="x.com.samsung.da.options",
+            icon="mdi:timer-cog-outline",
+            value_fn=lambda options: _int_or_none(_option_value(options, "MainTimerSet")),
+            exists_fn=_option_present("MainTimerSet"),
+        ),
+        BinarySensorDesc(
+            key="cooktop_paused",
+            field="x.com.samsung.da.options",
+            icon="mdi:pause",
+            value_fn=lambda options: _option_on(options, "Pause"),
+            exists_fn=_option_present("Pause"),
+        ),
+        BinarySensorDesc(
+            key="cooktop_sync_control",
+            field="x.com.samsung.da.options",
+            icon="mdi:vector-link",
+            value_fn=lambda options: _option_on(options, "SyncFlex"),
+            exists_fn=_option_present("SyncFlex"),
+        ),
+        SensorDesc(
+            key="cooktop_device_type",
+            field="x.com.samsung.da.options",
+            entity_category="diagnostic",
+            value_fn=lambda options: _option_value(options, "DeviceType"),
+            exists_fn=_option_present("DeviceType"),
+        ),
+        SensorDesc(
+            key="cooktop_flex_coil",
+            field="x.com.samsung.da.options",
+            entity_category="diagnostic",
+            value_fn=lambda options: _option_value(options, "FlexCoil"),
+            exists_fn=_option_present("FlexCoil"),
+        ),
+        *(
+            SensorDesc(
+                key=f"burner_{slot}_pan_size",
+                field="x.com.samsung.da.options",
+                translation_key="burner_pan_size",
+                translation_placeholders={"number": str(slot)},
+                icon="mdi:circle-double",
+                value_fn=lambda options, slot=slot: _option_value(options, f"PanSize{slot}"),
+                exists_fn=_slot_option_present("PanSize", slot),
+            )
+            for slot in _SUPPORTED_OPERATION_SLOTS
+        ),
     ),
+)
+
+
+# The diagnosis status only; the start command is untested on a cooktop.
+DIAGNOSIS = dataclasses.replace(
+    dishwasher.DIAGNOSIS,
+    entities=tuple(e for e in dishwasher.DIAGNOSIS.entities if isinstance(e, SensorDesc)),
 )
 
 
