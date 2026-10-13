@@ -3,11 +3,11 @@ a new session: nothing would ever close it after unload or shutdown."""
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 
 import pytest
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.localthings import coordinator as coordinator_mod
@@ -79,10 +79,14 @@ def _coordinator(hass: HomeAssistant) -> LocalThingsCoordinator:
 
 
 async def test_poll_failing_during_close_does_not_reconnect(
-    hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch, transports: _Transports
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+    transports: _Transports,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Close lands while the poll's read is in flight; the read fails because
-    the session went away, and the reconnect path must not open another."""
+    the session went away, and the reconnect path must not open another or
+    report the device as failed."""
     coordinator = _coordinator(hass)
     monkeypatch.setattr(coordinator, "_RECONNECT_PAUSE_S", 0)
 
@@ -91,11 +95,11 @@ async def test_poll_failing_during_close_does_not_reconnect(
 
     transports.make = lambda: _FakeSession(on_read=_close_mid_read)
 
-    with pytest.raises(UpdateFailed):
-        await coordinator._async_update_data()
+    await coordinator._async_update_data()
 
     assert len(transports.opened) == 1
     assert coordinator._session is None
+    assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
 
 
 async def test_handshake_finishing_after_close_closes_its_session(

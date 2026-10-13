@@ -2226,6 +2226,11 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 await self.hass.async_add_executor_job(self._close_session)
                 raise ConfigEntryAuthFailed(str(e)) from e
             except Exception as e:
+                if self._closed:
+                    # async_close closed the session under this read: nothing
+                    # to reconnect, and no device failure to report.
+                    await self.hass.async_add_executor_job(self._close_session)
+                    return flatten(self.bound, self.entity_resources())
                 if self._defer_reconnect_for(e):
                     self._log.debug(
                         "poll failed (%s), not yet treated as session "
