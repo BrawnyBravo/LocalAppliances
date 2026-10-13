@@ -1013,6 +1013,11 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         step, not one per poll. The new port is written to the entry by
         `_persist_moved_port` once a poll has come through on it.
         """
+        # A poll or write still in flight when async_close runs would
+        # otherwise reconnect on its retry path, leaving a session that
+        # nothing ever closes after unload or shutdown.
+        if self._closed:
+            raise RuntimeError("coordinator closed")
         port = self._entry.data[CONF_PORT]
         try:
             self._open_session_retrying_collision(port)
@@ -1104,6 +1109,12 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 sess.close()
             raise
         self._session = sess
+        # Checked after publishing: if async_close ran during the handshake,
+        # its own _close_session found no session yet, so this one is ours
+        # to close.
+        if self._closed:
+            self._close_session()
+            raise RuntimeError("coordinator closed")
         self._identity = identity
         self._log.debug("connected to %s:%d", host, port)
 
