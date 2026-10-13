@@ -813,7 +813,7 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         _push_cache_snapshot is what actually gets a change here in front
         of a user, not just correct on the next read: select.py's
         current_option comes from coordinator.data, which only moves on
-        async_set_updated_data, and nothing prompts Home Assistant to
+        a poll or _publish_data, and nothing prompts Home Assistant to
         re-read a live `options` property (cycle's callable options included)
         without the state-changed signal that call sends. Without it, both
         this and a name applied through apply_cloud_courses -- which has
@@ -1186,7 +1186,17 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         with self._push_pending_lock:
             self._push_pending = False
         if self.bound:
-            self.async_set_updated_data(flatten(self.bound, self.entity_resources()))
+            self._publish_data()
+
+    @callback
+    def _publish_data(self) -> None:
+        """Hand listeners the current state without async_set_updated_data,
+        which also reschedules the next poll a full interval out: an
+        appliance pushing changes more often than every 30 s would postpone
+        the summary poll (sweep, liveness check, resubscribe) indefinitely.
+        Availability stays the poll's verdict."""
+        self.data = flatten(self.bound, self.entity_resources())
+        self.async_update_listeners()
 
     def _poll_once(self) -> dict[str, dict]:
         """GET /device/0, return parsed resources. Blocking.
@@ -2777,7 +2787,7 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             ) from err
         self._log.info("holding %s=%r until the cook starts", param, value)
         self._canonical_cache.clear()
-        self.async_set_updated_data(flatten(self.bound, self.entity_resources()))
+        self._publish_data()
 
     async def async_start_cooking(
         self,

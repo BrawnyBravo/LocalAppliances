@@ -425,6 +425,33 @@ def test_cache_changes_coalesce_into_a_single_push(hass: HomeAssistant, mock_ent
         assert mock_add_job.call_count == 2
 
 
+async def test_push_does_not_postpone_the_summary_poll(
+    hass: HomeAssistant, mock_entry, mock_coordinator_session
+) -> None:
+    """async_set_updated_data reschedules the next poll a full interval out,
+    so pushes arriving faster than that would starve the summary poll. A
+    push must reach listeners and leave the poll schedule alone."""
+    await hass.config_entries.async_setup(mock_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator: LocalThingsCoordinator = hass.data[DOMAIN][mock_entry.entry_id]
+    scheduled = coordinator._unsub_refresh
+    assert scheduled is not None
+    coordinator.last_update_success = False
+
+    updates: list[None] = []
+    unsub = coordinator.async_add_listener(lambda: updates.append(None))
+    try:
+        coordinator.data = {}
+        coordinator._push_cache_snapshot()
+    finally:
+        unsub()
+
+    assert updates
+    assert coordinator.data
+    assert coordinator._unsub_refresh is scheduled
+    assert coordinator.last_update_success is False
+
+
 async def test_enters_poll_mode_when_no_notifies_arrive(
     hass: HomeAssistant, mock_entry, mock_coordinator_observe_session
 ) -> None:
