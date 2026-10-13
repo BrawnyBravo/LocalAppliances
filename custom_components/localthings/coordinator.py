@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import functools
 import logging
 import threading
 import time
@@ -1340,6 +1341,7 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         timeout: float = 10.0,
         apply: bool = True,
         budget: float | None = None,
+        stop: threading.Event | None = None,
     ) -> dict[str, dict]:
         """GET individual hrefs sequentially. Does not reconnect on failure. Blocking.
 
@@ -1356,6 +1358,8 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         each remaining GET is clamped to what is left of it. Without one, a
         long href list multiplies `timeout` by its length while holding the
         session.
+
+        `stop`, once set, skips the hrefs not yet read.
         """
         if self._session is None:
             return {}
@@ -1363,6 +1367,8 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         first = True
         deadline = time.monotonic() + budget if budget is not None else None
         for href in hrefs:
+            if stop is not None and stop.is_set():
+                break
             if deadline is not None:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
@@ -1439,8 +1445,19 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if not hrefs:
                 continue
             async with self._session_lock:
+                stop = threading.Event()
+                job = self.hass.async_add_executor_job(
+                    functools.partial(self._poll_hrefs_blocking, hrefs, stop=stop)
+                )
                 try:
-                    await self.hass.async_add_executor_job(self._poll_hrefs_blocking, hrefs)
+                    await asyncio.shield(job)
+                except asyncio.CancelledError:
+                    # Cancelling doesn't stop the thread, and the summary poll
+                    # takes the lock straight after cancelling this task: hold
+                    # it until the read in flight returns, skipping the rest.
+                    stop.set()
+                    await asyncio.wait({job})
+                    raise
                 except Exception as e:
                     self._log.debug("sub-poll batch failed: %s", e)
 
