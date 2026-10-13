@@ -15,3 +15,10 @@ def test_debug_logging_covers_the_protocol_library():
     for module in (_dtls_psk, auth, dtls_session):
         name = module.logger.name
         assert any(name == root or name.startswith(f"{root}.") for root in loggers), name
+
+
+def test_dev_container_installs_the_manifest_library_floor():
+    """The dev image bakes smartthings-local in so setup needs no network; an
+    older floor leaves Home Assistant to download the upgrade at setup."""
+    (requirement,) = (r for r in _MANIFEST["requirements"] if r.startswith("smartthings-local"))
+    assert f'"{requirement}"' in (_ROOT / "Dockerfile").read_text()
