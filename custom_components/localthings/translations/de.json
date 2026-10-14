@@ -2047,7 +2047,7 @@
       "no_dtls_server": "Ports im lokalen API-Bereich sind unter dieser Adresse erreichbar, aber nichts hat auf einen DTLS-Handshake reagiert. Prüfen Sie, ob die IP-Adresse tatsächlich zum Gerät gehört und nicht zu einem anderen Gerät in Ihrem Netzwerk.",
       "appliance_no_dtls": "Diese Adresse gehört zu einem Samsung-Gerät — es hat sich über den unverschlüsselten Discovery-Kanal als {model} identifiziert und {port} als seinen sicheren Port gemeldet — aber dort wurde nie ein DTLS-Handshake abgeschlossen. Die Adresse ist nicht das Problem. Prüfen Sie, ob am Gerät die Fernsteuerung oder eine ähnliche Einstellung am Bedienfeld ausgeschaltet ist, und schauen Sie für den genauen Fehler im Home Assistant-Log nach.",
       "non_appliance_stack": "An dieser IP-Adresse hat etwas geantwortet, sich aber als OCF-Dienst gemeldet, der kein Gerät ist. Manche Samsung-Geräte betreiben einen solchen neben ihrem eigenen, und LocalThings findet das Gerät dahinter nur, wenn Home Assistant im selben Netzwerksegment ist. Bring Home Assistant und das Gerät ins selbe Subnetz und VLAN und versuche es dann erneut.",
-      "multiple_appliances": "An dieser IP-Adresse antwortet mehr als ein Samsung-Gerät, und LocalThings kann noch nicht zwischen ihnen wählen. Bitte melde das im Issue-Tracker von LocalThings und füge das Home-Assistant-Log bei.",
+      "multiple_appliances": "An dieser IP-Adresse antwortet mehr als ein Samsung-Gerät, und LocalThings kann noch nicht zwischen ihnen wählen. Bitte melde das im Issue-Tracker von LocalAppliances und füge das Home-Assistant-Log bei.",
       "handshake_timeout": "Das Gerät hat auf seinem lokalen API-Port geantwortet, den DTLS-Handshake aber auch nach einem erneuten Versuch nicht abgeschlossen. Versuchen Sie es noch einmal. Schlägt es weiter fehl, gibt ein Neustart des Geräts die Verbindungen frei, die es noch hält; den genauen Fehler finden Sie im Home-Assistant-Protokoll.",
       "cert_rejected": "Das Gerät hat das Zertifikat abgelehnt. Das CA-Zertifikat und der Schlüssel sind höchstwahrscheinlich nicht die AC14K_M-CA, der dieses Gerät vertraut, oder sie passen nicht zueinander. Weitere Informationen in den Logs.",
       "psk_rejected": "Das Gerät hat den Pre-Shared Key abgelehnt. Identität oder Schlüssel sind falsch, oder sie gehören zu einem anderen Gerät oder zu einem inzwischen geänderten Eigentümer. Das Home-Assistant-Protokoll enthält den genauen Alert.",
@@ -2083,7 +2083,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "LocalThings-Optionen",
+        "title": "LocalAppliances-Optionen",
         "menu_options": {
           "settings": "Geräteeinstellungen",
           "cloud_courses": "Download-Programme",
@@ -2182,7 +2182,7 @@
     },
     "cloud_courses_undiscovered": {
       "title": "Heruntergeladene Programme für {device_name} nicht eingerichtet",
-      "description": "{device_name} hat {pending} von {total} heruntergeladenen Programmen, die Home Assistant noch nicht anbieten kann. Ein heruntergeladenes Programm kann erst verwendet werden, sobald das Gerät damit geladen gesehen wurde -- im Bildschirm \"Download-Programme\" der SmartThings-App, nicht im Bildschirm \"Programm\" -- und Sie ihm einen Namen gegeben haben.\n\nUm sie einzurichten, gehen Sie zu Einstellungen > Geräte & Dienste > LocalThings > {device_name} > Konfigurieren > Download-Programme und folgen Sie den dortigen Anweisungen.\n\nNutzen Sie keine heruntergeladenen Programme? Gehen Sie stattdessen zu Konfigurieren > Geräteeinstellungen und schalten Sie \"Heruntergeladene Programme anbieten\" aus, um diese Erinnerung dauerhaft zu stoppen."
+      "description": "{device_name} hat {pending} von {total} heruntergeladenen Programmen, die Home Assistant noch nicht anbieten kann. Ein heruntergeladenes Programm kann erst verwendet werden, sobald das Gerät damit geladen gesehen wurde -- im Bildschirm \"Download-Programme\" der SmartThings-App, nicht im Bildschirm \"Programm\" -- und Sie ihm einen Namen gegeben haben.\n\nUm sie einzurichten, gehen Sie zu Einstellungen > Geräte & Dienste > LocalAppliances > {device_name} > Konfigurieren > Download-Programme und folgen Sie den dortigen Anweisungen.\n\nNutzen Sie keine heruntergeladenen Programme? Gehen Sie stattdessen zu Konfigurieren > Geräteeinstellungen und schalten Sie \"Heruntergeladene Programme anbieten\" aus, um diese Erinnerung dauerhaft zu stoppen."
     }
   },
   "exceptions": {

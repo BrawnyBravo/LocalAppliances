@@ -2047,7 +2047,7 @@
       "no_dtls_server": "Ports in the local API range are reachable at that address, but nothing there answered a DTLS handshake. Check that the IP address belongs to the appliance and not another device on your network.",
       "appliance_no_dtls": "That address is a Samsung appliance — it identified itself as {model} over the unencrypted discovery channel and advertised its secure port as {port} — but it never completed a DTLS handshake there. The address is not the problem. Check whether the appliance has Remote Control or a similar setting switched off at its panel, and see the Home Assistant log for the exact failure.",
       "non_appliance_stack": "Something at that IP address answered, but it identified itself as an OCF service that isn't an appliance. Some Samsung appliances run one alongside their own, and LocalThings can only find the appliance behind it when Home Assistant is on the same network segment. Put Home Assistant and the appliance on the same subnet and VLAN, then try again.",
-      "multiple_appliances": "More than one Samsung appliance answers at that IP address, and LocalThings can't yet choose between them. Please report it on the LocalThings issue tracker and include the Home Assistant log.",
+      "multiple_appliances": "More than one Samsung appliance answers at that IP address, and LocalThings can't yet choose between them. Please report it on the LocalAppliances issue tracker and include the Home Assistant log.",
       "handshake_timeout": "The appliance answered on its local API port but never finished the DTLS handshake, even after a retry. Try again. If it keeps failing, restarting the appliance clears the connections it is still holding; the Home Assistant log has the exact failure.",
       "cert_rejected": "The appliance rejected the certificate. The CA certificate and key are most likely not the AC14K_M CA this appliance trusts, or they don't pair. The Home Assistant log records the exact alert the appliance sent.",
       "psk_rejected": "The appliance refused the pre-shared key. The identity or key is wrong, or it belongs to another appliance or to an owner that has since changed. The Home Assistant log records the exact alert.",
@@ -2083,7 +2083,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "LocalThings options",
+        "title": "LocalAppliances options",
         "menu_options": {
           "settings": "Device settings",
           "cloud_courses": "Download cycles",
@@ -2182,7 +2182,7 @@
     },
     "cloud_courses_undiscovered": {
       "title": "Downloaded cycles not set up for {device_name}",
-      "description": "{device_name} has {pending} of {total} downloaded cycle(s) that Home Assistant can't offer yet. A downloaded cycle can only be used once the appliance has been seen with it loaded -- in the SmartThings app's \"Download cycles\" screen, not the \"Cycle\" one -- and you've given it a name.\n\nTo set them up, go to Settings > Devices & Services > LocalThings > {device_name} > Configure > Download cycles and follow the instructions there.\n\nDon't use downloaded cycles? Go to Configure > Device settings instead and turn off \"Offer downloaded cycles\" to silence this reminder for good."
+      "description": "{device_name} has {pending} of {total} downloaded cycle(s) that Home Assistant can't offer yet. A downloaded cycle can only be used once the appliance has been seen with it loaded -- in the SmartThings app's \"Download cycles\" screen, not the \"Cycle\" one -- and you've given it a name.\n\nTo set them up, go to Settings > Devices & Services > LocalAppliances > {device_name} > Configure > Download cycles and follow the instructions there.\n\nDon't use downloaded cycles? Go to Configure > Device settings instead and turn off \"Offer downloaded cycles\" to silence this reminder for good."
     }
   },
   "exceptions": {

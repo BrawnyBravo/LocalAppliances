@@ -226,7 +226,7 @@ DTLS_LOCAL_PORT_BASE = 61000
 SUMMARY_INTERVAL_S = 30.0
 
 DEVICE_SUPPORT_ISSUE_URL = (
-    "https://github.com/mbillow/localthings/issues/new?template=device-support.yml"
+    "https://github.com/BrawnyBravo/LocalAppliances/issues/new?template=device-support.yml"
 )
 
 # Where setup points anyone taking the pre-shared-key path: the plan, what

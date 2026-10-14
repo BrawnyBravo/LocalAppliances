@@ -2047,7 +2047,7 @@
       "no_dtls_server": "De poorten in het bereik van de lokale API zijn bereikbaar op dat adres, maar niets daar beantwoordde een DTLS-handshake. Controleer of het IP-adres bij het apparaat hoort en niet bij een ander apparaat in je netwerk.",
       "appliance_no_dtls": "Dat adres is van een Samsung-apparaat — het heeft zich via het onversleutelde ontdekkingskanaal geïdentificeerd als {model} en {port} als zijn beveiligde poort opgegeven — maar daar is nooit een DTLS-handshake voltooid. Het adres is niet het probleem. Controleer of Afstandsbediening of een vergelijkbare instelling op het bedieningspaneel van het apparaat is uitgeschakeld, en bekijk het Home Assistant-logboek voor de exacte fout.",
       "non_appliance_stack": "Er antwoordde iets op dat IP-adres, maar het meldde zich als een OCF-dienst die geen apparaat is. Sommige Samsung-apparaten draaien er een naast hun eigen dienst, en LocalThings vindt het apparaat daarachter alleen als Home Assistant in hetzelfde netwerksegment zit. Zet Home Assistant en het apparaat in hetzelfde subnet en VLAN en probeer het opnieuw.",
-      "multiple_appliances": "Op dat IP-adres antwoordt meer dan één Samsung-apparaat, en LocalThings kan nog niet tussen ze kiezen. Meld het in de issuetracker van LocalThings en voeg het Home Assistant-logboek toe.",
+      "multiple_appliances": "Op dat IP-adres antwoordt meer dan één Samsung-apparaat, en LocalThings kan nog niet tussen ze kiezen. Meld het in de issuetracker van LocalAppliances en voeg het Home Assistant-logboek toe.",
       "handshake_timeout": "Het apparaat antwoordde op zijn lokale API-poort, maar voltooide de DTLS-handshake ook na een nieuwe poging niet. Probeer het opnieuw. Blijft het mislukken, dan maakt een herstart van het apparaat de verbindingen vrij die het nog vasthoudt; de exacte fout staat in het Home Assistant-logboek.",
       "cert_rejected": "Het apparaat heeft het certificaat geweigerd. Het CA-certificaat en de sleutel zijn waarschijnlijk niet van de AC14K_M-CA die dit apparaat vertrouwt, of ze horen niet bij elkaar. Het Home Assistant-logboek bevat de precieze alert die het apparaat stuurde.",
       "psk_rejected": "Het apparaat heeft de pre-shared key geweigerd. De identiteit of sleutel is onjuist, of hoort bij een ander apparaat of bij een eigenaar die inmiddels is gewijzigd. Het Home Assistant-logboek bevat de exacte alert.",
@@ -2083,7 +2083,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "LocalThings-opties",
+        "title": "LocalAppliances-opties",
         "menu_options": {
           "settings": "Apparaatinstellingen",
           "cloud_courses": "Gedownloade programma's",
@@ -2182,7 +2182,7 @@
     },
     "cloud_courses_undiscovered": {
       "title": "Gedownloade programma's niet ingesteld voor {device_name}",
-      "description": "{device_name} heeft {pending} van de {total} gedownloade programma's die Home Assistant nog niet kan aanbieden. Een gedownload programma kan pas worden gebruikt zodra het apparaat ermee geladen is gezien -- in het scherm \"Gedownloade programma's\" van de SmartThings-app, niet in \"Programma\" -- en je het een naam hebt gegeven.\n\nGa om ze in te stellen naar Instellingen > Apparaten & diensten > LocalThings > {device_name} > Configureren > Gedownloade programma's en volg de instructies daar.\n\nGebruik je geen gedownloade programma's? Ga dan naar Configureren > Apparaatinstellingen en zet \"Gedownloade programma's aanbieden\" uit om deze herinnering voorgoed te stoppen."
+      "description": "{device_name} heeft {pending} van de {total} gedownloade programma's die Home Assistant nog niet kan aanbieden. Een gedownload programma kan pas worden gebruikt zodra het apparaat ermee geladen is gezien -- in het scherm \"Gedownloade programma's\" van de SmartThings-app, niet in \"Programma\" -- en je het een naam hebt gegeven.\n\nGa om ze in te stellen naar Instellingen > Apparaten & diensten > LocalAppliances > {device_name} > Configureren > Gedownloade programma's en volg de instructies daar.\n\nGebruik je geen gedownloade programma's? Ga dan naar Configureren > Apparaatinstellingen en zet \"Gedownloade programma's aanbieden\" uit om deze herinnering voorgoed te stoppen."
     }
   },
   "exceptions": {

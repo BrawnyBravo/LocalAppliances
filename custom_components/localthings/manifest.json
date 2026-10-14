@@ -1,18 +1,18 @@
 {
   "domain": "localthings",
-  "name": "LocalThings",
+  "name": "LocalAppliances",
   "after_dependencies": ["recorder"],
-  "codeowners": ["@mbillow"],
+  "codeowners": ["@BrawnyBravo"],
   "config_flow": true,
   "dependencies": [],
   "dhcp": [{ "registered_devices": true }],
-  "documentation": "https://github.com/mbillow/localthings",
+  "documentation": "https://github.com/BrawnyBravo/LocalAppliances",
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/mbillow/localthings/issues",
+  "issue_tracker": "https://github.com/BrawnyBravo/LocalAppliances/issues",
   "loggers": ["smartthings_local"],
   "requirements": [
     "cbor2>=5.4.6",
     "smartthings-local>=0.1.23"
   ],
-  "version": "0.33.0"
+  "version": "0.34.0-la.1"
 }

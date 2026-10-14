@@ -1,24 +1,38 @@
 <!-- dark mode -->
-<img src="custom_components/localthings/brand/dark_logo@2x.png#gh-dark-mode-only" alt="LocalThings Logo"/>
+<img src="custom_components/localthings/brand/dark_logo@2x.png#gh-dark-mode-only" alt="LocalAppliances Logo"/>
 <!-- light mode -->
-<img src="custom_components/localthings/brand/logo@2x.png#gh-light-mode-only" alt="LocalThings Logo"/>
+<img src="custom_components/localthings/brand/logo@2x.png#gh-light-mode-only" alt="LocalAppliances Logo"/>
 
 <p align="center">
-  <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/mbillow/localthings" />
-  <img alt="GitHub watchers" src="https://img.shields.io/github/watchers/mbillow/localthings" />
+  <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/BrawnyBravo/LocalAppliances" />
+  <img alt="GitHub watchers" src="https://img.shields.io/github/watchers/BrawnyBravo/LocalAppliances" />
 </p>
 
 <p align="center">
-  <img alt="GitHub Release" src="https://img.shields.io/github/v/release/mbillow/localthings" />
-  <img alt="hacs validation" src="https://img.shields.io/github/check-runs/mbillow/localthings/main?nameFilter=HACS%20validation&label=hacs%20validation" />
-  <img alt="hassfest" src="https://img.shields.io/github/check-runs/mbillow/localthings/main?nameFilter=Hassfest%20validation&label=hassfest" />
-  <img alt="tests" src="https://img.shields.io/github/check-runs/mbillow/localthings/main?nameFilter=Pytest&label=tests" />
+  <img alt="GitHub Release" src="https://img.shields.io/github/v/release/BrawnyBravo/LocalAppliances" />
+  <img alt="hacs validation" src="https://img.shields.io/github/check-runs/BrawnyBravo/LocalAppliances/main?nameFilter=HACS%20validation&label=hacs%20validation" />
+  <img alt="hassfest" src="https://img.shields.io/github/check-runs/BrawnyBravo/LocalAppliances/main?nameFilter=Hassfest%20validation&label=hassfest" />
+  <img alt="tests" src="https://img.shields.io/github/check-runs/BrawnyBravo/LocalAppliances/main?nameFilter=Pytest&label=tests" />
 
 </p>
 
-# LocalThings
+# LocalAppliances
 
 **Control your Samsung appliances from Home Assistant over your home network, with no cloud account.**
+
+## Based on LocalThings
+
+LocalAppliances is a modified version of [LocalThings](https://github.com/mbillow/localthings) by Marc Billow, used under the MIT licence. It tracks LocalThings and adds these fixes on top:
+
+- FAC_BORA air conditioners' 65278 W standby power reading shows as unknown instead of 65 kW.
+- Pushed updates no longer postpone the regular 30-second check, and a cancelled in-between read no longer overlaps it.
+- Reloading or removing an appliance no longer reconnects in the background or logs it as the appliance going dark.
+- "Enable debug logging" also raises the `smartthings_local` connection library's logs.
+- On older TCP 8888 appliances, a linked resource that doesn't answer is skipped instead of failing the whole update.
+- The raw read, write and observe resource actions are admin-only, and the read snapshot is redacted.
+- The oven's cook stage is a sensor with translated states.
+
+The integration's internal domain stays `localthings`, so LocalAppliances is a drop-in replacement: appliances you already set up with LocalThings keep working. Install one or the other, never both at once.
 
 LocalThings connects Home Assistant to Samsung washers, dryers, refrigerators, air conditioners, ovens and other appliances that work with the SmartThings app. It talks to each appliance on your local network.
 
@@ -59,16 +73,16 @@ LocalThings uses the standards the appliances implement:
 
 ## Install
 
-1. In [HACS](https://hacs.xyz/), go to **Integrations**, search for **LocalThings**, and select **Download**. LocalThings is in HACS's default list, so you don't need to add a custom repository.
+1. In [HACS](https://hacs.xyz/), open the menu, choose **Custom repositories**, and add `https://github.com/BrawnyBravo/LocalAppliances` with the type **Integration**. Then search for **LocalAppliances** and select **Download**. If LocalThings is already installed, remove it in HACS first and restart only after LocalAppliances is downloaded; the appliances you set up are kept.
 
-   [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=mbillow&repository=localthings&category=integration)
+   [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=BrawnyBravo&repository=LocalAppliances&category=integration)
 
    Without HACS, copy `custom_components/localthings/` into the `custom_components/` folder of your Home Assistant config.
 2. Restart Home Assistant.
 
 ## Add an appliance
 
-1. Go to **Settings > Devices & Services > Add Integration > LocalThings**.
+1. Go to **Settings > Devices & Services > Add Integration > LocalAppliances**.
 2. Enter the appliance's IP address. For most appliances, that's the whole setup.
 3. LocalThings connects, reads the appliance's type and model, and adds one Home Assistant device for it.
 
@@ -129,7 +143,7 @@ Some installations run several indoor units from one outdoor unit, all at one IP
 
 ## Reporting a capability gap
 
-If LocalThings doesn't recognize an appliance, or the appliance reports something LocalThings doesn't handle yet, a notice appears under **Settings > System > Repairs**. It points you to **Download diagnostics** on the device. LocalThings removes personal and network details from that download before you save it. It removes the account email, tokens, device IDs, MAC addresses, serial numbers, the Wi-Fi network name and password, the device's name, the name of a paired phone and the device's on/off history. You can attach the file to a [device-support issue](https://github.com/mbillow/localthings/issues/new?template=device-support.yml), and that is the fastest way to get an appliance supported.
+If LocalThings doesn't recognize an appliance, or the appliance reports something LocalThings doesn't handle yet, a notice appears under **Settings > System > Repairs**. It points you to **Download diagnostics** on the device. LocalThings removes personal and network details from that download before you save it. It removes the account email, tokens, device IDs, MAC addresses, serial numbers, the Wi-Fi network name and password, the device's name, the name of a paired phone and the device's on/off history. You can attach the file to a [device-support issue](https://github.com/BrawnyBravo/LocalAppliances/issues/new?template=device-support.yml), and that is the fastest way to get an appliance supported.
 
 A diagnostics download can't show whether a command sticks or what order commands need. The `localthings.read_resource` and `localthings.write_resource` actions answer those questions by reading and writing an appliance's resources without going through its entities. See [Reading and writing resources directly](docs/resource-actions.md).
 

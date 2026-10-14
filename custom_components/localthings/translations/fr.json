@@ -2047,7 +2047,7 @@
       "no_dtls_server": "Des ports de la plage de l'API locale sont joignables à cette adresse, mais rien n'y a répondu à une négociation DTLS. Vérifiez que l'adresse IP appartient bien à l'appareil et non à un autre équipement de votre réseau.",
       "appliance_no_dtls": "Cette adresse est bien celle d'un appareil Samsung — il s'est identifié comme {model} sur le canal de découverte non chiffré et a annoncé {port} comme port sécurisé — mais il n'y a jamais terminé de négociation DTLS. L'adresse n'est pas en cause. Vérifiez si le contrôle à distance ou un réglage similaire est désactivé sur le panneau de l'appareil, et consultez le journal de Home Assistant pour connaître l'échec exact.",
       "non_appliance_stack": "Quelque chose a répondu à cette adresse IP, mais s'est identifié comme un service OCF qui n'est pas un appareil électroménager. Certains appareils Samsung en exécutent un en parallèle du leur, et LocalThings ne peut trouver l'appareil qui se trouve derrière que si Home Assistant est sur le même segment réseau. Placez Home Assistant et l'appareil sur le même sous-réseau et le même VLAN, puis réessayez.",
-      "multiple_appliances": "Plusieurs appareils Samsung répondent à cette adresse IP, et LocalThings ne sait pas encore choisir entre eux. Merci de le signaler sur le suivi des tickets de LocalThings en joignant le journal de Home Assistant.",
+      "multiple_appliances": "Plusieurs appareils Samsung répondent à cette adresse IP, et LocalThings ne sait pas encore choisir entre eux. Merci de le signaler sur le suivi des tickets de LocalAppliances en joignant le journal de Home Assistant.",
       "handshake_timeout": "L'appareil a répondu sur le port de son API locale mais n'a jamais terminé la négociation DTLS, même après une nouvelle tentative. Réessayez. Si l'échec persiste, redémarrer l'appareil libère les connexions qu'il maintient encore ; le journal de Home Assistant indique l'échec exact.",
       "cert_rejected": "L'appareil a rejeté le certificat. Le certificat CA et la clé ne sont très probablement pas ceux de la CA AC14K_M à laquelle cet appareil fait confiance, ou ils ne forment pas une paire. Le journal de Home Assistant indique l'alerte exacte envoyée par l'appareil.",
       "psk_rejected": "L'appareil a refusé la clé pré-partagée. L'identité ou la clé est incorrecte, ou elle appartient à un autre appareil ou à un propriétaire qui a changé depuis. Le journal de Home Assistant indique l'alerte exacte.",
@@ -2083,7 +2083,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "Options de LocalThings",
+        "title": "Options de LocalAppliances",
         "menu_options": {
           "settings": "Paramètres de l'appareil",
           "cloud_courses": "Programmes téléchargés",
@@ -2182,7 +2182,7 @@
     },
     "cloud_courses_undiscovered": {
       "title": "Programmes téléchargés non configurés pour {device_name}",
-      "description": "{device_name} a {pending} programme(s) téléchargé(s) sur {total} que Home Assistant ne peut pas encore proposer. Un programme téléchargé ne peut être utilisé qu'une fois que l'appareil a été vu avec ce programme chargé — dans l'écran « Programmes téléchargés » de l'application SmartThings, et non dans l'écran « Programme » — et que vous lui avez donné un nom.\n\nPour les configurer, allez dans Paramètres > Appareils et services > LocalThings > {device_name} > Configurer > Programmes téléchargés et suivez les instructions.\n\nVous n'utilisez pas de programmes téléchargés ? Allez plutôt dans Configurer > Paramètres de l'appareil et désactivez « Proposer les programmes téléchargés » pour faire taire ce rappel définitivement."
+      "description": "{device_name} a {pending} programme(s) téléchargé(s) sur {total} que Home Assistant ne peut pas encore proposer. Un programme téléchargé ne peut être utilisé qu'une fois que l'appareil a été vu avec ce programme chargé — dans l'écran « Programmes téléchargés » de l'application SmartThings, et non dans l'écran « Programme » — et que vous lui avez donné un nom.\n\nPour les configurer, allez dans Paramètres > Appareils et services > LocalAppliances > {device_name} > Configurer > Programmes téléchargés et suivez les instructions.\n\nVous n'utilisez pas de programmes téléchargés ? Allez plutôt dans Configurer > Paramètres de l'appareil et désactivez « Proposer les programmes téléchargés » pour faire taire ce rappel définitivement."
     }
   },
   "exceptions": {

@@ -2047,7 +2047,7 @@
       "no_dtls_server": "Le porte dell'intervallo dell'API locale sono raggiungibili a quell'indirizzo, ma nulla ha risposto a un handshake DTLS. Verifica che l'indirizzo IP appartenga all'apparecchio e non a un altro dispositivo della rete.",
       "appliance_no_dtls": "Quell'indirizzo è un apparecchio Samsung: si è identificato come {model} sul canale discovery non cifrato e ha dichiarato {port} come sua porta sicura, ma non ha mai completato un handshake DTLS su di essa. L'indirizzo non è il problema. Verifica che il Controllo remoto o un'impostazione simile non sia disattivata sul pannello dell'apparecchio, e consulta il log di Home Assistant per l'errore esatto.",
       "non_appliance_stack": "Qualcosa ha risposto a quell'indirizzo IP, ma si è identificato come un servizio OCF che non è un elettrodomestico. Alcuni elettrodomestici Samsung ne eseguono uno accanto al proprio, e LocalThings trova l'elettrodomestico dietro di esso solo quando Home Assistant è nello stesso segmento di rete. Metti Home Assistant e l'elettrodomestico nella stessa sottorete e VLAN, poi riprova.",
-      "multiple_appliances": "A quell'indirizzo IP risponde più di un elettrodomestico Samsung e LocalThings non sa ancora scegliere tra loro. Segnalalo nel tracker delle issue di LocalThings e allega il log di Home Assistant.",
+      "multiple_appliances": "A quell'indirizzo IP risponde più di un elettrodomestico Samsung e LocalThings non sa ancora scegliere tra loro. Segnalalo nel tracker delle issue di LocalAppliances e allega il log di Home Assistant.",
       "handshake_timeout": "L'elettrodomestico ha risposto sulla sua porta dell'API locale ma non ha completato l'handshake DTLS, nemmeno dopo un nuovo tentativo. Riprova. Se continua a non riuscire, riavviare l'apparecchio libera le connessioni che sta ancora mantenendo; il log di Home Assistant riporta l'errore esatto.",
       "cert_rejected": "L'apparecchio ha rifiutato il certificato. Con ogni probabilità il certificato e la chiave della CA non sono quelli della CA AC14K_M di cui questo apparecchio si fida, oppure non corrispondono tra loro. Il log di Home Assistant riporta l'alert esatto inviato dall'apparecchio.",
       "psk_rejected": "L'elettrodomestico ha rifiutato la chiave precondivisa. L'identità o la chiave sono errate, oppure appartengono a un altro elettrodomestico o a un proprietario nel frattempo cambiato. Il log di Home Assistant riporta l'avviso esatto.",
@@ -2083,7 +2083,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "Opzioni LocalThings",
+        "title": "Opzioni LocalAppliances",
         "menu_options": {
           "settings": "Impostazioni dispositivo",
           "cloud_courses": "Cicli scaricati",
@@ -2182,7 +2182,7 @@
     },
     "cloud_courses_undiscovered": {
       "title": "Cicli scaricati non configurati per {device_name}",
-      "description": "{device_name} ha {pending} cicli scaricati su {total} che Home Assistant non può ancora offrire. Un ciclo scaricato può essere usato solo dopo che il dispositivo è stato rilevato con quel ciclo caricato -- nella schermata \"Cicli scaricati\" dell'app SmartThings, non in quella \"Ciclo\" -- ed è stato assegnato un nome.\n\nPer configurarli, andare su Impostazioni > Dispositivi e servizi > LocalThings > {device_name} > Configura > Cicli scaricati e seguire le istruzioni presenti lì.\n\nNon si usano cicli scaricati? Andare invece su Configura > Impostazioni dispositivo e disattivare \"Offri cicli scaricati\" per silenziare questo promemoria definitivamente."
+      "description": "{device_name} ha {pending} cicli scaricati su {total} che Home Assistant non può ancora offrire. Un ciclo scaricato può essere usato solo dopo che il dispositivo è stato rilevato con quel ciclo caricato -- nella schermata \"Cicli scaricati\" dell'app SmartThings, non in quella \"Ciclo\" -- ed è stato assegnato un nome.\n\nPer configurarli, andare su Impostazioni > Dispositivi e servizi > LocalAppliances > {device_name} > Configura > Cicli scaricati e seguire le istruzioni presenti lì.\n\nNon si usano cicli scaricati? Andare invece su Configura > Impostazioni dispositivo e disattivare \"Offri cicli scaricati\" per silenziare questo promemoria definitivamente."
     }
   },
   "exceptions": {

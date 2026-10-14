@@ -2047,7 +2047,7 @@
       "no_dtls_server": "Porty v rozsahu lokálneho API sú na tejto adrese dostupné, ale žiadny neodpovedal na nadviazanie spojenia DTLS. Skontrolujte, či IP adresa patrí spotrebiču a nie inému zariadeniu vo vašej sieti.",
       "appliance_no_dtls": "Na tejto adrese je spotrebič Samsung — cez nešifrovaný kanál zisťovania sa predstavil ako {model} a ako svoj zabezpečený port uviedol {port} — no nadviazanie spojenia DTLS na ňom nikdy nedokončil. Adresa teda nie je problém. Skontrolujte, či spotrebič nemá na paneli vypnuté diaľkové ovládanie alebo podobné nastavenie, a presnú príčinu zlyhania nájdete v protokole Home Assistant.",
       "non_appliance_stack": "Na tejto IP adrese niečo odpovedalo, ale ohlásilo sa ako služba OCF, ktorá nie je spotrebičom. Niektoré spotrebiče Samsung ju prevádzkujú popri svojej vlastnej a LocalThings nájde spotrebič za ňou len vtedy, keď je Home Assistant v rovnakom segmente siete. Umiestnite Home Assistant a spotrebič do rovnakej podsiete a VLAN a skúste to znova.",
-      "multiple_appliances": "Na tejto IP adrese odpovedá viac ako jeden spotrebič Samsung a LocalThings medzi nimi zatiaľ nevie vybrať. Nahláste to prosím v systéme hlásení chýb LocalThings a priložte log Home Assistanta.",
+      "multiple_appliances": "Na tejto IP adrese odpovedá viac ako jeden spotrebič Samsung a LocalThings medzi nimi zatiaľ nevie vybrať. Nahláste to prosím v systéme hlásení chýb LocalAppliances a priložte log Home Assistanta.",
       "handshake_timeout": "Spotrebič odpovedal na porte lokálneho API, ale nedokončil nadviazanie spojenia DTLS ani po opakovanom pokuse. Skúste to znova. Ak to stále zlyháva, reštart spotrebiča uvoľní spojenia, ktoré ešte drží; presnú chybu nájdete v logu Home Assistantu.",
       "cert_rejected": "Spotrebič odmietol certifikát. Certifikát a kľúč CA pravdepodobne nepatria CA AC14K_M, ktorej tento spotrebič dôveruje, alebo sa navzájom nezhodujú. Presné upozornenie odoslané spotrebičom nájdete v protokole Home Assistant.",
       "psk_rejected": "Spotrebič odmietol vopred zdieľaný kľúč. Identita alebo kľúč sú nesprávne, alebo patria inému spotrebiču či vlastníkovi, ktorý sa medzitým zmenil. Presný alert je v logu Home Assistant.",
@@ -2083,7 +2083,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "Možnosti LocalThings",
+        "title": "Možnosti LocalAppliances",
         "menu_options": {
           "settings": "Nastavenia zariadenia",
           "cloud_courses": "Stiahnuté cykly",
@@ -2182,7 +2182,7 @@
     },
     "cloud_courses_undiscovered": {
       "title": "Stiahnuté cykly nie sú nastavené pre {device_name}",
-      "description": "{device_name} má {pending} z {total} stiahnutých cyklov, ktoré Home Assistant zatiaľ nedokáže ponúknuť. Stiahnutý cyklus možno použiť až po tom, čo bol na spotrebiči zaznamenaný ako načítaný – na obrazovke „Stiahnuté cykly“ v aplikácii SmartThings, nie na obrazovke „Cyklus“ – a dostal názov.\n\nAk ich chcete nastaviť, prejdite do Nastavenia > Zariadenia a služby > LocalThings > {device_name} > Konfigurovať > Stiahnuté cykly a postupujte podľa pokynov.\n\nAk stiahnuté cykly nepoužívate, prejdite do Konfigurovať > Nastavenia zariadenia a vypnite možnosť „Ponúkať stiahnuté cykly“, čím toto pripomenutie natrvalo vypnete."
+      "description": "{device_name} má {pending} z {total} stiahnutých cyklov, ktoré Home Assistant zatiaľ nedokáže ponúknuť. Stiahnutý cyklus možno použiť až po tom, čo bol na spotrebiči zaznamenaný ako načítaný – na obrazovke „Stiahnuté cykly“ v aplikácii SmartThings, nie na obrazovke „Cyklus“ – a dostal názov.\n\nAk ich chcete nastaviť, prejdite do Nastavenia > Zariadenia a služby > LocalAppliances > {device_name} > Konfigurovať > Stiahnuté cykly a postupujte podľa pokynov.\n\nAk stiahnuté cykly nepoužívate, prejdite do Konfigurovať > Nastavenia zariadenia a vypnite možnosť „Ponúkať stiahnuté cykly“, čím toto pripomenutie natrvalo vypnete."
     }
   },
   "exceptions": {
