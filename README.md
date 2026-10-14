@@ -1,7 +1,6 @@
-<!-- dark mode -->
-<img src="custom_components/localthings/brand/dark_logo@2x.png#gh-dark-mode-only" alt="LocalAppliances Logo"/>
-<!-- light mode -->
-<img src="custom_components/localthings/brand/logo@2x.png#gh-light-mode-only" alt="LocalAppliances Logo"/>
+<p align="center">
+  <img src="custom_components/localthings/brand/icon@2x.png" alt="LocalAppliances icon" width="128"/>
+</p>
 
 <p align="center">
   <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/BrawnyBravo/LocalAppliances" />
@@ -30,9 +29,11 @@ LocalAppliances is a modified version of [LocalThings](https://github.com/mbillo
 - "Enable debug logging" also raises the `smartthings_local` connection library's logs.
 - On older TCP 8888 appliances, a linked resource that doesn't answer is skipped instead of failing the whole update.
 - The raw read, write and observe resource actions are admin-only, and the read snapshot is redacted.
-- The oven's cook stage is a sensor with translated states.
+- The oven's cook stage sensor shows translated states. Its state values are now lowercase (`ready`, `preheat`, `cooking`, `finish`), so an automation that compares it with `Ready` needs updating.
 
 The integration's internal domain stays `localthings`, so LocalAppliances is a drop-in replacement: appliances you already set up with LocalThings keep working. Install one or the other, never both at once.
+
+LocalAppliances is an independent project. It is not affiliated with, endorsed by or supported by Samsung, SmartThings or the author of LocalThings. Report problems with LocalAppliances here, not to LocalThings. Samsung and SmartThings are trademarks of Samsung Electronics; they are used here only to say which appliances this works with.
 
 LocalThings connects Home Assistant to Samsung washers, dryers, refrigerators, air conditioners, ovens and other appliances that work with the SmartThings app. It talks to each appliance on your local network.
 
@@ -73,7 +74,7 @@ LocalThings uses the standards the appliances implement:
 
 ## Install
 
-1. In [HACS](https://hacs.xyz/), open the menu, choose **Custom repositories**, and add `https://github.com/BrawnyBravo/LocalAppliances` with the type **Integration**. Then search for **LocalAppliances** and select **Download**. If LocalThings is already installed, remove it in HACS first and restart only after LocalAppliances is downloaded; the appliances you set up are kept.
+1. In [HACS](https://hacs.xyz/), open the menu, choose **Custom repositories**, and add `https://github.com/BrawnyBravo/LocalAppliances` with the type **Integration**. Then search for **LocalAppliances** and select **Download**. If LocalThings is already installed, remove it in HACS first, then download LocalAppliances, and restart only after that. Removing it in HACS deletes only its files: the appliances you set up, their entities and their history stay in Home Assistant and are picked up by LocalAppliances. If Home Assistant restarts between the two steps, those appliances show as unavailable until LocalAppliances is downloaded and Home Assistant restarts again.
 
    [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=BrawnyBravo&repository=LocalAppliances&category=integration)
 
