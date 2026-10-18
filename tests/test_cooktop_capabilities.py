@@ -6,6 +6,7 @@ from custom_components.localthings.registry.adapter import flatten
 from custom_components.localthings.registry.by_type import cooktop
 from custom_components.localthings.registry.capabilities.cooktop import (
     COOKTOP_MODE,
+    _any_burner_active,
 )
 from custom_components.localthings.registry.discovery import discover
 from tests.conftest import _load_device
@@ -45,6 +46,22 @@ def test_run_operation_marks_any_burner_active():
 
     assert state["burner_3_state"] == "Run"
     assert state["any_burner_active"] is True
+
+
+def test_a_not_supported_slot_has_no_burner():
+    """Issue #621: a board advertises a slot it has no burner for as
+    NotSupported. It gets no burner entities and doesn't count as in use."""
+    resources = _load_device("cooktop")
+    options = resources["/mode/vs/0"]["x.com.samsung.da.options"]
+    options[options.index("OperationState3_Ready")] = "OperationState3_NotSupported"
+    options.append("HotSurface3_NotSupported")
+
+    state = _state(resources)
+
+    assert not any(key.startswith("burner_3_") for key in state)
+    assert "burner_0_state" in state
+    assert state["any_burner_active"] is False
+    assert _any_burner_active(["OperationState0_Run", "OperationState3_NotSupported"]) is True
 
 
 @pytest.mark.parametrize("name", ["cooktop", "cooktop_nv8000t", "cooktop_nv9300k"])
