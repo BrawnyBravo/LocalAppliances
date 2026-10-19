@@ -30,7 +30,9 @@ async def test_reservoir_uses_native_options_and_tracks_position(hass, divided):
     bound = [
         b
         for b in coordinator.bound
-        if b.desc.key == "reservoir_open" and _is_included(b, coordinator)
+        if b.desc.key == "reservoir_open"
+        and b.href.startswith("/mode/")
+        and _is_included(b, coordinator)
     ]
     assert len(bound) == 1
     assert bound[0].subdevice == MAIN
@@ -57,7 +59,7 @@ async def test_reservoir_uses_native_options_and_tracks_position(hass, divided):
         )
         assert entity.is_on is (sample["position"] == "open")
         assert coordinator.data["door_open"] is True
-        assert "subdevice1_reservoir_open" not in coordinator.data
+        assert PREFIX + "options" not in coordinator.resource("/mode/vs/1")
         assert coordinator.last_resources == raw
         assert coordinator.resource("/mode/vs/0")[PREFIX + "options"] == sample["options"]
     for options in (
