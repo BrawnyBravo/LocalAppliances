@@ -1190,6 +1190,20 @@
           "poll": "Polling"
         }
       },
+      "last_response": {
+        "name": "Last response"
+      },
+      "filter_activity": {
+        "name": "Filter activity",
+        "state": {
+          "none": "Idle",
+          "filtering": "Filtering",
+          "bypassing": "Bypassing",
+          "waiting": "Waiting",
+          "stopping": "Stopping",
+          "sensing": "Sensing"
+        }
+      },
       "cooktop_running_state": {
         "name": "Cooktop running state"
       },
@@ -1632,6 +1646,21 @@
       },
       "burner_pan_size": {
         "name": "Burner {number} pan size"
+      },
+      "cooktop_timer_remaining": {
+        "name": "Timer Remaining"
+      },
+      "cooktop_timer_status": {
+        "name": "Timer Status"
+      },
+      "cooktop_ring_size": {
+        "name": "Burner {number} Ring Size",
+        "state": {
+          "idle": "Idle",
+          "single": "Single",
+          "dual": "Dual",
+          "triple": "Triple"
+        }
       }
     },
     "switch": {

@@ -1190,6 +1190,20 @@
           "poll": "Interrogazione"
         }
       },
+      "last_response": {
+        "name": "Ultima risposta"
+      },
+      "filter_activity": {
+        "name": "Attività del filtro",
+        "state": {
+          "none": "Inattivo",
+          "filtering": "Filtraggio",
+          "bypassing": "Bypass",
+          "waiting": "In attesa",
+          "stopping": "Arresto in corso",
+          "sensing": "Rilevamento"
+        }
+      },
       "cooktop_running_state": {
         "name": "Stato di funzionamento piano cottura"
       },
@@ -1632,6 +1646,21 @@
       },
       "burner_pan_size": {
         "name": "Dimensione pentola della zona {number}"
+      },
+      "cooktop_timer_remaining": {
+        "name": "Tempo rimanente del timer"
+      },
+      "cooktop_timer_status": {
+        "name": "Stato del timer"
+      },
+      "cooktop_ring_size": {
+        "name": "Dimensione della zona {number}",
+        "state": {
+          "idle": "Inattiva",
+          "single": "Singola",
+          "dual": "Doppia",
+          "triple": "Tripla"
+        }
       }
     },
     "switch": {

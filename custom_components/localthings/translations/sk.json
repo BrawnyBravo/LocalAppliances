@@ -1190,6 +1190,20 @@
           "poll": "Pravidelné dopytovanie"
         }
       },
+      "last_response": {
+        "name": "Posledná odpoveď"
+      },
+      "filter_activity": {
+        "name": "Činnosť filtra",
+        "state": {
+          "none": "Nečinnosť",
+          "filtering": "Filtrovanie",
+          "bypassing": "Obtok",
+          "waiting": "Čakanie",
+          "stopping": "Zastavovanie",
+          "sensing": "Snímanie"
+        }
+      },
       "cooktop_running_state": {
         "name": "Stav prevádzky varnej dosky"
       },
@@ -1632,6 +1646,21 @@
       },
       "burner_pan_size": {
         "name": "Veľkosť nádoby zóny {number}"
+      },
+      "cooktop_timer_remaining": {
+        "name": "Zostávajúci čas časovača"
+      },
+      "cooktop_timer_status": {
+        "name": "Stav časovača"
+      },
+      "cooktop_ring_size": {
+        "name": "Veľkosť zóny {number}",
+        "state": {
+          "idle": "Nečinná",
+          "single": "Jednoduchá",
+          "dual": "Dvojitá",
+          "triple": "Trojitá"
+        }
       }
     },
     "switch": {

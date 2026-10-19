@@ -1190,6 +1190,20 @@
           "poll": "Odpytywanie"
         }
       },
+      "last_response": {
+        "name": "Ostatnia odpowiedź"
+      },
+      "filter_activity": {
+        "name": "Aktywność filtra",
+        "state": {
+          "none": "Bezczynny",
+          "filtering": "Filtrowanie",
+          "bypassing": "Obejście",
+          "waiting": "Oczekiwanie",
+          "stopping": "Zatrzymywanie",
+          "sensing": "Wykrywanie"
+        }
+      },
       "cooktop_running_state": {
         "name": "Stan pracy płyty grzejnej"
       },
@@ -1632,6 +1646,21 @@
       },
       "burner_pan_size": {
         "name": "Rozmiar naczynia pola {number}"
+      },
+      "cooktop_timer_remaining": {
+        "name": "Pozostały czas minutnika"
+      },
+      "cooktop_timer_status": {
+        "name": "Stan minutnika"
+      },
+      "cooktop_ring_size": {
+        "name": "Rozmiar pola {number}",
+        "state": {
+          "idle": "Nieaktywne",
+          "single": "Pojedyncze",
+          "dual": "Podwójne",
+          "triple": "Potrójne"
+        }
       }
     },
     "switch": {

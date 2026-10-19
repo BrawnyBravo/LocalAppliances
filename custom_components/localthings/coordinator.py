@@ -10,7 +10,7 @@ import threading
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import asdict
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any, cast
 from urllib.parse import unquote, urlsplit
 
@@ -25,6 +25,7 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, DeviceInfo
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 from smartthings_local.errors import EndpointError, PeerInitiatedHandshakeError
 from smartthings_local.ocf.state_cache import StateCache
 
@@ -540,6 +541,10 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Consecutive cycles that ended with no data from the device, so an
         # outage is reported once rather than once per poll (issue #269).
         self._failed_cycles = 0
+        # When a poll last got through. Entities keep their last values while
+        # the device is dark (issue #295), so this is what tells them apart
+        # from live ones (issue #648).
+        self.last_response: datetime | None = None
         self._unbound_hrefs: list[str] = []
         self._reconnect_times: list[float] = []
         # See _maybe_retry_observe_mode: last_mode_change_ts alone doesn't
@@ -1184,6 +1189,9 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         HA push must be scheduled thread-safely. A sweep/poll cycle can
         call apply_rep for dozens of hrefs in a tight loop; coalesce those
         into a single push instead of one hass.add_job per href."""
+        if source == "observe":
+            # A notification is the device answering too (issue #648).
+            self.last_response = dt_util.utcnow()
         if not changed:
             return
         self._canonical_cache.clear()
@@ -1372,13 +1380,18 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         `stop`, once set, skips the hrefs not yet read.
         """
-        if self._session is None:
+        session = self._session
+        if session is None:
             return {}
         results = {}
         first = True
         deadline = time.monotonic() + budget if budget is not None else None
         for href in hrefs:
             if stop is not None and stop.is_set():
+                break
+            # async_close cancels the sub-poll without waiting for this
+            # thread, then drops the session; reading on would hit None.
+            if self._session is not session:
                 break
             if deadline is not None:
                 remaining = deadline - time.monotonic()
@@ -1387,11 +1400,11 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     continue
                 timeout = min(timeout, remaining)
             if not first:
-                self._session.pace()
+                session.pace()
             first = False
             try:
                 path = href.strip("/").split("/")
-                code, rep = self._session.read(path, timeout=timeout)
+                code, rep = session.read(path, timeout=timeout)
                 if code == 0x45 and isinstance(rep, dict):
                     if apply:
                         self._observe.apply(href, rep, source="poll")
@@ -2200,6 +2213,7 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def _mark_device_answered(self) -> None:
         """Clear the bookkeeping a poll getting through invalidates."""
+        self.last_response = dt_util.utcnow()
         self._persist_moved_port()
         self._consecutive_poll_timeouts = 0
         if self._failed_cycles:

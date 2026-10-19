@@ -21,6 +21,9 @@ gating handles the same way it handles newer boards.
 
 from typing import ClassVar, cast
 
+from homeassistant.components.climate import HVACMode
+
+from custom_components.localthings import climate as climate_module
 from custom_components.localthings.climate import LocalThingsClimate
 from custom_components.localthings.coordinator import LocalThingsCoordinator
 from custom_components.localthings.registry.adapter import flatten
@@ -462,6 +465,40 @@ async def test_fan_and_swing_writes_target_the_airflow_resource():
     ]
 
 
+async def test_the_current_mode_is_not_written_again():
+    resources = _load_device(FIXTURE)
+    resources["/power/vs/0"]["x.com.samsung.da.power"] = "On"
+    coordinator = _FakeCoordinator(resources)
+
+    await _climate(resources, coordinator).async_set_hvac_mode(HVACMode.COOL)
+
+    assert coordinator.commands == []
+
+
+async def test_a_different_mode_is_still_written():
+    resources = _load_device(FIXTURE)
+    resources["/power/vs/0"]["x.com.samsung.da.power"] = "On"
+    coordinator = _FakeCoordinator(resources)
+
+    await _climate(resources, coordinator).async_set_hvac_mode(HVACMode.HEAT)
+
+    assert [payload for _, payload in coordinator.commands] == [("mode", "Heat")]
+
+
+async def test_turning_on_in_the_last_mode_still_sets_the_temperature():
+    resources = _load_device(FIXTURE)
+    coordinator = _FakeCoordinator(resources)
+
+    await _climate(resources, coordinator).async_set_temperature(
+        hvac_mode=HVACMode.COOL, temperature=20
+    )
+
+    assert [payload for _, payload in coordinator.commands] == [
+        ("power", True),
+        ("temperature_ocf", 20),
+    ]
+
+
 def test_preset_comes_from_the_comode_token():
     resources = _load_device(FIXTURE)
     entity = _climate(resources)
@@ -693,11 +730,12 @@ def test_the_active_code_is_always_listed_even_where_the_rules_deny_it():
     assert "2step" in entity.preset_modes
 
 
-async def test_nano_in_auto_switches_the_board_to_cool_first():
+async def test_nano_in_auto_switches_the_board_to_cool_first(monkeypatch):
     """Comode_Nano written while the unit is in Auto is answered 2.04 Changed and
     dropped; the same token after a separate mode write holds. Putting modes and
     options in one POST does not work either, so the mode goes first, on its own.
     """
+    monkeypatch.setattr(climate_module, "_NANO_AFTER_MODE_DELAY", 0)
     resources = _load_device(FIXTURE)
     resources["/mode/vs/0"]["x.com.samsung.da.modes"] = ["Auto"]
     coordinator = _FakeCoordinator(resources)
