@@ -66,3 +66,50 @@ def test_other_totals_still_publish_a_real_zero():
     )
     assert saved.value_fn is not None
     assert saved.value_fn("0") == 0.0
+
+
+def _common_energy_desc(key):
+    from custom_components.localthings.registry.capabilities import common
+
+    desc = next(e for e in common.ENERGY_METER.entities if e.key == key)
+    assert desc.value_fn is not None
+    return desc
+
+
+@pytest.mark.parametrize(
+    "key",
+    ["energy_saved_kwh", "power_energy_kwh", "energy_last_month_kwh", "energy_this_month_kwh"],
+)
+def test_the_no_meter_sentinel_publishes_unknown(key):
+    """Five AC dumps report cumulativeSavedPower "-1" (no meter); published
+    as-is it read -0.0 kWh. No energy total here is ever negative."""
+    assert _common_energy_desc(key).value_fn("-1") is None
+
+
+def test_the_secondary_lifetime_counter_treats_zero_as_unknown():
+    """cumulativeConsumption is a lifetime total_increasing counter like
+    cumulativePower: a transient 0 would be booked as a meter reset and the
+    whole total counted again on recovery (issue #488)."""
+    desc = _common_energy_desc("power_energy_kwh")
+    assert desc.state_class == "total_increasing"
+    assert desc.value_fn("0") is None
+    assert desc.value_fn("12345") == 12.35
+
+
+@pytest.mark.parametrize(
+    "fixture",
+    [
+        "airconditioner_tp1x_rac",
+        "airconditioner_tp1x_da_ac_rac_01011",
+        "airconditioner_tp1x_duct",
+        "airconditioner_tp1x_rac_01011_aimotionwind",
+        "airconditioner_tp1x_rhs",
+    ],
+)
+def test_meterless_ac_dumps_report_no_energy_saved(fixture):
+    resources = _load_device(fixture)
+    assert resources[ENERGY]["x.com.samsung.da.cumulativeSavedPower"] == "-1"
+    reg = resolve(resources)
+    assert reg is not None
+    bound = discover(resources, reg.capabilities, reg.pattern_capabilities)
+    assert flatten(bound, resources).get("energy_saved_kwh") is None

@@ -56,6 +56,15 @@ def wh_to_kwh(v):
     return round(n / 1000.0, 2) if n is not None else None
 
 
+def nonnegative_wh_to_kwh(v):
+    """wh_to_kwh for an energy total that can genuinely read 0 but never
+    below: a negative reading is the board's "-1" no-meter sentinel (five
+    AC dumps report cumulativeSavedPower "-1"), which published as-is read
+    -0.0 kWh."""
+    n = _num(v)
+    return round(n / 1000.0, 2) if n is not None and n >= 0 else None
+
+
 def lifetime_wh_to_kwh(v):
     """wh_to_kwh for an appliance's lifetime energy counter, where 0 reads as
     unknown: a TP2X_RAC_20K (issue #488) reports "0" for a minute or two
@@ -568,27 +577,30 @@ ENERGY_METER = Capability(
         ),
         # cumulativeConsumption is a second, independently-varying running
         # total some fridges (issue #26) report alongside cumulativePower.
+        # A lifetime counter like it, so a transient 0 (or -1) is unknown
+        # rather than a meter reset (see lifetime_wh_to_kwh).
         SensorDesc(
             key="power_energy_kwh",
             field="x.com.samsung.da.cumulativeConsumption",
             device_class="energy",
             state_class="total_increasing",
             unit="kWh",
-            value_fn=wh_to_kwh,
+            value_fn=lifetime_wh_to_kwh,
             exists_fn=lambda rep, resources: (
                 is_stub_rep(rep) or "x.com.samsung.da.cumulativeConsumption" in rep
             ),
         ),
         # AI Energy Mode's lifetime savings estimate vs. an unoptimized
         # baseline -- present on some models (issue #21/#27), absent on
-        # others (issue #20/#26).
+        # others (issue #20/#26). A real 0 (nothing saved yet) publishes;
+        # the "-1" no-meter sentinel is unknown.
         SensorDesc(
             key="energy_saved_kwh",
             field="x.com.samsung.da.cumulativeSavedPower",
             device_class="energy",
             state_class="total_increasing",
             unit="kWh",
-            value_fn=wh_to_kwh,
+            value_fn=nonnegative_wh_to_kwh,
             exists_fn=lambda rep, resources: (
                 is_stub_rep(rep) or "x.com.samsung.da.cumulativeSavedPower" in rep
             ),
@@ -600,7 +612,7 @@ ENERGY_METER = Capability(
             field="x.com.samsung.da.monthlyConsumption",
             device_class="energy",
             unit="kWh",
-            value_fn=wh_to_kwh,
+            value_fn=nonnegative_wh_to_kwh,
             exists_fn=lambda rep, resources: (
                 is_stub_rep(rep) or "x.com.samsung.da.monthlyConsumption" in rep
             ),
@@ -610,7 +622,7 @@ ENERGY_METER = Capability(
             field="x.com.samsung.da.thismonthlyConsumption",
             device_class="energy",
             unit="kWh",
-            value_fn=wh_to_kwh,
+            value_fn=nonnegative_wh_to_kwh,
             exists_fn=lambda rep, resources: (
                 is_stub_rep(rep) or "x.com.samsung.da.thismonthlyConsumption" in rep
             ),
