@@ -127,6 +127,17 @@ class _ApplianceState:
 _STATE: dict[tuple[str, int, int], _ApplianceState] = {}
 
 
+def forget(host: str, port: int) -> None:
+    """Drop everything held for the appliance at `host:port`.
+
+    For when its entry is deleted: otherwise a held cycle would survive
+    and resurface if the same address were added again. Not on a plain
+    unload or reload, which this state exists to outlive in the same way
+    it outlives a reconnect."""
+    for key in [key for key in list(_STATE) if key[:2] == (host, port)]:
+        _STATE.pop(key, None)
+
+
 def _device_path(index: int) -> str:
     return f"/devices/{index}"
 
@@ -588,7 +599,9 @@ class LegacyHttpTransport:
         # any index a write or a rejected probe names.
         states = {
             index: state
-            for (host, port, index), state in _STATE.items()
+            # A snapshot: an executor thread can add an index meanwhile, and
+            # iterating the live dict would then fail the download.
+            for (host, port, index), state in list(_STATE.items())
             if (host, port) == (self._host, self._port) and (state.last_bodies or not index)
         }
         main = states.get(0, _ApplianceState()).last_bodies

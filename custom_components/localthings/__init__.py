@@ -17,7 +17,16 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 
-from .const import CONF_DEVICE_TYPE, CONF_HOST, CONF_PORT, CONF_SERIAL, DOMAIN, PLATFORMS
+from .const import (
+    CONF_DEVICE_TYPE,
+    CONF_HOST,
+    CONF_PORT,
+    CONF_SERIAL,
+    CONF_TRANSPORT,
+    DOMAIN,
+    PLATFORMS,
+    TRANSPORT_LEGACY_HTTP,
+)
 from .coordinator import LocalThingsCoordinator, mode_spec_store, snapshot_store
 from .entity import _is_included, async_load_instance_names
 from .registry.by_type.microfiber_filter import WASHER_ONLY_ENTITIES
@@ -507,6 +516,12 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """
     await snapshot_store(hass, entry).async_remove()
     await mode_spec_store(hass, entry).async_remove()
+    if entry.data.get(CONF_TRANSPORT) == TRANSPORT_LEGACY_HTTP:
+        from .legacy_http_transport import forget
+
+        # Values held for the next start are kept in memory per address; a
+        # deleted entry's must not resurface if that address is added again.
+        forget(entry.data[CONF_HOST], entry.data[CONF_PORT])
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
