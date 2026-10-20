@@ -481,3 +481,21 @@ def test_sound_volume_needs_a_reported_max_level():
     assert desc.exists_fn({"level": "2", "minLevel": "0", "resolution": "1"}, {}) is False
     assert desc.exists_fn({"level": "2", "minLevel": "0", "maxLevel": "3"}, {}) is True
     assert desc.exists_fn({"href": "/settings/sound/volume/vs/0"}, {}) is True
+
+
+def test_lock_switches_read_a_missing_field_as_unknown():
+    """A missing/null lock field is no evidence the lock is engaged; it used
+    to read as locked (`None != "Unlocked"`)."""
+    from custom_components.localthings.registry.capabilities import water_purifier as wp
+
+    descs = [
+        d
+        for cap in (wp.LOCK, wp.FAVORITE_HOTWATER)
+        for d in cap.entities
+        if d.key.endswith("_lock")
+    ]
+    assert len(descs) == 4
+    for desc in descs:
+        assert desc.value_fn(None) is None, desc.key
+        assert desc.value_fn("Locked") is True, desc.key
+        assert desc.value_fn("Unlocked") is False, desc.key

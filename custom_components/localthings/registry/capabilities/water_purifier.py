@@ -11,6 +11,13 @@ from ..entities import BinarySensorDesc, NumberDesc, SelectDesc, SensorDesc, Swi
 from .common import int_or_none
 from .common import parse_iso_utc as _parse_iso_utc
 
+
+def _locked(v):
+    """True when locked; None (unknown) for a missing/null field rather than
+    reading it as locked."""
+    return None if v is None else v != "Unlocked"
+
+
 DISPENSE = Capability(
     href="/setting/waterpurifier/vs/0",
     poll_tier="warm",
@@ -192,7 +199,7 @@ FAVORITE_HOTWATER = Capability(
             field="x.com.samsung.da.switchHotwater",
             icon="mdi:lock",
             entity_category="config",
-            value_fn=lambda v: v != "Unlocked",
+            value_fn=_locked,
             exists_fn=lambda rep, resources: (
                 "x.com.samsung.da.switchHotwater" in rep
                 and _status_lock_definitely_lacks_hotwater_field(resources)
@@ -370,7 +377,7 @@ LOCK = Capability(
             field="x.com.samsung.da.hotwaterLock",
             icon="mdi:lock",
             entity_category="config",
-            value_fn=lambda v: v != "Unlocked",
+            value_fn=_locked,
             exists_fn=lambda rep, resources: not rep or "x.com.samsung.da.hotwaterLock" in rep,
             write_fn=lambda p, rep, href=None: (
                 ["status", "lock", "vs", "0"],
@@ -382,7 +389,7 @@ LOCK = Capability(
             field="x.com.samsung.da.coldwaterLock",
             icon="mdi:lock",
             entity_category="config",
-            value_fn=lambda v: v != "Unlocked",
+            value_fn=_locked,
             write_fn=lambda p, rep, href=None: (
                 ["status", "lock", "vs", "0"],
                 {"x.com.samsung.da.coldwaterLock": "Locked" if p == "On" else "Unlocked"},
@@ -393,7 +400,7 @@ LOCK = Capability(
             field="x.com.samsung.da.buzzLock",
             icon="mdi:lock",
             entity_category="config",
-            value_fn=lambda v: v != "Unlocked",
+            value_fn=_locked,
             write_fn=lambda p, rep, href=None: (
                 ["status", "lock", "vs", "0"],
                 {"x.com.samsung.da.buzzLock": "Locked" if p == "On" else "Unlocked"},

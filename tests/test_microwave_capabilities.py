@@ -936,3 +936,18 @@ def test_microwave_mode_rejects_no_operation_like_the_oven():
     rep = {"x.com.samsung.da.supportedModes": ["NoOperation", "MicroWave"]}
     assert desc.validate_fn("NoOperation", rep, {}) == "oven_mode_idle_not_selectable"
     assert not desc.validate_fn("MicroWave", rep, {})
+
+
+def test_microwave_child_lock_reads_a_missing_field_as_unknown():
+    """common.KIDS_LOCK_* return None for a missing field; this lock used to
+    read a missing childLock as unlocked."""
+    desc = next(
+        e
+        for cap in (microwave.MICROWAVE_STATUS,)
+        for e in cap.entities
+        if e.key == "child_lock"
+    )
+    assert desc.value_fn(None) is None
+    # device_class lock reads inverted: True = unlocked.
+    assert desc.value_fn("on") is False
+    assert desc.value_fn("off") is True

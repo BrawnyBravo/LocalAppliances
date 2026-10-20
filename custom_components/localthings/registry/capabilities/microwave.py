@@ -538,7 +538,8 @@ MICROWAVE_STATUS = Capability(
             key="child_lock",
             field="childLock",
             device_class="lock",
-            value_fn=lambda v: str(v).lower() != "on",
+            # A missing field is unknown, not unlocked (as common.KIDS_LOCK_*).
+            value_fn=lambda v: None if v is None else str(v).lower() != "on",
         ),
         SensorDesc(
             key="cooking_mode",
