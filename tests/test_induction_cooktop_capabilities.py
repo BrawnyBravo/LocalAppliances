@@ -152,9 +152,11 @@ def test_connected_probe_reports_its_readings():
         "currentTemperature": 41,
     }
     descs = {d.key: d for d in range_caps.PROBE_STATUS.entities}
-    assert descs["probe_temperature"].rep_fn(rep) == 41
-    assert descs["probe_target_temperature"].rep_fn(rep) == 63
-    assert descs["probe_battery"].rep_fn(rep) == 80
+    expected = {"probe_temperature": 41, "probe_target_temperature": 63, "probe_battery": 80}
+    for key, value in expected.items():
+        rep_fn = descs[key].rep_fn
+        assert rep_fn is not None, key
+        assert rep_fn(rep) == value, key
     # Field presence still gates the entities.
     for key in ("probe_temperature", "probe_target_temperature", "probe_battery"):
         assert descs[key].field, key

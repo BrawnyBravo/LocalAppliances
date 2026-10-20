@@ -139,9 +139,10 @@ def test_range_hood_types_the_same_particulate_readings():
     history for the new unit to clash with."""
     from custom_components.localthings.registry.capabilities import range_hood
 
-    hood = {d.key: d for d in range_hood.AIR_QUALITY.entities}
+    hood = {d.key: d for d in range_hood.AIR_QUALITY.entities if isinstance(d, SensorDesc)}
     for key in PARTICULATE:
         purifier = _desc(key)
+        assert isinstance(purifier, SensorDesc)
         assert hood[key].device_class == purifier.device_class, key
         assert hood[key].unit == purifier.unit, key
         assert hood[key].state_class == "measurement", key

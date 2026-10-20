@@ -83,6 +83,10 @@ def test_uvc_switch_kept_where_the_station_reports_it():
     rep = resources["/status/cleanstation/vs/0"]
     stub = {"href": "/status/cleanstation/vs/0"}
     for key in ("uvc_intensive_mode", "uvc_finished_time"):
-        assert descs[key].exists_fn(rep, resources) is True, key
-        assert descs[key].exists_fn(stub, {}) is True, key
-    assert descs["uvc_intensive_mode"].exists_fn({"x.com.samsung.da.uvcIntensive": "On"}, {})
+        exists = descs[key].exists_fn
+        assert exists is not None, key
+        assert exists(rep, resources) is True, key
+        assert exists(stub, {}) is True, key
+    intensive = descs["uvc_intensive_mode"].exists_fn
+    assert intensive is not None
+    assert intensive({"x.com.samsung.da.uvcIntensive": "On"}, {})

@@ -100,6 +100,8 @@ def test_time_readings_with_a_unit_are_durations():
     from custom_components.localthings.registry.capabilities import oven, range_hood
 
     hood = next(e for e in range_hood.HOOD_FILTER.entities if e.key == "hood_filter_capacity")
+    assert isinstance(hood, SensorDesc)
     assert (hood.device_class, hood.unit) == ("duration", "h")
     op = next(e for e in oven.OVEN_OPERATIONAL_STATE.entities if e.key == "operation_time_minutes")
+    assert isinstance(op, SensorDesc)
     assert (op.device_class, op.unit) == ("duration", "min")

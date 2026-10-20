@@ -1,7 +1,7 @@
 """Tests for fridge-specific capabilities."""
 
 from collections.abc import Callable
-from typing import ClassVar, cast
+from typing import Any, ClassVar, cast
 
 from custom_components.localthings.coordinator import LocalThingsCoordinator
 from custom_components.localthings.registry.capabilities import fridge
@@ -84,7 +84,8 @@ class TestTempSetpointWrite:
         resources = _load_device(fixture)
         desc = next(e for e in fridge.TEMP_SETPOINT.entities if isinstance(e, NumberDesc))
         assert desc.write_fn is not None
-        return desc.write_fn(value, resources.get(href, {}), href, resources)
+        write = cast(Callable[..., Any], desc.write_fn)
+        return write(value, resources.get(href, {}), href, resources)
 
     @staticmethod
     def _item(result):
@@ -117,8 +118,9 @@ class TestTempSetpointWrite:
     def test_no_vendor_resource_writes_the_compartment_directly(self):
         desc = next(e for e in fridge.TEMP_SETPOINT.entities if isinstance(e, NumberDesc))
         assert desc.write_fn is not None
+        write = cast(Callable[..., Any], desc.write_fn)
         href = "/temperature/desired/cooler/0"
-        assert desc.write_fn(3.6, {}, href, {href: {}}) == (
+        assert write(3.6, {}, href, {href: {}}) == (
             ["temperature", "desired", "cooler", "0"],
             {"temperature": 4},
         )
@@ -137,7 +139,8 @@ class TestTempSetpointWrite:
                 ]
             },
         }
-        assert desc.write_fn(2, {}, href, resources) == (
+        write = cast(Callable[..., Any], desc.write_fn)
+        assert write(2, {}, href, resources) == (
             ["temperature", "desired", "flexzone", "0"],
             {"temperature": 2},
         )
@@ -149,7 +152,8 @@ class TestTempSetpointWrite:
         assert desc.write_fn is not None
         href = "/temperature/desired/cooler/0"
         resources = {href: {}, "/temperatures/vs/0": {"href": "/temperatures/vs/0"}}
-        assert self._item(desc.write_fn(3, {}, href, resources)) == ("1", "3")
+        write = cast(Callable[..., Any], desc.write_fn)
+        assert self._item(write(3, {}, href, resources)) == ("1", "3")
 
 
 class TestTemperaturesFallback:

@@ -1235,17 +1235,17 @@ def test_shared_keys_bind_only_one_href():
     /csi/ resource win."""
     from custom_components.localthings.registry.capabilities import airconditioner as ac
 
-    mode_light = next(e for e in ac.CLIMATE.entities if e.key == "display_light")
+    mode_light = next(e for e in ac.CLIMATE.entities if e.key == "display_light").exists_fn
+    assert mode_light is not None
     mode_rep = {"x.com.samsung.da.options": ["Light_On"]}
-    assert mode_light.exists_fn(mode_rep, {"/mode/vs/0": mode_rep}) is True
+    assert mode_light(mode_rep, {"/mode/vs/0": mode_rep}) is True
     both = {"/mode/vs/0": mode_rep, "/light/vs/0": {"mode": "On"}}
-    assert mode_light.exists_fn(mode_rep, both) is False
+    assert mode_light(mode_rep, both) is False
 
-    mds = next(e for e in ac.MDS_ABSENCE_CLEAN.entities if e.key == "absence_clean")
+    mds = next(e for e in ac.MDS_ABSENCE_CLEAN.entities if e.key == "absence_clean").exists_fn
+    assert mds is not None
     rep = {"mode": "On", "supportedModes": ["On", "Off"]}
-    assert mds.exists_fn(rep, {"/mds/absenceclean/vs/0": rep}) is True
-    assert mds.exists_fn({"href": "/mds/absenceclean/vs/0"}, {}) is True
-    assert mds.exists_fn({"supportedModes": ["On", "Off"]}, {}) is False
-    assert (
-        mds.exists_fn(rep, {"/mds/absenceclean/vs/0": rep, "/csi/absenceclean/vs/0": rep}) is False
-    )
+    assert mds(rep, {"/mds/absenceclean/vs/0": rep}) is True
+    assert mds({"href": "/mds/absenceclean/vs/0"}, {}) is True
+    assert mds({"supportedModes": ["On", "Off"]}, {}) is False
+    assert mds(rep, {"/mds/absenceclean/vs/0": rep, "/csi/absenceclean/vs/0": rep}) is False
