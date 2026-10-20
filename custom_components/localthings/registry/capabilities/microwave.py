@@ -67,6 +67,7 @@ from ..entities import (
 from .common import int_or_none, normalize_temp_unit, parse_iso_utc
 from .cook import PARAM_MODE, PARAM_TEMPERATURE, mode_specs, selectable_modes
 from .laundry import option_value, option_write
+from .oven import _oven_mode_validate
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -373,6 +374,10 @@ MICROWAVE_MODE = Capability(
             icon="mdi:tune",
             options=_cooking_mode_options,
             value_fn=lambda v: v[0] if v else None,
+            # NoOperation is listed in supportedModes as the idle reading,
+            # not a mode the board accepts; refuse it up front the way the
+            # oven does (#445) instead of posting it.
+            validate_fn=_oven_mode_validate,
             write_fn=_mode_write,
             cook_param=PARAM_MODE,
         ),

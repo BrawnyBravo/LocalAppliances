@@ -926,3 +926,13 @@ def test_sound_switches_gate_on_their_option_token():
         assert desc.exists_fn({"x.com.samsung.da.options": ["Lamp_Off"]}, {}) is False
         assert desc.exists_fn({"href": "/mode/vs/0"}, {}) is True
 
+
+def test_microwave_mode_rejects_no_operation_like_the_oven():
+    """NoOperation is listed in supportedModes because it is the idle
+    reading, not a mode to start: picking it is refused up front (as the
+    oven's #445 rule does) rather than posted to the board."""
+    desc = _microwave_cooking_mode_desc()
+    assert desc.validate_fn is not None
+    rep = {"x.com.samsung.da.supportedModes": ["NoOperation", "MicroWave"]}
+    assert desc.validate_fn("NoOperation", rep, {}) == "oven_mode_idle_not_selectable"
+    assert not desc.validate_fn("MicroWave", rep, {})
