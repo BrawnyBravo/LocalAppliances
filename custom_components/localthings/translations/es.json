@@ -389,6 +389,9 @@
     },
     "command_auth_rejected": {
       "message": "El aparato rechazó el token de dispositivo de esta entrada. Vuelve a autenticar la entrada desde Ajustes > Dispositivos y servicios para obtener uno nuevo."
+    },
+    "security_credential_read_refused": {
+      "message": "Se rechaza la lectura de {href}: contiene las credenciales del aparato, que nunca deberían salir de Home Assistant."
     }
   },
   "entity": {

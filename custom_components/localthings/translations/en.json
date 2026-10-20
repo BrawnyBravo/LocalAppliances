@@ -2348,6 +2348,9 @@
     },
     "command_auth_rejected": {
       "message": "The appliance refused this entry's device token. Re-authenticate the entry from Settings > Devices & Services to get a new one."
+    },
+    "security_credential_read_refused": {
+      "message": "Reading {href} is refused: it holds the appliance's credentials, which should never leave Home Assistant."
     }
   },
   "selector": {

@@ -2348,6 +2348,9 @@
     },
     "command_auth_rejected": {
       "message": "기기가 이 항목의 기기 토큰을 거부했습니다. 설정 > 기기 및 서비스에서 이 항목을 다시 인증하여 새 토큰을 받으세요."
+    },
+    "security_credential_read_refused": {
+      "message": "{href} 읽기가 거부되었습니다. 이 리소스에는 Home Assistant 밖으로 나가서는 안 되는 기기의 자격 증명이 들어 있습니다."
     }
   },
   "selector": {

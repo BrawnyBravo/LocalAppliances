@@ -2348,6 +2348,9 @@
     },
     "command_auth_rejected": {
       "message": "Spotřebič odmítl token zařízení této položky. Ověřte položku znovu v Nastavení > Zařízení a služby a získejte nový."
+    },
+    "security_credential_read_refused": {
+      "message": "Čtení {href} je odmítnuto: obsahuje přihlašovací údaje spotřebiče, které by nikdy neměly opustit Home Assistant."
     }
   },
   "selector": {

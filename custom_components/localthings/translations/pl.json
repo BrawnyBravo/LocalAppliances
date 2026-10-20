@@ -2348,6 +2348,9 @@
     },
     "command_auth_rejected": {
       "message": "Urządzenie odrzuciło token tego wpisu. Uwierzytelnij wpis ponownie w Ustawienia > Urządzenia i usługi, aby uzyskać nowy."
+    },
+    "security_credential_read_refused": {
+      "message": "Odczyt {href} został odrzucony: zawiera poświadczenia urządzenia, które nigdy nie powinny opuszczać Home Assistant."
     }
   },
   "selector": {

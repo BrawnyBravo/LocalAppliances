@@ -2348,6 +2348,9 @@
     },
     "command_auth_rejected": {
       "message": "L'elettrodomestico ha rifiutato il token del dispositivo di questa voce. Esegui di nuovo l'autenticazione della voce da Impostazioni > Dispositivi e servizi per ottenerne uno nuovo."
+    },
+    "security_credential_read_refused": {
+      "message": "La lettura di {href} è rifiutata: contiene le credenziali dell'elettrodomestico, che non dovrebbero mai lasciare Home Assistant."
     }
   },
   "selector": {

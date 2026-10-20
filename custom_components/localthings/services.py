@@ -205,6 +205,10 @@ async def _async_write_resource(hass: HomeAssistant, call: ServiceCall) -> Servi
     return cast(ServiceResponse, json_safe(response))
 
 
+# The appliance's credential store; see _async_read_resource.
+_CREDENTIAL_HREF = "/oic/sec/cred"
+
+
 async def _async_read_resource(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
     coordinator, subdevice, _device_id = _resolve_target(hass, call)
     href = call.data.get(ATTR_HREF)
@@ -227,8 +231,20 @@ async def _async_read_resource(hass: HomeAssistant, call: ServiceCall) -> Servic
     path, query = split_href_query(href)
     # Same normalize-before-translate order as the write path above.
     canonical = normalize_href(path)
+    if (canonical.lower() + "/").startswith(_CREDENTIAL_HREF + "/"):
+        # On an owner-PSK session this would return the credential itself.
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="security_credential_read_refused",
+            translation_placeholders={"href": canonical},
+        )
     actual_href = subdevice.to_actual(canonical)
     code, rep, body = await coordinator.async_raw_read(actual_href, query)
+    # Redacted like the no-href snapshot above: these responses get pasted
+    # into issues, and a live read of /information/vs/0 or
+    # /wirelessinfo/vs/0 carries the serial number and MAC addresses.
+    rep = redact_resources(rep)
+    body = redact_resources(body)
     read_result: dict[str, Any] = {
         "href": canonical,
         "actual_href": actual_href,

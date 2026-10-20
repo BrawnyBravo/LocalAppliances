@@ -2348,6 +2348,9 @@
     },
     "command_auth_rejected": {
       "message": "Das Gerät hat das Geräte-Token dieses Eintrags abgelehnt. Authentifiziere den Eintrag unter Einstellungen > Geräte & Dienste neu, um ein neues zu erhalten."
+    },
+    "security_credential_read_refused": {
+      "message": "Das Lesen von {href} wird abgelehnt: Es enthält die Zugangsdaten des Geräts, die Home Assistant nie verlassen sollten."
     }
   },
   "selector": {

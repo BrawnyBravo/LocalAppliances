@@ -2348,6 +2348,9 @@
     },
     "command_auth_rejected": {
       "message": "L'appareil a refusé le jeton d'appareil de cette entrée. Ré-authentifiez l'entrée depuis Paramètres > Appareils et services pour en obtenir un nouveau."
+    },
+    "security_credential_read_refused": {
+      "message": "La lecture de {href} est refusée : elle contient les identifiants de l'appareil, qui ne doivent jamais quitter Home Assistant."
     }
   },
   "selector": {

@@ -2348,6 +2348,9 @@
     },
     "command_auth_rejected": {
       "message": "Het apparaat weigerde het apparaattoken van dit item. Verifieer het item opnieuw via Instellingen > Apparaten & diensten om een nieuw token te krijgen."
+    },
+    "security_credential_read_refused": {
+      "message": "Het lezen van {href} wordt geweigerd: het bevat de inloggegevens van het apparaat, die Home Assistant nooit mogen verlaten."
     }
   },
   "selector": {
