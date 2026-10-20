@@ -387,6 +387,10 @@ def async_setup_services(hass: HomeAssistant) -> None:
         schema=_OBSERVE_RESOURCE_SCHEMA,
         supports_response=SupportsResponse.ONLY,
     )
+    # start_cooking is deliberately not admin-only: it is the same action the
+    # oven's own entities already offer every user, it goes through the
+    # entity checks, and it is refused unless Remote Control is enabled on
+    # the oven itself -- the appliance owner's own consent to remote start.
     hass.services.async_register(
         DOMAIN,
         SERVICE_START_COOKING,
