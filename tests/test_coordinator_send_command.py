@@ -230,3 +230,28 @@ async def test_indexed_subdevice_climate_write_quantizes_with_its_own_temperatur
     posted_path, posted_body = coordinator._session.post_calls[0]
     assert posted_path == ["temperature", "desired", "1"]
     assert posted_body == {"temperature": 24.5}
+
+
+async def test_settle_window_is_armed_before_the_optimistic_apply(coordinator) -> None:
+    """The settle guard must already be armed when the optimistic value
+    lands; otherwise a stale notify can slip in between and be held."""
+    href = "/course/vs/0"
+    coordinator._observe.apply(
+        href, {"x.com.samsung.da.options": ["Course_16"]}, source="poll"
+    )
+    observe = coordinator._observe
+    original_apply = observe.apply
+    armed_at_apply: list[float | None] = []
+
+    def _spy(h, rep, source):
+        if source == "optimistic":
+            armed_at_apply.append(observe.settle_deadline(h))
+        return original_apply(h, rep, source)
+
+    observe.apply = _spy
+
+    desc = laundry.cycle_select(translation_key="dryer_cycle", icon="x")
+    bound = BoundEntity(href=href, capability=Capability(), desc=desc)
+    await coordinator.async_send_command(bound, "1D")
+
+    assert armed_at_apply and armed_at_apply[0] is not None

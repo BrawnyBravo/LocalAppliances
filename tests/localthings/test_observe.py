@@ -788,3 +788,45 @@ def test_on_notification_applies_rep_when_rt_matches_or_is_absent():
 
     mgr.on_notification("/mode/vs/0", cbor2.dumps({"x.com.samsung.da.modes": ["Dry"]}))
     assert (mgr.cache.get("/mode/vs/0") or {}).get("x.com.samsung.da.modes") == ["Dry"]
+
+
+def test_settle_check_and_cache_write_are_atomic():
+    """A notify thread that passes the settle check must not be able to
+    write its stale rep after the event loop has armed the window and
+    applied the optimistic value. The check and the write happen under one
+    lock, so the optimistic value always ends up on top."""
+    mgr = _manager()
+    href = "/course/vs/0"
+    mgr.apply(href, {"v": "old"}, source="poll")
+
+    checked = threading.Event()
+    go = threading.Event()
+    original = mgr._is_settling
+
+    def _paused_check(h):
+        result = original(h)
+        if threading.current_thread().name == "notify":
+            checked.set()
+            go.wait(2)
+        return result
+
+    mgr._is_settling = _paused_check  # type: ignore[method-assign]
+
+    notify = threading.Thread(
+        target=mgr.apply, args=(href, {"v": "stale"}, "observe"), name="notify"
+    )
+    notify.start()
+    assert checked.wait(2)
+
+    def _write():
+        mgr.mark_write_pending(href, settle_s=30)
+        mgr.apply(href, {"v": "new"}, source="optimistic")
+
+    writer = threading.Thread(target=_write, name="writer")
+    writer.start()
+    writer.join(0.3)  # without the lock the writer finishes here
+    go.set()
+    notify.join(2)
+    writer.join(2)
+    assert not notify.is_alive() and not writer.is_alive()
+    assert mgr.cache.get(href) == {"v": "new"}

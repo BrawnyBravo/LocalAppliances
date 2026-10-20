@@ -2541,12 +2541,15 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         write_href = bound_entity.subdevice.to_actual("/" + "/".join(path_segs))
         path_segs = [s for s in write_href.strip("/").split("/") if s]
 
-        # Apply readable writes optimistically before starting the settle
-        # guard -- guard and apply share the same gate (mark_write_pending),
-        # so reversing the order would drop the very update it exists to
-        # protect (issue #27). A write-only button has no readable field to
-        # protect: merging its command body would manufacture state the
-        # appliance can never confirm, so it skips both operations.
+        # Arm the settle guard first, then apply the optimistic value. The
+        # optimistic apply always passes the guard (observe.apply lets
+        # source="optimistic" through), so arming first cannot drop it
+        # (issue #27) -- and arming second left a gap in which a stale
+        # notify or sub-poll from another thread could land on top of the
+        # optimistic value and then be held there by the guard. A
+        # write-only button has no readable field to protect: merging its
+        # command body would manufacture state the appliance can never
+        # confirm, so it skips both operations.
         #
         # settle_s must outlast the PUT plus the confirming refresh, not
         # DEFAULT_SETTLE_S's fixed few seconds: the refresh is a full
@@ -2587,10 +2590,10 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     **optimistic_body,
                     "x.com.samsung.da.items": merge_items_field(cached_items, new_items),
                 }
-            self._observe.apply(write_href, optimistic_body, source="optimistic")
             armed_settle = self._observe.mark_write_pending(
                 write_href, settle_s=self._POST_TIMEOUT_S + self._POLL_TIMEOUT_S
             )
+            self._observe.apply(write_href, optimistic_body, source="optimistic")
 
         def _rearm() -> None:
             nonlocal armed_settle
