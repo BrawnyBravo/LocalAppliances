@@ -45,6 +45,9 @@ _SUPPORTED_FAN_SPEED_FIELD = "x.com.samsung.da.hood.supportedFanSpeed"
 _MIN_FAN_SPEED_FIELD = "x.com.samsung.da.hood.settableMinFanSpeed"
 _MAX_FAN_SPEED_FIELD = "x.com.samsung.da.hood.settableMaxFanSpeed"
 _OFF_SPEED_CODE = "0"
+# A fan-speed rep with any of these says how the hood turns off; one with
+# none of them (empty, or a not-yet-fetched stub) says nothing.
+_SPEED_SHAPE_FIELDS = (_SUPPORTED_FAN_SPEED_FIELD, _MIN_FAN_SPEED_FIELD, _MAX_FAN_SPEED_FIELD)
 
 _MODES_FIELD = "x.com.samsung.da.modes"
 _SUPPORTED_MODES_FIELD = "x.com.samsung.da.supportedModes"
@@ -83,6 +86,11 @@ class LocalThingsRangeHoodFan(LocalThingsEntity, FanEntity):
     only proves some power resource exists on the device -- on a combi
     appliance that resource can belong to the cavity, not the vent fan,
     and toggling it from here would turn off the whole appliance.
+
+    The answer is remembered from the last fan-speed rep that actually
+    carried the speed fields, so a momentarily empty or stub rep cannot flip
+    a vent fan onto the power path. Until one has been seen the hood refuses
+    to write at all rather than guess.
     """
 
     _enable_turn_on_off_backwards_compatibility = False
@@ -97,6 +105,9 @@ class LocalThingsRangeHoodFan(LocalThingsEntity, FanEntity):
     def __init__(self, coordinator: LocalThingsCoordinator, bound) -> None:
         super().__init__(coordinator, bound)
         self._attr_name = None
+        # See the class docstring; None until a fan-speed rep says.
+        self._zero_is_off: bool | None = None
+        self._speed_zero_is_off()
 
     def _rep(self, href: str) -> dict:
         return self.coordinator.resource(href) or {}
@@ -108,12 +119,31 @@ class LocalThingsRangeHoodFan(LocalThingsEntity, FanEntity):
         """Whether fan speed '0' is itself this hood's off step, with no
         separate power resource to toggle -- settableMinFanSpeed '0', or
         '0' inside supportedFanSpeed. False for the standalone hood, whose
-        codes start at 14 and which carries a real /power resource."""
+        codes start at 14 and which carries a real /power resource.
+
+        Recomputed only from a rep that carries the speed fields; otherwise
+        the last answer stands (see the class docstring)."""
         rep = self._rep(self._bound.href)
-        return (
-            str(rep.get(_MIN_FAN_SPEED_FIELD, "")) == _OFF_SPEED_CODE
-            or _OFF_SPEED_CODE in self._all_speed_codes()
-        )
+        if any(f in rep for f in _SPEED_SHAPE_FIELDS):
+            self._zero_is_off = (
+                str(rep.get(_MIN_FAN_SPEED_FIELD, "")) == _OFF_SPEED_CODE
+                or _OFF_SPEED_CODE in self._all_speed_codes()
+            )
+        return bool(self._zero_is_off)
+
+    def _speed_shape_known(self) -> bool:
+        """Whether a fan-speed rep has ever said how this hood turns off.
+        Every write path checks it first: guessing wrong on a combi
+        appliance would switch off the cavity, not the fan."""
+        self._speed_zero_is_off()
+        if self._zero_is_off is None:
+            _LOGGER.warning(
+                "%s: fan speed not read yet, so it is not known whether this "
+                "hood turns off by speed or by power; command skipped",
+                self.entity_id or self.unique_id,
+            )
+            return False
+        return True
 
     def _all_speed_codes(self) -> list[str]:
         rep = self._rep(self._bound.href)
@@ -175,6 +205,8 @@ class LocalThingsRangeHoodFan(LocalThingsEntity, FanEntity):
         preset_mode: str | None = None,
         **kwargs,
     ) -> None:
+        if not self._speed_shape_known():
+            return
         if self._speed_zero_is_off():
             if percentage is not None:
                 await self.async_set_percentage(percentage)
@@ -195,6 +227,8 @@ class LocalThingsRangeHoodFan(LocalThingsEntity, FanEntity):
             await self.async_set_percentage(percentage)
 
     async def async_turn_off(self, **kwargs) -> None:
+        if not self._speed_shape_known():
+            return
         if self._speed_zero_is_off():
             await self.coordinator.async_send_command(self._bound, ("speed", _OFF_SPEED_CODE))
             return
@@ -204,6 +238,8 @@ class LocalThingsRangeHoodFan(LocalThingsEntity, FanEntity):
         )
 
     async def async_set_percentage(self, percentage: int) -> None:
+        if not self._speed_shape_known():
+            return
         if percentage <= 0:
             await self.async_turn_off()
             return
