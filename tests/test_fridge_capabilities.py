@@ -476,6 +476,9 @@ class TestKimchiZone:
                 self.data = data
                 self.commands = []
 
+            def resource(self, href):
+                return self.last_resources.get(href)
+
             async def async_send_command(self, bound, value):
                 self.commands.append(value)
 

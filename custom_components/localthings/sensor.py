@@ -25,7 +25,7 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import LocalThingsCoordinator
-from .entity import LocalThingsEntity, _is_included
+from .entity import LocalThingsEntity, _is_included, async_migrate_subdevice_case
 from .observe import MODE_OBSERVE, MODE_POLL
 from .registry.entities import SensorDesc
 
@@ -36,6 +36,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: LocalThingsCoordinator = hass.data[DOMAIN][entry.entry_id]
+    async_migrate_subdevice_case(hass, entry, coordinator)
     entities: list[SensorEntity] = [
         LocalThingsSensor(coordinator, b)
         for b in coordinator.bound

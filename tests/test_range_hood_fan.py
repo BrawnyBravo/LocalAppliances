@@ -236,3 +236,67 @@ def test_microwave_vent_fan_missing_supported_fan_speed_falls_back_to_settable_m
     assert entity._active_speed_codes() == ["1", "2", "3"]
     assert entity.speed_count == 3
     assert entity.supported_features & 1  # FanEntityFeature.SET_SPEED is present
+
+
+# ---------------------------------------------------------------------------
+# A momentarily empty fan-speed rep (review L1)
+# ---------------------------------------------------------------------------
+
+HOOD_SPEED = "/hood/fanspeed/vs/0"
+
+
+async def test_combi_vent_fan_keeps_speed_off_through_an_empty_rep():
+    """The combi microwave above, but its fan-speed rep comes back empty (or
+    a stub) just as the user turns the fan off. Deciding afresh from that rep
+    used to send the cavity's own /power/0 off -- switching off the whole
+    appliance. The answer from the last full rep now stands."""
+    resources = _load_device("microwave_me7500d")
+    resources["/power/0"] = {"value": True}
+    resources[HOOD_SPEED]["x.com.samsung.da.hood.fanSpeed"] = "2"
+    coordinator = _FakeCoordinator(resources)
+    entity = _microwave_entity(resources, coordinator)
+
+    for empty in ({}, {"href": HOOD_SPEED}):
+        resources[HOOD_SPEED] = empty
+        await entity.async_turn_off()
+        await entity.async_set_percentage(50)
+        await entity.async_turn_on()
+
+    payloads = [payload for _, payload in coordinator.commands]
+    assert all(payload[0] != "power" for payload in payloads), payloads
+    assert ("speed", "0") in payloads
+
+
+async def test_a_hood_that_has_never_read_its_fan_speed_writes_nothing():
+    """No full rep yet, so there is no way to know whether off means speed 0
+    or power -- and guessing power is the dangerous answer."""
+    resources = _load_device("microwave_me7500d")
+    full = resources[HOOD_SPEED]
+    resources["/power/0"] = {"value": True}
+    resources[HOOD_SPEED] = {"href": HOOD_SPEED}
+    coordinator = _FakeCoordinator(resources)
+    # Discovery needs the full rep to bind the fan; the entity then starts
+    # from the stub.
+    entity = _microwave_entity({**resources, HOOD_SPEED: full}, coordinator)
+
+    await entity.async_turn_off()
+    await entity.async_set_percentage(50)
+    await entity.async_turn_on()
+
+    assert coordinator.commands == []
+
+    # Once the rep arrives the hood works normally.
+    resources[HOOD_SPEED] = full
+    await entity.async_turn_off()
+    assert coordinator.commands[-1][1] == ("speed", "0")
+
+
+async def test_the_standalone_hood_keeps_its_power_path_through_an_empty_rep():
+    resources = _load_device("range_hood")
+    coordinator = _FakeCoordinator(resources)
+    entity = _entity(resources, coordinator)
+
+    resources["/hood/fanspeed/vs/0"] = {}
+    await entity.async_turn_on()
+
+    assert coordinator.commands[-1][1] == ("power", True, "/power/0")

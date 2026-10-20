@@ -32,12 +32,12 @@ from homeassistant.components.climate import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .coordinator import LocalThingsCoordinator
-from .entity import LocalThingsEntity, _is_included
+from .entity import LocalThingsEntity, _is_included, async_migrate_subdevice_case
 from .registry.capabilities.airconditioner import (
     HREF_AIRFLOW as AIRFLOW_HREF,
 )
@@ -223,6 +223,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: LocalThingsCoordinator = hass.data[DOMAIN][entry.entry_id]
+    async_migrate_subdevice_case(hass, entry, coordinator)
     async_add_entities(
         LocalThingsClimate(coordinator, b)
         for b in coordinator.bound
@@ -274,25 +275,45 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
     def __init__(self, coordinator: LocalThingsCoordinator, bound) -> None:
         super().__init__(coordinator, bound)
         self._attr_name = None  # primary entity: no name suffix
-        self._attr_supported_features = (
-            ClimateEntityFeature.TARGET_TEMPERATURE
-            | ClimateEntityFeature.FAN_MODE
-            | ClimateEntityFeature.PRESET_MODE
-            | ClimateEntityFeature.TURN_ON
-            | ClimateEntityFeature.TURN_OFF
-        )
+        # Only the always-present controls; the rest are added per unit in
+        # supported_features below.
+        self._attr_supported_features = ClimateEntityFeature.TURN_ON | ClimateEntityFeature.TURN_OFF
         # (href, raw device code) pairs already logged by _warn_unmapped --
         # these properties are read on every refresh, so an un-deduped
         # warning would spam the log for a genuinely unrecognized code.
         self._warned_unmapped: set[tuple[str, str]] = set()
+        # See _ai_comfort_exit_code.
+        current = _first(self._rep(MODE_HREF).get(_MODES_FIELD))
+        self._last_non_ai_mode: str | None = current if current in _DEVICE_TO_HVAC else None
 
     @property
     def supported_features(self) -> ClimateEntityFeature:
-        # HA renders an empty swing menu if this flag has no matching options.
+        # HA renders an empty menu (or, for temperature, a 7-35 degree setpoint
+        # with no value) when a flag has nothing behind it, and a write to a
+        # resource the unit does not have is rejected -- so every optional
+        # control is gated on this unit actually offering it. A fresh-air
+        # ventilator (ACA-KR-TP2-21-AN9000) has no temperature or preset
+        # resource at all.
         features = self._attr_supported_features
+        if self._has_target_temperature():
+            features |= ClimateEntityFeature.TARGET_TEMPERATURE
+        if self.fan_modes:
+            features |= ClimateEntityFeature.FAN_MODE
+        if self.preset_modes:
+            features |= ClimateEntityFeature.PRESET_MODE
         if self.swing_modes:
             features |= ClimateEntityFeature.SWING_MODE
         return features
+
+    def _has_target_temperature(self) -> bool:
+        """Whether this unit has a setpoint resource to read and write.
+
+        Judged by the href being known at all (a not-yet-fetched stub
+        counts), not by its value, so the control does not flicker while a
+        rep is momentarily empty. Falls back to the discovery view on an
+        offline load (issue #295), when the live cache is still empty."""
+        resources = self._resources or self.coordinator.discovery_canonical(self._bound.subdevice)
+        return TEMP_DESIRED_HREF in resources or TEMPS_VS_HREF in resources
 
     # -- resource helpers ---------------------------------------------------
 
@@ -597,7 +618,7 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
     # -- hvac mode ----------------------------------------------------------
 
     @property
-    def hvac_mode(self) -> HVACMode:
+    def hvac_mode(self) -> HVACMode | None:
         if not self._is_on():
             return HVACMode.OFF
         device = _first(self._rep(MODE_HREF).get(_MODES_FIELD))
@@ -609,7 +630,11 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
             and device not in _NON_HVAC_OPTION_CODES
         ):
             self._warn_unmapped(MODE_HREF, device)
-        return _DEVICE_TO_HVAC.get(device, HVACMode.AUTO)
+        # Unknown rather than a guessed Auto when the mode cannot be read (an
+        # empty or stub rep) or maps to nothing: a unit with no Auto at all
+        # would otherwise briefly show one, and an automation keyed on it
+        # would fire. Same as zone_climate.
+        return _DEVICE_TO_HVAC.get(device) if device is not None else None
 
     @property
     def hvac_modes(self) -> list[HVACMode]:
@@ -645,7 +670,11 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
     @property
     def fan_modes(self) -> list[str]:
         if self._legacy_airflow():
-            # This resource carries no supportedModes, so the full scale is offered.
+            # This resource carries no supportedModes, so the full scale is
+            # offered. A known limitation: a unit without Turbo rejects it.
+            # The capability bit maps that gate presets (_legacy_preset_codes)
+            # may gate this too, but no capture or app transcription says
+            # which bit, and guessing could hide a speed the unit has.
             return list(_DEVICE_TO_FAN.values())
         rep = self._rep(WIND_STRENGTH_HREF)
         modes = []
@@ -673,6 +702,9 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
     @property
     def swing_modes(self) -> list[str]:
         if self._legacy_airflow():
+            # Every direction, for the same reason as fan_modes above: no
+            # known bit says whether this unit swings horizontally, so one
+            # that cannot rejects "horizontal"/"both" (a known limitation).
             return list(_SWING_TO_DEVICE.keys())
         if self._swing_via_direction():
             return self._read_modes(WIND_DIRECTION_HREF, _DEVICE_TO_SWING)
@@ -824,6 +856,48 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
         )
         await asyncio.sleep(_NANO_AFTER_MODE_DELAY)
 
+    def _ai_comfort_exit_code(self) -> str | None:
+        """The /mode/vs/0 code to switch to when a preset other than AI
+        Comfort is chosen while the unit is in it.
+
+        AI Comfort lives in the primary mode resource, so writing only the
+        convenient one leaves the unit -- and preset_mode, which reads the
+        primary mode first -- in AI Comfort. The plain Auto it overlays is
+        the natural way out. A unit without one (the AI Air Combo
+        ventilator, #551) goes back to the last other mode this entity saw
+        it in, or failing that its first listed mode HA can show."""
+        supported = self._supported(MODE_HREF)
+        if "Auto" in supported:
+            return "Auto"
+        if self._last_non_ai_mode in supported:
+            return self._last_non_ai_mode
+        return next(
+            (code for code in supported if code in _DEVICE_TO_HVAC),
+            None,
+        )
+
+    async def _leave_ai_comfort(self) -> None:
+        if _first(self._rep(MODE_HREF).get(_MODES_FIELD)) != _AI_COMFORT_MODE:
+            return
+        if self._legacy_preset():
+            # Legacy ARTIK051 boards run their comfort presets *inside* AI
+            # Comfort: the appliance's own app offers them there, and
+            # _legacy_preset_codes() transcribes which. Switching the mode
+            # would undo what the user asked for.
+            return
+        code = self._ai_comfort_exit_code()
+        if code is not None:
+            await self.coordinator.async_send_command(self._bound, ("mode", code))
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        # Remembered for _ai_comfort_exit_code: the mode a unit without a
+        # plain Auto was in before AI Comfort.
+        current = _first(self._rep(MODE_HREF).get(_MODES_FIELD))
+        if current in _DEVICE_TO_HVAC:
+            self._last_non_ai_mode = current
+        super()._handle_coordinator_update()
+
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         if preset_mode == PRESET_AI_COMFORT:
             # Writes the primary mode resource, not the convenient one --
@@ -835,6 +909,7 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
         # a fixed transform of the HA value -- e.g. 'NanoSleep' -> 'nanosleep').
         for code in self._supported(CONVENIENT_HREF):
             if _preset_to_ha(code) == preset_mode:
+                await self._leave_ai_comfort()
                 await self._legacy_preset_needs_cool(code)
                 kind = "preset_legacy" if self._legacy_preset() else "preset"
                 await self.coordinator.async_send_command(self._bound, (kind, code))

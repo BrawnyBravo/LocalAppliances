@@ -13,7 +13,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .catalog import translated_states
 from .const import DOMAIN
 from .coordinator import LocalThingsCoordinator
-from .entity import LocalThingsEntity, _is_included
+from .entity import LocalThingsEntity, _is_included, async_migrate_subdevice_case
 from .registry.entities import SelectDesc
 
 
@@ -23,6 +23,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: LocalThingsCoordinator = hass.data[DOMAIN][entry.entry_id]
+    async_migrate_subdevice_case(hass, entry, coordinator)
     async_add_entities(
         LocalThingsSelect(coordinator, b)
         for b in coordinator.bound
@@ -113,25 +114,47 @@ class LocalThingsSelect(LocalThingsEntity, SelectEntity):
             # snapshot -- see LocalThingsEntity._resources.
             return list(desc.options(self._resources) or [])
         if desc.options_field:
-            rep = self.coordinator.last_resources.get(self._bound.href) or {}
+            # One href, so no need for last_resources' full snapshot copy.
+            rep = self.coordinator.resource(self._bound.href) or {}
             return list(rep.get(desc.options_field) or [])
         return list(desc.options)
 
     @property
     def options(self) -> list[str]:
+        """Declared options, plus whatever this device is actually reporting.
+
+        HA shows a select as unknown when its current option is not in
+        `options`, and a device can sit in a mode its own list does not
+        advertise (issue #327). Admitting the live value keeps the state
+        readable, the same rule sensor.py applies to enum sensors. An empty
+        list is left empty: it means the options have not been read yet, and
+        a one-entry dropdown of the live value would hide that.
+        """
         desc = cast(SelectDesc, self._bound.desc)
         if desc.options_field or callable(desc.options):
-            return [self._display_option(o) for o in self._raw_options()]
-        return self._attr_options
+            declared = [self._display_option(o) for o in self._raw_options()]
+        else:
+            declared = list(self._attr_options)
+        current = self.current_option
+        if declared and isinstance(current, str) and current not in declared:
+            declared.append(current)
+        return declared
 
     @property
     def current_option(self):
-        raw = (self.coordinator.data or {}).get(self._state_key)
-        return self._display_option(raw)
+        return self._display_option(self._raw_current())
+
+    def _raw_current(self):
+        return (self.coordinator.data or {}).get(self._state_key)
 
     async def async_select_option(self, option: str) -> None:
         raw = next(
             (o for o in self._raw_options() if self._display_option(o) == option),
-            option,
+            None,
         )
+        if raw is None:
+            # The live value admitted by `options` above goes back in the
+            # device's own spelling, like every listed one.
+            current = self._raw_current()
+            raw = current if self._display_option(current) == option else option
         await self.coordinator.async_send_command(self._bound, raw)

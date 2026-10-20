@@ -11,7 +11,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .coordinator import LocalThingsCoordinator
-from .entity import LocalThingsEntity, _is_included
+from .entity import LocalThingsEntity, _is_included, async_migrate_subdevice_case
 from .registry.entities import NumberDesc
 
 
@@ -21,6 +21,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: LocalThingsCoordinator = hass.data[DOMAIN][entry.entry_id]
+    async_migrate_subdevice_case(hass, entry, coordinator)
     async_add_entities(
         LocalThingsNumber(coordinator, b)
         for b in coordinator.bound
@@ -28,9 +29,13 @@ async def async_setup_entry(
     )
 
 
-class LocalThingsNumber(LocalThingsEntity, NumberEntity):
-    _attr_mode = NumberMode.SLIDER
+# More positions than this and a slider can no longer land on one value
+# reliably, so a box is shown instead -- the same cut-off HA's own AUTO mode
+# uses in the frontend.
+_MAX_SLIDER_STEPS = 256
 
+
+class LocalThingsNumber(LocalThingsEntity, NumberEntity):
     def __init__(self, coordinator: LocalThingsCoordinator, bound) -> None:
         super().__init__(coordinator, bound)
         desc = cast(NumberDesc, bound.desc)
@@ -106,6 +111,16 @@ class LocalThingsNumber(LocalThingsEntity, NumberEntity):
         if hasattr(self, "_attr_native_step"):
             return self._attr_native_step
         return super().native_step
+
+    @property
+    def mode(self) -> NumberMode:
+        """A slider for short ranges, a box for wide ones (a 0-1000 setpoint
+        in steps of 1 is unusable as a slider)."""
+        try:
+            steps = (self.max_value - self.min_value) / (self.step or 1)
+        except (TypeError, ValueError, ZeroDivisionError):
+            return NumberMode.SLIDER
+        return NumberMode.SLIDER if steps <= _MAX_SLIDER_STEPS else NumberMode.BOX
 
     @property
     def native_value(self):

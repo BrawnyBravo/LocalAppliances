@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import re
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.translation import async_get_translations
@@ -102,6 +105,78 @@ def _localized_instance_name(name: str, localized: dict[str, str]) -> str:
     """An unlisted name -- a numbered instance or an ice maker name no
     fixture has shown yet -- keeps its derived English form."""
     return localized.get(name.lower().replace(" ", "_"), name)
+
+
+_LOGGER = logging.getLogger(__name__)
+
+
+@callback
+def async_migrate_subdevice_case(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: LocalThingsCoordinator
+) -> None:
+    """Move registry entries made under a differently-cased subdevice UUID
+    onto the lowercase form subdevices.Subdevice now always uses (review L3).
+
+    A UUID-prefixed subdevice's key used to keep whichever spelling the
+    device happened to report first, and it is part of every one of its
+    entities' unique_ids and of its device identifier. Rewriting rather
+    than recreating keeps entity_ids, history, areas and automations, the
+    same reasoning as rekey.py. Every UUID on record is already lowercase,
+    so this is a no-op for them.
+
+    Called by every platform before it adds entities, because each platform
+    registers its own; idempotent and cheap, so there is nothing to track.
+    Where both spellings already exist (an earlier case flip left a
+    duplicate) neither is touched: which one the user has customized cannot
+    be told from here, so it is logged instead.
+    """
+    prefixed = [su for su in coordinator.subdevices if su.kind == "prefixed"]
+    if not prefixed:
+        return
+    ent_reg = er.async_get(hass)
+    dev_reg = dr.async_get(hass)
+    entities = er.async_entries_for_config_entry(ent_reg, entry.entry_id)
+    devices = dr.async_entries_for_config_entry(dev_reg, entry.entry_id)
+    for subdevice in prefixed:
+        marker = subdevice.key_prefix
+        for ent in entities:
+            at = ent.unique_id.lower().find(marker)
+            if at < 0 or ent.unique_id[at : at + len(marker)] == marker:
+                continue
+            new_uid = ent.unique_id[:at] + marker + ent.unique_id[at + len(marker) :]
+            if ent_reg.async_get_entity_id(ent.domain, ent.platform, new_uid):
+                _LOGGER.warning(
+                    "%s exists under two spellings of its subdevice id; leaving both",
+                    ent.entity_id,
+                )
+                continue
+            ent_reg.async_update_entity(ent.entity_id, new_unique_id=new_uid)
+
+        new_ident = (DOMAIN, f"{coordinator.device_key}_{subdevice.key}")
+        for device in devices:
+            old = next(
+                (
+                    ident
+                    for ident in device.identifiers
+                    if ident[0] == DOMAIN
+                    and ident != new_ident
+                    and ident[1].lower() == new_ident[1].lower()
+                ),
+                None,
+            )
+            if old is None:
+                continue
+            # This entry's own devices only: the subdevice identifier embeds
+            # this entry's device key, so no other entry can hold it.
+            if any(new_ident in other.identifiers for other in devices):
+                _LOGGER.warning(
+                    "subdevice %s has devices under two spellings of its id; leaving both",
+                    subdevice.key,
+                )
+                continue
+            dev_reg.async_update_device(
+                device.id, new_identifiers=(device.identifiers - {old}) | {new_ident}
+            )
 
 
 class LocalThingsEntity(CoordinatorEntity[LocalThingsCoordinator]):
