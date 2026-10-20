@@ -32,7 +32,7 @@ from homeassistant.components.climate import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
@@ -281,6 +281,9 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
         # these properties are read on every refresh, so an un-deduped
         # warning would spam the log for a genuinely unrecognized code.
         self._warned_unmapped: set[tuple[str, str]] = set()
+        # See _ai_comfort_exit_code.
+        current = _first(self._rep(MODE_HREF).get(_MODES_FIELD))
+        self._last_non_ai_mode: str | None = current if current in _DEVICE_TO_HVAC else None
 
     @property
     def supported_features(self) -> ClimateEntityFeature:
@@ -841,6 +844,48 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
         )
         await asyncio.sleep(_NANO_AFTER_MODE_DELAY)
 
+    def _ai_comfort_exit_code(self) -> str | None:
+        """The /mode/vs/0 code to switch to when a preset other than AI
+        Comfort is chosen while the unit is in it.
+
+        AI Comfort lives in the primary mode resource, so writing only the
+        convenient one leaves the unit -- and preset_mode, which reads the
+        primary mode first -- in AI Comfort. The plain Auto it overlays is
+        the natural way out. A unit without one (the AI Air Combo
+        ventilator, #551) goes back to the last other mode this entity saw
+        it in, or failing that its first listed mode HA can show."""
+        supported = self._supported(MODE_HREF)
+        if "Auto" in supported:
+            return "Auto"
+        if self._last_non_ai_mode in supported:
+            return self._last_non_ai_mode
+        return next(
+            (code for code in supported if code in _DEVICE_TO_HVAC),
+            None,
+        )
+
+    async def _leave_ai_comfort(self) -> None:
+        if _first(self._rep(MODE_HREF).get(_MODES_FIELD)) != _AI_COMFORT_MODE:
+            return
+        if self._legacy_preset():
+            # Legacy ARTIK051 boards run their comfort presets *inside* AI
+            # Comfort: the appliance's own app offers them there, and
+            # _legacy_preset_codes() transcribes which. Switching the mode
+            # would undo what the user asked for.
+            return
+        code = self._ai_comfort_exit_code()
+        if code is not None:
+            await self.coordinator.async_send_command(self._bound, ("mode", code))
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        # Remembered for _ai_comfort_exit_code: the mode a unit without a
+        # plain Auto was in before AI Comfort.
+        current = _first(self._rep(MODE_HREF).get(_MODES_FIELD))
+        if current in _DEVICE_TO_HVAC:
+            self._last_non_ai_mode = current
+        super()._handle_coordinator_update()
+
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         if preset_mode == PRESET_AI_COMFORT:
             # Writes the primary mode resource, not the convenient one --
@@ -852,6 +897,7 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
         # a fixed transform of the HA value -- e.g. 'NanoSleep' -> 'nanosleep').
         for code in self._supported(CONVENIENT_HREF):
             if _preset_to_ha(code) == preset_mode:
+                await self._leave_ai_comfort()
                 await self._legacy_preset_needs_cool(code)
                 kind = "preset_legacy" if self._legacy_preset() else "preset"
                 await self.coordinator.async_send_command(self._bound, (kind, code))
