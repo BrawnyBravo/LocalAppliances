@@ -128,3 +128,33 @@ def test_standalone_cooktop_power_level_reads_the_burner():
     state = _state()
     assert state["burner_0_power_level"] is not None
     assert "burner_3_power_level" not in state
+
+
+def test_disconnected_probe_reports_unknown_not_zero():
+    """The fixture's probe is disconnected and reports 0 for temperature,
+    target and battery. Those are idle placeholders, not a 0 degree reading
+    or an empty battery (which would trip low-battery alerts)."""
+    state = _state()
+    assert state["probe_connected"] is False
+    assert state["probe_temperature"] is None
+    assert state["probe_target_temperature"] is None
+    assert state["probe_battery"] is None
+
+
+def test_connected_probe_reports_its_readings():
+    from custom_components.localthings.registry.capabilities import range as range_caps
+
+    rep = {
+        "connectionState": "connected",
+        "batteryPercentage": 80,
+        "temperatureUnit": "C",
+        "targetTemperature": 63,
+        "currentTemperature": 41,
+    }
+    descs = {d.key: d for d in range_caps.PROBE_STATUS.entities}
+    assert descs["probe_temperature"].rep_fn(rep) == 41
+    assert descs["probe_target_temperature"].rep_fn(rep) == 63
+    assert descs["probe_battery"].rep_fn(rep) == 80
+    # Field presence still gates the entities.
+    for key in ("probe_temperature", "probe_target_temperature", "probe_battery"):
+        assert descs[key].field, key

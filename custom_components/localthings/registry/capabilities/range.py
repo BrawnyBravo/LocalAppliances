@@ -261,10 +261,20 @@ COOKTOP_SAFETY = Capability(
     ),
 )
 
-# Bluetooth meat probe (issue #86). All-idle sentinel values when
-# disconnected (operationBurnerNumber -1, temperatures 0) -- no special
-# gating, matching cooktop.PAIRED_HOOD_STATUS's precedent of showing a
-# disconnected accessory's fields plainly rather than hiding the capability.
+# Bluetooth meat probe (issue #86). While disconnected the board reports
+# idle placeholders (operationBurnerNumber -1, temperatures 0, battery 0):
+# the connectivity sensor still shows the accessory plainly (matching
+# cooktop.PAIRED_HOOD_STATUS), but the readings are unknown rather than a 0
+# degree sample in long-term statistics and a 0% battery that trips
+# low-battery alerts. Same idea as oven.py's _probe_connected gate.
+def _probe_connected(rep):
+    return str(rep.get("connectionState")).lower() == "connected"
+
+
+def _probe_reading(field):
+    return lambda rep: rep.get(field) if _probe_connected(rep) else None
+
+
 PROBE_STATUS = Capability(
     href="/bluetooth/probe/status/vs/0",
     poll_tier="warm",
@@ -282,6 +292,7 @@ PROBE_STATUS = Capability(
             state_class="measurement",
             unit="%",
             entity_category="diagnostic",
+            rep_fn=_probe_reading("batteryPercentage"),
         ),
         SensorDesc(
             key="probe_temperature",
@@ -289,6 +300,7 @@ PROBE_STATUS = Capability(
             device_class="temperature",
             state_class="measurement",
             unit_fn=lambda rep: normalize_temp_unit(rep.get("temperatureUnit"), "°C"),
+            rep_fn=_probe_reading("currentTemperature"),
         ),
         SensorDesc(
             key="probe_target_temperature",
@@ -296,6 +308,7 @@ PROBE_STATUS = Capability(
             device_class="temperature",
             entity_category="diagnostic",
             unit_fn=lambda rep: normalize_temp_unit(rep.get("temperatureUnit"), "°C"),
+            rep_fn=_probe_reading("targetTemperature"),
         ),
     ),
 )
