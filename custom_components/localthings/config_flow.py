@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import datetime
+import functools
 import http.client
 import ipaddress
 import json
@@ -12,6 +13,7 @@ import logging
 import re
 import socket
 import ssl
+import threading
 import time
 from collections.abc import Callable, Mapping
 from typing import Any
@@ -1070,6 +1072,9 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Reconfigure the (host, fingerprint) of a changed certificate --
         # pending until the user confirms it, then accepted.
         self._legacy_pin: str | None = None
+        # Set when the flow is closed, to end a running token exchange and
+        # free its callback port (see async_remove).
+        self._token_stop = threading.Event()
         self._pending_cert: tuple[str, str | None] | None = None
         self._accepted_cert: tuple[str, str | None] | None = None
         # Set only on the PSK branch: the imported credential as it is
@@ -1585,8 +1590,25 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     f"{self._host} presented a different certificate than this entry pinned"
                 )
         return await self.hass.async_add_executor_job(
-            obtain_device_token, self._host, LEGACY_HTTP_PORT, cert_pem, key_pem
+            functools.partial(
+                obtain_device_token,
+                self._host,
+                LEGACY_HTTP_PORT,
+                cert_pem,
+                key_pem,
+                stop=self._token_stop,
+            )
         )
+
+    @callback
+    def async_remove(self) -> None:
+        """The dialog was closed or the flow aborted: stop a token exchange
+        still waiting on its callback, so port 8889 is released now rather
+        than after its 90 s timeout -- an immediate retry would otherwise
+        fail with callback_port_in_use."""
+        self._token_stop.set()
+        if self._token_task is not None and not self._token_task.done():
+            self._token_task.cancel()
 
     async def async_step_legacy_token_received(
         self, user_input: dict[str, Any] | None = None
