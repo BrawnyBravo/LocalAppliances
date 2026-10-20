@@ -21,9 +21,14 @@ from custom_components.localthings.select import LocalThingsSelect
 
 class _FakeCoordinator:
     device_key = "TEST-SERIAL"
+    # What flatten() produced; None until a test supplies a live value.
+    data: ClassVar[dict | None] = None
 
     def __init__(self, last_resources):
         self.last_resources = last_resources
+
+    def resource(self, href):
+        return self.last_resources.get(href)
 
     def canonical_resources(self, subdevice):
         # Every entity built by _make_select uses the default MAIN
@@ -417,3 +422,86 @@ async def test_washer_diagnostic_cycle_values_share_one_display_and_write_path()
     await entity.async_select_option("6f")
     await entity.async_select_option(first_name)
     assert coordinator.writes == ["6F", "F1"]
+
+
+# ---------------------------------------------------------------------------
+# A live value outside the option list (review M4)
+# ---------------------------------------------------------------------------
+
+
+def _with_live_value(value):
+    class _Coordinator(_FakeCoordinator):
+        data: ClassVar[dict | None] = {"x": value}
+
+    return _Coordinator
+
+
+def test_options_field_keeps_an_unlisted_live_value():
+    """A device sitting in a mode its own supported list does not advertise
+    (issue #327). HA reads a select's state as None when current_option is
+    missing from options, so without the union this showed unknown."""
+    desc = SelectDesc(key="x", options_field="supported")
+    entity = _make_select(
+        desc,
+        "/x/vs/0",
+        {"/x/vs/0": {"supported": ["Lo", "Hi"]}},
+        coordinator_cls=_with_live_value("Turbo"),
+    )
+    assert entity.options == ["Lo", "Hi", "Turbo"]
+    assert entity.current_option in entity.options
+
+
+def test_static_options_keep_an_unlisted_live_value():
+    desc = SelectDesc(key="x", options=("A", "B"))
+    entity = _make_select(desc, "/x/vs/0", {}, coordinator_cls=_with_live_value("C"))
+    assert entity.options == ["A", "B", "C"]
+
+
+def test_callable_options_keep_an_unlisted_live_value():
+    desc = SelectDesc(key="x", options=lambda resources: ["One", "Two"])
+    entity = _make_select(desc, "/x/vs/0", {}, coordinator_cls=_with_live_value("Three"))
+    assert entity.options == ["One", "Two", "Three"]
+
+
+def test_a_listed_or_missing_live_value_adds_nothing():
+    desc = SelectDesc(key="x", options_field="supported")
+    resources = {"/x/vs/0": {"supported": ["Lo", "Hi"]}}
+    listed = _make_select(desc, "/x/vs/0", resources, coordinator_cls=_with_live_value("Hi"))
+    missing = _make_select(desc, "/x/vs/0", resources, coordinator_cls=_with_live_value(None))
+    assert listed.options == ["Lo", "Hi"]
+    assert missing.options == ["Lo", "Hi"]
+
+
+async def test_choosing_the_unlisted_live_value_writes_its_raw_spelling():
+    """The admitted value is shown through the same display path as the
+    listed ones ('Volume_High' -> its catalog key 'volume_high'), so it has to
+    be mapped back to the device's own spelling on write."""
+    sent = []
+
+    class _Coordinator(_FakeCoordinator):
+        data: ClassVar[dict | None] = {"buzzer_sound": "Volume_High"}
+
+        async def async_send_command(self, bound, value):
+            sent.append(value)
+
+    desc = next(e for e in BUZZER_SOUND.entities if e.key == "buzzer_sound")
+    entity = _make_select(
+        desc,
+        "/buzzersound/vs/0",
+        {"/buzzersound/vs/0": {"supportedBuzzerSound": ["Volume_Off", "Volume_Low"]}},
+        coordinator_cls=_Coordinator,
+    )
+    assert entity.options == ["volume_off", "volume_low", "volume_high"]
+    await entity.async_select_option("volume_high")
+    assert sent == ["Volume_High"]
+
+
+def test_an_unpopulated_list_is_not_filled_with_the_live_value():
+    """An empty list means the options have not been read yet; the select
+    keeps its 'unpopulated' contract rather than becoming a one-entry
+    dropdown (see TestDryLevelNarrowing)."""
+    desc = SelectDesc(key="x", options_field="supported")
+    entity = _make_select(
+        desc, "/x/vs/0", {"/x/vs/0": {"supported": []}}, coordinator_cls=_with_live_value("Lo")
+    )
+    assert entity.options == []
