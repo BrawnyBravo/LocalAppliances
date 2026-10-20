@@ -911,3 +911,38 @@ def test_progress_reads_unknown_for_the_fixed_201_a_running_cook_reports():
     assert desc.rep_fn({**running, "x.com.samsung.da.progressPercentage": "201"}) is None
     assert desc.rep_fn({**running, "x.com.samsung.da.progressPercentage": "40"}) == 40
     assert desc.rep_fn({"x.com.samsung.da.state": "Ready"}) == 0
+
+
+def test_sound_switches_gate_on_their_option_token():
+    """Like lamp/fast_preheat/natural_steam: a board whose options[] carries
+    no Sound_ token gets no sound switch (the #300 phantom-switch class),
+    while a stub rep keeps the not-yet-fetched carve-out."""
+    for cap in (microwave.MICROWAVE_MODE, oven.OVEN_MODE):
+        desc = next(e for e in cap.entities if e.key == "sound" and isinstance(e, SwitchDesc))
+        assert desc.exists_fn is not None, cap.href
+        assert desc.exists_fn({"x.com.samsung.da.options": ["Sound_On"]}, {}) is True
+        assert desc.exists_fn({"x.com.samsung.da.options": ["Lamp_Off"]}, {}) is False
+        assert desc.exists_fn({"href": "/mode/vs/0"}, {}) is True
+
+
+def test_microwave_mode_rejects_no_operation_like_the_oven():
+    """NoOperation is listed in supportedModes because it is the idle
+    reading, not a mode to start: picking it is refused up front (as the
+    oven's #445 rule does) rather than posted to the board."""
+    desc = _microwave_cooking_mode_desc()
+    assert desc.validate_fn is not None
+    rep = {"x.com.samsung.da.supportedModes": ["NoOperation", "MicroWave"]}
+    assert desc.validate_fn("NoOperation", rep, {}) == "oven_mode_idle_not_selectable"
+    assert not desc.validate_fn("MicroWave", rep, {})
+
+
+def test_microwave_child_lock_reads_a_missing_field_as_unknown():
+    """common.KIDS_LOCK_* return None for a missing field; this lock used to
+    read a missing childLock as unlocked."""
+    desc = next(
+        e for cap in (microwave.MICROWAVE_STATUS,) for e in cap.entities if e.key == "child_lock"
+    )
+    assert desc.value_fn(None) is None
+    # device_class lock reads inverted: True = unlocked.
+    assert desc.value_fn("on") is False
+    assert desc.value_fn("off") is True

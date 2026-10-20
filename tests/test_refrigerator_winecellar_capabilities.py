@@ -59,9 +59,10 @@ def test_deodor_filter_has_its_own_keys_not_air_filters():
     assert fridge.DEODOR_FILTER.entities != fridge.AIR_FILTER.entities
     state = _state()
     assert state["deodor_filter_status"] == "normal"
-    # The device's own sentinel, relayed as-is -- not a real 0-100 reading
-    # on this unit, and no second dump to say what else -1 could mean.
-    assert state["deodor_filter_usage"] == -1
+    # The device reports -1 here, which is not a 0-100 reading. Deliberately
+    # changed from asserting -1 was relayed as-is: a -1 % measurement sits in
+    # long-term statistics as a negative floor, so it now reads as unknown.
+    assert state["deodor_filter_usage"] is None
     assert "air_filter_usage" not in state
     assert "air_filter_status" not in state
 

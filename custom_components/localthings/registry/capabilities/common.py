@@ -39,6 +39,14 @@ def int_or_none(v):
         return None
 
 
+def percent_or_none(v):
+    """int_or_none for a 0-100 percentage, with a negative reading as unknown:
+    the wine cellar's deodorizer filter reports filterUsage "-1", which as a
+    -1 % measurement would sit in long-term statistics as a negative floor."""
+    n = int_or_none(v)
+    return n if n is not None and n >= 0 else None
+
+
 # 0xFEFE, which FAC_BORA boards report as instantaneousPower while off or in
 # standby and a real reading while running (issue #625).
 _NO_READING_POWER = 65278.0
@@ -54,6 +62,15 @@ def clamp_power(v):
 def wh_to_kwh(v):
     n = _num(v)
     return round(n / 1000.0, 2) if n is not None else None
+
+
+def nonnegative_wh_to_kwh(v):
+    """wh_to_kwh for an energy total that can genuinely read 0 but never
+    below: a negative reading is the board's "-1" no-meter sentinel (five
+    AC dumps report cumulativeSavedPower "-1"), which published as-is read
+    -0.0 kWh."""
+    n = _num(v)
+    return round(n / 1000.0, 2) if n is not None and n >= 0 else None
 
 
 def lifetime_wh_to_kwh(v):
@@ -97,7 +114,7 @@ def filter_usage_percent(rep):
     other families' fixtures), which only holds if `filterUsage` is already
     a percent -- dividing by capacity again would read that filter as fresh
     at 20%."""
-    return int_or_none(rep.get("x.com.samsung.da.filterUsage"))
+    return percent_or_none(rep.get("x.com.samsung.da.filterUsage"))
 
 
 def filter_usage_hours(rep):
@@ -568,27 +585,30 @@ ENERGY_METER = Capability(
         ),
         # cumulativeConsumption is a second, independently-varying running
         # total some fridges (issue #26) report alongside cumulativePower.
+        # A lifetime counter like it, so a transient 0 (or -1) is unknown
+        # rather than a meter reset (see lifetime_wh_to_kwh).
         SensorDesc(
             key="power_energy_kwh",
             field="x.com.samsung.da.cumulativeConsumption",
             device_class="energy",
             state_class="total_increasing",
             unit="kWh",
-            value_fn=wh_to_kwh,
+            value_fn=lifetime_wh_to_kwh,
             exists_fn=lambda rep, resources: (
                 is_stub_rep(rep) or "x.com.samsung.da.cumulativeConsumption" in rep
             ),
         ),
         # AI Energy Mode's lifetime savings estimate vs. an unoptimized
         # baseline -- present on some models (issue #21/#27), absent on
-        # others (issue #20/#26).
+        # others (issue #20/#26). A real 0 (nothing saved yet) publishes;
+        # the "-1" no-meter sentinel is unknown.
         SensorDesc(
             key="energy_saved_kwh",
             field="x.com.samsung.da.cumulativeSavedPower",
             device_class="energy",
             state_class="total_increasing",
             unit="kWh",
-            value_fn=wh_to_kwh,
+            value_fn=nonnegative_wh_to_kwh,
             exists_fn=lambda rep, resources: (
                 is_stub_rep(rep) or "x.com.samsung.da.cumulativeSavedPower" in rep
             ),
@@ -600,7 +620,7 @@ ENERGY_METER = Capability(
             field="x.com.samsung.da.monthlyConsumption",
             device_class="energy",
             unit="kWh",
-            value_fn=wh_to_kwh,
+            value_fn=nonnegative_wh_to_kwh,
             exists_fn=lambda rep, resources: (
                 is_stub_rep(rep) or "x.com.samsung.da.monthlyConsumption" in rep
             ),
@@ -610,7 +630,7 @@ ENERGY_METER = Capability(
             field="x.com.samsung.da.thismonthlyConsumption",
             device_class="energy",
             unit="kWh",
-            value_fn=wh_to_kwh,
+            value_fn=nonnegative_wh_to_kwh,
             exists_fn=lambda rep, resources: (
                 is_stub_rep(rep) or "x.com.samsung.da.thismonthlyConsumption" in rep
             ),
@@ -692,6 +712,7 @@ WATER_FILTER = Capability(
             unit="%",
             state_class="measurement",
             icon="mdi:filter",
+            value_fn=percent_or_none,
         ),
         SensorDesc(
             key="filter_status",

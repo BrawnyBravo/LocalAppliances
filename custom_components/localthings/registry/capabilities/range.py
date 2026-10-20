@@ -20,10 +20,14 @@ indices the device actually reports -- an index absent from burnerList
 just never binds.
 
 Cooktop write surfaces here are unproven (no live device to verify against,
-same caveat as oven.py's RMW writes) -- power level uses the same
-read-modify-write pattern already proven safe elsewhere in this codebase.
+same caveat as oven.py's RMW writes). The power-level write names only the
+burner being changed: re-sending the cached list would push every other
+burner back to its last-polled level, re-lighting one turned down at the
+knob since. A standalone cooktop gets the read-only COOKTOP_STATUS_READ_ONLY
+instead (see capabilities/cooktop.py's no-remote-ignition rule).
 """
 
+import dataclasses
 from datetime import datetime
 
 from ..batch import is_stub_rep
@@ -82,8 +86,17 @@ def _burner_field_fn(i, field):
 
 
 def _burner_hot_surface_fn(i):
-    get_state = _burner_field_fn(i, "hotSurfaceState")
-    return lambda burner_list: get_state(burner_list) not in (None, "normal")
+    """None, not False, when this burner isn't in the list: a missing entry
+    (such as the one-burner optimistic entry a power write leaves until the
+    next poll) is no evidence the surface is cool."""
+
+    def value(burner_list):
+        burner = _burner(burner_list, i)
+        if burner is None:
+            return None
+        return burner.get("hotSurfaceState") not in (None, "normal")
+
+    return value
 
 
 def _burner_pan_detection_fn(i):
@@ -96,21 +109,22 @@ def _power_level_options(resources):
 
 
 def _burner_power_level_write(i):
+    """Only the changed burner goes on the wire, never the cached siblings.
+
+    The old read-modify-write re-sent every burner's cached powerLevel,
+    operationState and timer: a burner turned down or off at the panel since
+    the last poll would have been put back to its old heat level. A
+    one-entry burnerList is the same partial-merge shape the items[] writes
+    use (common.merge_items_field); if a board instead treats the list as a
+    full replacement, the worst case is the other burners turning off, not
+    on. Unverified on hardware, like the rest of this surface."""
+
     def write(p, rep, href=None):
-        burner_list = rep.get("burnerList")
-        if not burner_list:
+        if _burner(rep.get("burnerList"), i) is None:
             return None
-        new_list = []
-        found = False
-        for b in burner_list:
-            if b.get("burnerNumber") == i:
-                b = dict(b)
-                b["powerLevel"] = p
-                found = True
-            new_list.append(b)
-        if not found:
-            return None
-        return ["cooktop", "status", "vs", "0"], {"burnerList": new_list}
+        return ["cooktop", "status", "vs", "0"], {
+            "burnerList": [{"burnerNumber": i, "powerLevel": p}]
+        }
 
     return write
 
@@ -200,6 +214,32 @@ COOKTOP_STATUS = Capability(
     ),
 )
 
+
+def _read_only_power_level(desc):
+    """The burner power-level select as a plain sensor under the same key."""
+    if not (isinstance(desc, SelectDesc) and desc.key.endswith("_power_level")):
+        return desc
+    return SensorDesc(
+        key=desc.key,
+        field=desc.field,
+        icon=desc.icon,
+        translation_key="burner_power_level",
+        translation_placeholders=desc.translation_placeholders,
+        exists_fn=desc.exists_fn,
+        value_fn=desc.value_fn,
+    )
+
+
+# For the standalone cooktop registry (by_type/cooktop.py): capabilities/
+# cooktop.py's rule is that a cooktop must not be remotely ignited by an
+# automation, and the power-level select can light a burner (its options
+# include boost and keepWarm). Same entities otherwise; the child lock is not
+# a heat control and stays writable.
+COOKTOP_STATUS_READ_ONLY = dataclasses.replace(
+    COOKTOP_STATUS,
+    entities=tuple(_read_only_power_level(e) for e in COOKTOP_STATUS.entities),
+)
+
 # Static burner-count/power-level-list metadata, read directly by
 # COOKTOP_STATUS's power-level select (options=_power_level_options)
 # rather than exposed through its own entity.
@@ -222,10 +262,21 @@ COOKTOP_SAFETY = Capability(
     ),
 )
 
-# Bluetooth meat probe (issue #86). All-idle sentinel values when
-# disconnected (operationBurnerNumber -1, temperatures 0) -- no special
-# gating, matching cooktop.PAIRED_HOOD_STATUS's precedent of showing a
-# disconnected accessory's fields plainly rather than hiding the capability.
+
+# Bluetooth meat probe (issue #86). While disconnected the board reports
+# idle placeholders (operationBurnerNumber -1, temperatures 0, battery 0):
+# the connectivity sensor still shows the accessory plainly (matching
+# cooktop.PAIRED_HOOD_STATUS), but the readings are unknown rather than a 0
+# degree sample in long-term statistics and a 0% battery that trips
+# low-battery alerts. Same idea as oven.py's _probe_connected gate.
+def _probe_connected(rep):
+    return str(rep.get("connectionState")).lower() == "connected"
+
+
+def _probe_reading(field):
+    return lambda rep: rep.get(field) if _probe_connected(rep) else None
+
+
 PROBE_STATUS = Capability(
     href="/bluetooth/probe/status/vs/0",
     poll_tier="warm",
@@ -243,6 +294,7 @@ PROBE_STATUS = Capability(
             state_class="measurement",
             unit="%",
             entity_category="diagnostic",
+            rep_fn=_probe_reading("batteryPercentage"),
         ),
         SensorDesc(
             key="probe_temperature",
@@ -250,6 +302,7 @@ PROBE_STATUS = Capability(
             device_class="temperature",
             state_class="measurement",
             unit_fn=lambda rep: normalize_temp_unit(rep.get("temperatureUnit"), "°C"),
+            rep_fn=_probe_reading("currentTemperature"),
         ),
         SensorDesc(
             key="probe_target_temperature",
@@ -257,6 +310,7 @@ PROBE_STATUS = Capability(
             device_class="temperature",
             entity_category="diagnostic",
             unit_fn=lambda rep: normalize_temp_unit(rep.get("temperatureUnit"), "°C"),
+            rep_fn=_probe_reading("targetTemperature"),
         ),
     ),
 )

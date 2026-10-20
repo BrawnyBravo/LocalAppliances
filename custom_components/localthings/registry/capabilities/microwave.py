@@ -54,6 +54,7 @@ path, not permission. Same call as common.py's KIDS_LOCK_VS_FALLBACK
 always error.
 """
 
+from ..batch import is_stub_rep
 from ..capability import Capability
 from ..entities import (
     BinarySensorDesc,
@@ -66,6 +67,7 @@ from ..entities import (
 from .common import int_or_none, normalize_temp_unit, parse_iso_utc
 from .cook import PARAM_MODE, PARAM_TEMPERATURE, mode_specs, selectable_modes
 from .laundry import option_value, option_write
+from .oven import _oven_mode_validate
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -185,6 +187,13 @@ def _mode_write(p, rep, href=None):
     if p not in valid:
         return None
     return ["mode", "vs", "0"], {"x.com.samsung.da.modes": [p]}
+
+
+def _sound_exists(rep, resources):
+    """Bind only when options[] carries a Sound_ token, like the lamp switch
+    (#300's phantom-switch class); a stub rep still gets its first chance."""
+    options = rep.get("x.com.samsung.da.options")
+    return is_stub_rep(rep) or option_value(options, "Sound") is not None
 
 
 def _sound_write(p, rep, href=None):
@@ -365,6 +374,10 @@ MICROWAVE_MODE = Capability(
             icon="mdi:tune",
             options=_cooking_mode_options,
             value_fn=lambda v: v[0] if v else None,
+            # NoOperation is listed in supportedModes as the idle reading,
+            # not a mode the board accepts; refuse it up front the way the
+            # oven does (#445) instead of posting it.
+            validate_fn=_oven_mode_validate,
             write_fn=_mode_write,
             cook_param=PARAM_MODE,
         ),
@@ -373,6 +386,7 @@ MICROWAVE_MODE = Capability(
             field="x.com.samsung.da.options",
             icon="mdi:volume-high",
             entity_category="config",
+            exists_fn=_sound_exists,
             value_fn=lambda opts: option_value(opts, "Sound") == "On",
             write_fn=_sound_write,
         ),
@@ -524,7 +538,8 @@ MICROWAVE_STATUS = Capability(
             key="child_lock",
             field="childLock",
             device_class="lock",
-            value_fn=lambda v: str(v).lower() != "on",
+            # A missing field is unknown, not unlocked (as common.KIDS_LOCK_*).
+            value_fn=lambda v: None if v is None else str(v).lower() != "on",
         ),
         SensorDesc(
             key="cooking_mode",

@@ -11,6 +11,7 @@ any existing family (see registry/by_type/__init__.py's docstring).
 Resources verified against issue #131 and #219 diagnostics dumps.
 """
 
+from ..batch import is_stub_rep
 from ..capability import Capability
 from ..entities import BinarySensorDesc, SelectDesc, SensorDesc, SwitchDesc
 from .common import int_or_none
@@ -89,6 +90,24 @@ DUSTBIN_SETTING = Capability(
     ),
 )
 
+
+def _uvc_supported(rep):
+    """False only when the station says outright it has no UV-C: the VS9700
+    (issue #478) reports uvcSupport "Off" and uvcIntensive "not supporting".
+    The original station reports no uvcSupport field at all."""
+    return rep.get("x.com.samsung.da.uvcSupport") != "Off"
+
+
+def _uvc_intensive_exists(rep, _resources):
+    return is_stub_rep(rep) or (
+        _uvc_supported(rep) and rep.get("x.com.samsung.da.uvcIntensive") in ("On", "Off")
+    )
+
+
+def _uvc_finished_exists(rep, _resources):
+    return is_stub_rep(rep) or (_uvc_supported(rep) and "x.com.samsung.da.uvcFinishedTime" in rep)
+
+
 # stickStatus's exact meaning (docked? powered? charging?) isn't confirmed
 # from this single On/Off dump -- exposed as a plain diagnostic sensor
 # rather than a binary_sensor, so no polarity/semantic is asserted that
@@ -114,6 +133,7 @@ CLEANSTATION_STATUS = Capability(
             field="x.com.samsung.da.uvcIntensive",
             icon="mdi:lightbulb-on-outline",
             entity_category="config",
+            exists_fn=_uvc_intensive_exists,
             value_fn=lambda v: v == "On",
             write_fn=lambda p, rep, href=None: (
                 ["status", "cleanstation", "vs", "0"],
@@ -140,6 +160,7 @@ CLEANSTATION_STATUS = Capability(
             field="x.com.samsung.da.uvcFinishedTime",
             device_class="timestamp",
             entity_category="diagnostic",
+            exists_fn=_uvc_finished_exists,
             value_fn=_parse_iso_utc,
         ),
         SensorDesc(

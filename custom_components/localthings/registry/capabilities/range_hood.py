@@ -26,46 +26,22 @@ from ..entities import (
     SensorDesc,
     SwitchDesc,
 )
+from .air_purifier import _AIR_QUALITY_SENSORS
 from .common import (
+    ALARMS,
     epoch_to_utc,
     filter_reset_button,
     has_sensor_type,
     int_or_none,
+    percent_or_none,
     sensor_item_value,
 )
 
-
-def _active_alarm_codes(items):
-    """Discard the hood firmware's retained/deleted ``ErrorCode_OFF`` row.
-
-    Unlike ``common._alarm_codes``, the hood retains a deleted alarm row in
-    its live representation, so this family-specific helper also checks state.
-    """
-    codes = []
-    for item in items or ():
-        if not isinstance(item, dict):
-            continue
-        if str(item.get("x.com.samsung.da.state", "")).lower() == "deleted":
-            continue
-        code = item.get("x.com.samsung.da.code")
-        if code and str(code).lower() != "errorcode_off":
-            codes.append(code)
-    return ", ".join(codes) if codes else "none"
-
-
-HOOD_ALARMS = Capability(
-    href="/alarms/vs/0",
-    poll_tier="hot",
-    entities=(
-        SensorDesc(
-            key="alarm_code",
-            field="x.com.samsung.da.items",
-            icon="mdi:alert",
-            entity_category="diagnostic",
-            value_fn=_active_alarm_codes,
-        ),
-    ),
-)
+# The shared common.ALARMS parser. The hood used to keep its own copy, which
+# had drifted: it dropped only the literal ErrorCode_OFF row, while the shared
+# one drops every <Name>_OFF placeholder. Both skip Deleted rows. Kept under
+# its own name for by_type/range_hood.py.
+HOOD_ALARMS = ALARMS
 
 
 def _hood_fan_write(payload, rep, href=None):
@@ -172,7 +148,7 @@ HOOD_FILTER = Capability(
             state_class="measurement",
             icon="mdi:air-filter",
             entity_category="diagnostic",
-            value_fn=int_or_none,
+            value_fn=percent_or_none,
         ),
         SensorDesc(
             key="hood_filter_status",
@@ -188,6 +164,7 @@ HOOD_FILTER = Capability(
             key="hood_filter_capacity",
             field="x.com.samsung.da.filterCapacity",
             unit="h",
+            device_class="duration",
             icon="mdi:timer-outline",
             entity_category="diagnostic",
             enabled_default=False,
@@ -241,6 +218,17 @@ AFTER_RUN = Capability(
 # air_purifier.AIR_QUALITY needed for a board that reports only some of them
 # (issue #414). No hood dump has been short one yet; this is the guard, not a
 # fix for anything observed here.
+#
+# The particulate rows come from air_purifier._AIR_QUALITY_SENSORS (as
+# air_monitor's do): the same /sensors/vs/0 items, typed pm10/pm25/pm1 in
+# ug/m3 with a measurement state_class. They used to be bare numbers with no
+# unit or history here while the identical purifier readings were typed --
+# and the hood's own 18/14/9 readings are part of that mapping's evidence.
+# No statistics relabel is needed: with no state_class before, these never
+# recorded long-term statistics, so no unitless history exists to clash
+# with the new unit.
+_PARTICULATE_TYPES = ("Dust", "FineDust", "SuperFineDust")
+
 AIR_QUALITY = Capability(
     href="/sensors/vs/0",
     poll_tier="warm",
@@ -256,14 +244,15 @@ AIR_QUALITY = Capability(
             SensorDesc(
                 key=key,
                 field="x.com.samsung.da.items",
+                icon=icon,
+                state_class=state_class,
+                device_class=device_class,
+                unit=unit,
                 exists_fn=has_sensor_type(type_),
                 value_fn=lambda items, t=type_: sensor_item_value(items, t),
             )
-            for key, type_ in (
-                ("dust", "Dust"),
-                ("fine_dust", "FineDust"),
-                ("super_fine_dust", "SuperFineDust"),
-            )
+            for key, icon, type_, state_class, device_class, unit in _AIR_QUALITY_SENSORS
+            if type_ in _PARTICULATE_TYPES
         ),
     ),
 )

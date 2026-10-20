@@ -78,7 +78,8 @@ def test_no_unbound_hrefs():
 
 def test_water_filter_usage_and_status_bound():
     state = _state()
-    assert state["filter_usage"] == "4"
+    # A number now (common.percent_or_none), not the raw "4" string.
+    assert state["filter_usage"] == 4
     assert state["filter_status"] == "normal"
 
 
