@@ -17,6 +17,7 @@ import threading
 import time
 from collections.abc import Callable, Mapping
 from typing import Any
+from uuid import UUID
 
 import voluptuous as vol
 from homeassistant import config_entries
@@ -268,10 +269,29 @@ class LegacyHttpFamily(Exception):
     """
 
 
+def _uuid_in_subject_value(value: str) -> str | None:
+    """The `uuid:<...>` in a certificate subject value, only if it is a
+    well-formed UUID; anything else is treated as not found rather than
+    minted into a leaf the appliance would just reject."""
+    for m in re.finditer(r"uuid:([0-9a-f-]+)", value, re.IGNORECASE):
+        try:
+            UUID(m.group(1))
+        except ValueError:
+            continue
+        return m.group(1)
+    return None
+
+
 def _fetch_samsung_uuid() -> str:
     """Connect to Samsung's cloud gateway and extract the UUID from its TLS
     cert. Verification is disabled: Samsung's chain has a self-signed cert,
-    and we only need to read the UUID from the subject, not verify trust."""
+    and we only need to read the UUID from the subject, not verify trust.
+
+    Trust assumption: this reads from an unauthenticated peer, so something
+    on the network path could hand back a different UUID. The worst it can
+    do is make first-time setup fail -- a leaf minted for the wrong UUID is
+    refused by the appliance like any other wrong certificate -- and the
+    value is at least checked to be a well-formed UUID before use."""
     from cryptography import x509 as _x509
 
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -287,9 +307,9 @@ def _fetch_samsung_uuid() -> str:
     cert = _x509.load_der_x509_certificate(der)
     for attr in cert.subject:
         if attr.oid == _x509.oid.NameOID.ORGANIZATIONAL_UNIT_NAME and isinstance(attr.value, str):
-            m = re.search(r"uuid:([0-9a-f-]+)", attr.value, re.IGNORECASE)
-            if m:
-                return m.group(1)
+            found = _uuid_in_subject_value(attr.value)
+            if found:
+                return found
     raise RuntimeError(f"UUID not found in {_SAMSUNG_CLOUD_HOST} certificate subject")
 
 
