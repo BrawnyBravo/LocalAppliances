@@ -505,3 +505,22 @@ def test_an_unpopulated_list_is_not_filled_with_the_live_value():
         desc, "/x/vs/0", {"/x/vs/0": {"supported": []}}, coordinator_cls=_with_live_value("Lo")
     )
     assert entity.options == []
+
+
+def test_options_field_reads_one_resource_not_the_whole_snapshot():
+    """last_resources copies every tracked href on each access (review L5);
+    the select needs only its own, which coordinator.resource() returns."""
+
+    class _Coordinator(_FakeCoordinator):
+        def __init__(self, last_resources):
+            super().__init__({})
+            self._own = last_resources
+
+        def resource(self, href):
+            return self._own.get(href)
+
+    desc = SelectDesc(key="x", options_field="supported")
+    entity = _make_select(
+        desc, "/x/vs/0", {"/x/vs/0": {"supported": ["Lo", "Hi"]}}, coordinator_cls=_Coordinator
+    )
+    assert entity.options == ["Lo", "Hi"]

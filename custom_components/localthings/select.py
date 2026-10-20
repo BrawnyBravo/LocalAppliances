@@ -113,7 +113,8 @@ class LocalThingsSelect(LocalThingsEntity, SelectEntity):
             # snapshot -- see LocalThingsEntity._resources.
             return list(desc.options(self._resources) or [])
         if desc.options_field:
-            rep = self.coordinator.last_resources.get(self._bound.href) or {}
+            # One href, so no need for last_resources' full snapshot copy.
+            rep = self.coordinator.resource(self._bound.href) or {}
             return list(rep.get(desc.options_field) or [])
         return list(desc.options)
 
