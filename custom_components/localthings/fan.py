@@ -28,7 +28,7 @@ from homeassistant.util.percentage import (
 
 from .const import DOMAIN
 from .coordinator import LocalThingsCoordinator
-from .entity import LocalThingsEntity, _is_included
+from .entity import LocalThingsEntity, _is_included, async_migrate_subdevice_case
 from .registry.capabilities.air_purifier import HREF_AIRFLOW
 from .registry.capabilities.air_purifier import HREF_MODE as AIR_PURIFIER_FAN_HREF
 from .registry.capabilities.air_purifier import (
@@ -60,6 +60,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: LocalThingsCoordinator = hass.data[DOMAIN][entry.entry_id]
+    async_migrate_subdevice_case(hass, entry, coordinator)
     entities = []
     for bound in coordinator.bound:
         if not (isinstance(bound.desc, FanDesc) and _is_included(bound, coordinator)):

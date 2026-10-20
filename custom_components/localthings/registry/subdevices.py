@@ -72,6 +72,15 @@ class Subdevice:
     or the full subdevice UUID, and `seed_path` is the Collection href (as
     path segments) whose batch enumerates/refreshes that subdevice.
 
+    A 'prefixed' key is always stored lowercase (review L3): the same UUID
+    can arrive in either case depending on which source named it first
+    (subdeviceIdList or an /oic/res link), and the key feeds this
+    subdevice's entity unique_ids and device identifier, so its spelling
+    must not depend on that. `wire_key` keeps the spelling the device itself
+    used, for building on-the-wire hrefs -- a CoAP path is case-sensitive,
+    so only identity is normalized, never what is sent. It defaults to the
+    seed path's UUID segment, or to `key` when there is none.
+
     `flat_hrefs` is non-empty only for a 'prefixed' subdevice with no
     Collection at `seed_path` (issue #205). When set, `seed_path` is
     meaningless (left as `()`) and this subdevice's state comes from
@@ -84,6 +93,14 @@ class Subdevice:
     key: str  # ''    | '1'       | '6c2dff6d-ee5c-dad1-6a5e-000000000001'
     seed_path: tuple[str, ...]
     flat_hrefs: tuple[str, ...] = ()
+    wire_key: str = ""
+
+    def __post_init__(self) -> None:
+        if self.kind != "prefixed":
+            return
+        wire = self.wire_key or (self.seed_path[0] if self.seed_path else self.key)
+        object.__setattr__(self, "wire_key", wire)
+        object.__setattr__(self, "key", self.key.lower())
 
     def to_actual(self, canonical: str) -> str:
         """Canonical registry href (e.g. '/mode/vs/0') -> the real,
@@ -99,7 +116,7 @@ class Subdevice:
                 return f"{head}{sep}{self.key}"
             return canonical
         if self.kind == "prefixed":
-            return f"/{self.key}{canonical}"
+            return f"/{self.wire_key}{canonical}"
         return canonical
 
     def to_canonical(self, actual: str) -> str | None:
@@ -110,9 +127,10 @@ class Subdevice:
                 return f"{head}{sep}0"
             return None
         if self.kind == "prefixed":
-            prefix = f"/{self.key}"
-            if actual.startswith(prefix + "/"):
-                return actual[len(prefix) :]
+            # Case-insensitive: the device may spell its own UUID either way.
+            prefix = f"/{self.key}/"
+            if actual[: len(prefix)].lower() == prefix:
+                return actual[len(prefix) - 1 :]
             return None
         return actual
 
@@ -134,7 +152,7 @@ class Subdevice:
         rather than an enumeration-order ordinal, since it's device-reported
         and stable across reconnects; it never appears in a user-visible
         string, since HA derives entity_id from device+entity name, not
-        unique_id.
+        unique_id. Lowercase for a prefixed key (see the class docstring).
         """
         if self.kind == "indexed":
             return f"subdevice{self.key}_"
@@ -187,9 +205,8 @@ def normalize_seed_batch(subdevice: Subdevice, batch: dict[str, dict]) -> dict[s
     """
     if subdevice.kind != "prefixed":
         return batch
-    prefix = f"/{subdevice.key}"
     return {
-        (href if href.startswith(prefix + "/") else f"{prefix}{href}"): rep
+        (href if subdevice.owns(href) else subdevice.to_actual(href)): rep
         for href, rep in batch.items()
     }
 
@@ -392,6 +409,7 @@ def enumerate_subdevices(
                 key=sub_id,
                 seed_path=(),
                 flat_hrefs=tuple(flat_hrefs),
+                wire_key=sub_id,
             )
         )
 
