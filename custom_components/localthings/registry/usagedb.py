@@ -163,6 +163,39 @@ def _energy_scale_is_confirmed(values: list[int]) -> bool:
     return any(a == b for a, b in itertools.pairwise(values))
 
 
+# The most a household appliance on a tenths-of-a-kWh family can plausibly
+# use in a day: 60 kWh, in tenths. The measured families sit far below it (a
+# fridge at ~3 kWh/day at most, a washer or dishwasher a few kWh per cycle),
+# while an air conditioner's plain-Wh counter clears it on any day it runs for
+# real -- #488's TP2X_RAC_20K averages ~1200 Wh a day and peaks at ~7200.
+_MAX_TENTHS_KWH_PER_DAY = 600
+_SECONDS_PER_DAY = 86400
+
+# The largest lifetime total a tenths-of-a-kWh family can plausibly reach:
+# 50,000 kWh, in tenths -- decades of a heavy dryer's use. Catches the
+# single-record file the rate check cannot judge, when the counter behind it
+# is a shared outdoor unit's Wh (#329's 5,118,585 reads as 511,858.5 kWh).
+_MAX_TENTHS_KWH_TOTAL = 500_000
+
+
+def _energy_rate_is_plausible(parsed: list[tuple[int, int, int]]) -> bool:
+    """True when no step in the second field climbs faster than a household
+    appliance can use energy, read as tenths of a kWh.
+
+    A second line of defence behind `_energy_scale_is_confirmed`, for a
+    plain-Wh family whose third field happens to look like a known one (a
+    multi-split head with under 1.2 h of runtime: 0, 5 or 10). A Wh counter
+    read as tenths of a kWh is 100x too large, so its daily steps are too.
+    Each step's rate is taken over at least one day, so two records written
+    close together cannot inflate it.
+    """
+    for (ts_a, value_a, _), (ts_b, value_b, _) in itertools.pairwise(parsed):
+        days = max((ts_b - ts_a) / _SECONDS_PER_DAY, 1.0)
+        if (value_b - value_a) / days > _MAX_TENTHS_KWH_PER_DAY:
+            return False
+    return True
+
+
 def cumulative_energy_kwh(rep: dict) -> float | None:
     """The newest record's cumulative energy, in kWh.
 
@@ -181,12 +214,17 @@ def cumulative_energy_kwh(rep: dict) -> float | None:
     scale reports 511858.5 kWh instead of 5118.6.
 
     See `_energy_scale_is_confirmed` for why this is a positive test rather
-    than "not runtime".
+    than "not runtime", and `_energy_rate_is_plausible` and
+    `_MAX_TENTHS_KWH_TOTAL` for the checks behind it. The air-conditioner
+    registry also drops this entity outright (see by_type/airconditioner.py),
+    since the bytes alone cannot rule out every low-runtime case.
     """
     parsed = records(rep)
     if not parsed:
         return None
     if not _energy_scale_is_confirmed([r[2] for r in parsed]):
+        return None
+    if parsed[-1][1] > _MAX_TENTHS_KWH_TOTAL or not _energy_rate_is_plausible(parsed):
         return None
     return parsed[-1][1] / 10
 

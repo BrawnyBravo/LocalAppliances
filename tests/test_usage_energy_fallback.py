@@ -192,3 +192,62 @@ def test_a_runtime_board_publishes_no_energy_fallback():
     state = _state({ENERGY: {}, TRANSFER: _transfer_rep(_prac_like())})
     assert state["usage_runtime_hours"] == 6270.0
     assert "energy_kwh" not in state
+
+
+# ---------------------------------------------------------------------------
+# Air conditioners never take energy from the file (review M1)
+# ---------------------------------------------------------------------------
+
+
+def _ac_state(resources: dict) -> dict:
+    from custom_components.localthings.registry.by_type import airconditioner
+
+    return flatten(discover(resources, airconditioner.REGISTRY.capabilities), resources)
+
+
+def _new_head(runtime_tenths: int, wh_per_day: int) -> bytes:
+    """A new head on a new outdoor unit: a plain-Wh counter still small
+    (120 kWh) beside a flat runtime under 1.2 h. Hand-built."""
+    return b"".join(
+        struct.pack("<III", 1_780_000_000 + i * 86400, 120_000 + i * wh_per_day, runtime_tenths)
+        for i in range(6)
+    )
+
+
+@pytest.mark.parametrize("runtime_tenths", [0, 5, 10])
+def test_an_air_conditioner_never_reads_energy_from_the_usage_file(runtime_tenths):
+    """A young outdoor unit idling at 100 Wh a day passes the decoder's rate
+    and total checks (10 "tenths of a kWh" a day is a fridge's pace, and 12,000
+    kWh is a plausible lifetime), and a flat 0/5/10 third field passes the
+    family check, so only the registry stands between this and a reading 100x
+    too high. The meter has no cumulativePower, the case
+    the fallback exists for."""
+    blob = _new_head(runtime_tenths, wh_per_day=100)
+    # The decoder alone cannot tell; the registry has to.
+    assert usagedb.cumulative_energy_kwh(_transfer_rep(blob)) is not None
+
+    state = _ac_state(
+        {ENERGY: {"x.com.samsung.da.instantaneousPower": "0"}, TRANSFER: _transfer_rep(blob)}
+    )
+    assert "energy_kwh" not in state
+
+
+def test_an_air_conditioner_keeps_its_usage_runtime():
+    state = _ac_state(
+        {
+            ENERGY: {"x.com.samsung.da.cumulativePower": "5118585"},
+            TRANSFER: _transfer_rep(_prac_like()),
+        }
+    )
+    assert state["usage_runtime_hours"] == 6270.0
+    assert state["energy_kwh"] == 5118.59
+
+
+def test_the_air_conditioner_registry_still_probes_the_usage_file():
+    """The runtime-only copy keeps the probe tier, so the coordinator's
+    global probe list still covers the href."""
+    from custom_components.localthings.registry.by_type import airconditioner
+
+    caps = airconditioner.REGISTRY.capabilities[TRANSFER]
+    assert [c.poll_tier for c in caps] == ["probe"]
+    assert [e.key for c in caps for e in c.entities] == ["usage_runtime_hours"]
