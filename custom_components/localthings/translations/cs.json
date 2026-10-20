@@ -2195,7 +2195,8 @@
       "empty_payload": "Zadejte alespoň jedno pole k zápisu.",
       "write_failed": "Zápis se nezdařil. Podrobnosti najdete v protokolech Home Assistant.",
       "cloud_course_name_duplicate": "Dva cykly mají stejný název. Názvy musí být jedinečné.",
-      "cloud_course_unknown_course": "Tento program zařízení nenabízí. Vyberte jej ze seznamu."
+      "cloud_course_unknown_course": "Tento program zařízení nenabízí. Vyberte jej ze seznamu.",
+      "security_resource": "Bezpečnostní prostředky OCF (/oic/sec/...) zde nelze zapisovat: zápis do nich může narušit místní ovládání způsobem, který Home Assistant nedokáže vrátit."
     },
     "abort": {
       "not_loaded": "Toto zařízení ještě není připojeno. Zkuste to znovu, až se načte."
@@ -2325,6 +2326,9 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Extra máchání není u vybraného cyklu k dispozici."
+    },
+    "security_resource_write_refused": {
+      "message": "Zápis do {href} je odmítnut. Bezpečnostní prostředky OCF (/oic/sec/...) uchovávají zřízení a přihlašovací údaje spotřebiče; zápis do nich může narušit místní ovládání způsobem, který Home Assistant nedokáže vrátit."
     }
   },
   "selector": {

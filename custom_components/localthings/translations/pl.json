@@ -2195,7 +2195,8 @@
       "empty_payload": "Podaj co najmniej jedno pole do zapisania.",
       "write_failed": "Zapis nie powiódł się. Szczegóły znajdziesz w dziennikach Home Assistant.",
       "cloud_course_name_duplicate": "Dwa cykle mają tę samą nazwę. Nazwy muszą być unikalne.",
-      "cloud_course_unknown_course": "To urządzenie nie oferuje takiego programu. Wybierz jeden z listy."
+      "cloud_course_unknown_course": "To urządzenie nie oferuje takiego programu. Wybierz jeden z listy.",
+      "security_resource": "Zasobów bezpieczeństwa OCF (/oic/sec/...) nie można tu zapisywać: zapis w nich może zepsuć sterowanie lokalne w sposób, którego Home Assistant nie potrafi cofnąć."
     },
     "abort": {
       "not_loaded": "To urządzenie nie jest jeszcze połączone. Spróbuj ponownie, gdy się wczyta."
@@ -2325,6 +2326,9 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Dodatkowe płukanie nie jest dostępne dla wybranego cyklu."
+    },
+    "security_resource_write_refused": {
+      "message": "Zapis do {href} został odrzucony. Zasoby bezpieczeństwa OCF (/oic/sec/...) przechowują konfigurację i poświadczenia urządzenia; zapis w nich może zepsuć sterowanie lokalne w sposób, którego Home Assistant nie potrafi cofnąć."
     }
   },
   "selector": {

@@ -2195,7 +2195,8 @@
       "empty_payload": "Saisissez au moins un champ à écrire.",
       "write_failed": "L'écriture a échoué. Consultez les journaux de Home Assistant pour plus de détails.",
       "cloud_course_name_duplicate": "Deux programmes portent le même nom. Les noms doivent être uniques.",
-      "cloud_course_unknown_course": "Ce programme ne fait pas partie de ceux que propose cet appareil. Choisissez-en un dans la liste."
+      "cloud_course_unknown_course": "Ce programme ne fait pas partie de ceux que propose cet appareil. Choisissez-en un dans la liste.",
+      "security_resource": "Les ressources de sécurité OCF (/oic/sec/...) ne peuvent pas être écrites d'ici : y écrire peut casser le contrôle local d'une manière que Home Assistant ne peut pas annuler."
     },
     "abort": {
       "not_loaded": "Cet appareil n'est pas encore connecté. Réessayez une fois qu'il est chargé."
@@ -2325,6 +2326,9 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Le rinçage supplémentaire n'est pas disponible avec le programme sélectionné."
+    },
+    "security_resource_write_refused": {
+      "message": "L'écriture vers {href} est refusée. Les ressources de sécurité OCF (/oic/sec/...) contiennent le provisionnement et les identifiants de l'appareil ; y écrire peut casser le contrôle local d'une manière que Home Assistant ne peut pas annuler."
     }
   },
   "selector": {

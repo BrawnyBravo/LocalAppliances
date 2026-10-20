@@ -2195,7 +2195,8 @@
       "empty_payload": "Voer ten minste één veld in om te schrijven.",
       "write_failed": "De schrijfbewerking is mislukt. Raadpleeg de Home Assistant-logboeken voor meer informatie.",
       "cloud_course_name_duplicate": "Twee programma's hebben dezelfde naam. Namen moeten uniek zijn.",
-      "cloud_course_unknown_course": "Dat programma biedt dit apparaat niet aan. Kies er een uit de lijst."
+      "cloud_course_unknown_course": "Dat programma biedt dit apparaat niet aan. Kies er een uit de lijst.",
+      "security_resource": "OCF-beveiligingsresources (/oic/sec/...) kunnen hier niet worden beschreven: een schrijfactie daar kan lokale bediening breken op een manier die Home Assistant niet ongedaan kan maken."
     },
     "abort": {
       "not_loaded": "Dit apparaat is nog niet verbonden. Probeer het opnieuw zodra het is geladen."
@@ -2325,6 +2326,9 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Extra Rinse is niet beschikbaar voor het geselecteerde programma."
+    },
+    "security_resource_write_refused": {
+      "message": "Schrijven naar {href} wordt geweigerd. OCF-beveiligingsresources (/oic/sec/...) bevatten de provisioning en de inloggegevens van het apparaat; een schrijfactie daar kan lokale bediening breken op een manier die Home Assistant niet ongedaan kan maken."
     }
   },
   "selector": {

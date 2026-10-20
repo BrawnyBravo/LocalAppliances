@@ -190,6 +190,28 @@ def _href_to_path_segs(href: str) -> list[str]:
     return [s for s in str(href).strip("/").split("/") if s]
 
 
+def is_security_href(href: str) -> bool:
+    """Whether `href` names an OCF security resource (/oic/sec/...).
+
+    These hold the appliance's provisioning state, ownership and
+    credentials (pstat, doxm, cred, acl2). A write there can reset
+    provisioning or drop the credential this integration connects with,
+    which nothing in Home Assistant can undo -- so the raw write paths
+    refuse them outright. Public because the options-flow debug panel
+    checks it before offering the payload form."""
+    segs = [s.lower() for s in _href_to_path_segs(href)]
+    return segs[:2] == ["oic", "sec"]
+
+
+def _refuse_security_href(href: str) -> None:
+    if is_security_href(href):
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="security_resource_write_refused",
+            translation_placeholders={"href": normalize_href(href)},
+        )
+
+
 def normalize_href(href: str) -> str:
     """A user-typed href in one canonical spelling. Public because
     services.py must normalize before `Subdevice.to_actual`, which rewrites
@@ -249,6 +271,7 @@ def _validate_debug_batch_payload(payload: list) -> None:
                 translation_domain=DOMAIN,
                 translation_key="debug_batch_element_invalid",
             )
+        _refuse_security_href(element["href"])
 
 
 def _batch_element_reps(payload: list) -> dict[str, dict]:
@@ -343,6 +366,7 @@ def _validate_debug_write_item(item: dict) -> tuple[list[str], str, dict | list,
             translation_domain=DOMAIN,
             translation_key="resource_href_required",
         )
+    _refuse_security_href(item.get("href", ""))
     settle = item.get("settle") or 0.0
     if not 0 <= settle <= _DEBUG_MAX_SETTLE_S:
         raise ServiceValidationError(

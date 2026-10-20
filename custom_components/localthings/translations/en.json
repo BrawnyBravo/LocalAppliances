@@ -2195,7 +2195,8 @@
       "empty_payload": "Enter at least one field to write.",
       "write_failed": "The write failed. Check the Home Assistant logs for details.",
       "cloud_course_name_duplicate": "Two cycles have the same name. Names must be unique.",
-      "cloud_course_unknown_course": "That course isn't one this appliance offers. Pick one from the list."
+      "cloud_course_unknown_course": "That course isn't one this appliance offers. Pick one from the list.",
+      "security_resource": "OCF security resources (/oic/sec/...) can't be written from here: a write there can break local control in a way Home Assistant cannot undo."
     },
     "abort": {
       "not_loaded": "This device isn't connected yet. Try again once it has loaded."
@@ -2325,6 +2326,9 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Extra Rinse isn't available on the selected cycle."
+    },
+    "security_resource_write_refused": {
+      "message": "Writing to {href} is refused. OCF security resources (/oic/sec/...) hold the appliance's provisioning and credentials; a write there can break local control in a way Home Assistant cannot undo."
     }
   },
   "selector": {

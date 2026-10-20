@@ -2195,7 +2195,8 @@
       "empty_payload": "쓸 필드를 하나 이상 입력하세요.",
       "write_failed": "쓰기에 실패했습니다. 자세한 내용은 Home Assistant 로그에서 확인하세요.",
       "cloud_course_name_duplicate": "두 코스의 이름이 같습니다. 이름은 서로 달라야 합니다.",
-      "cloud_course_unknown_course": "이 기기가 제공하지 않는 코스입니다. 목록에서 선택하세요."
+      "cloud_course_unknown_course": "이 기기가 제공하지 않는 코스입니다. 목록에서 선택하세요.",
+      "security_resource": "OCF 보안 리소스(/oic/sec/...)는 여기서 쓸 수 없습니다. 여기에 쓰면 Home Assistant가 되돌릴 수 없는 방식으로 로컬 제어가 끊길 수 있습니다."
     },
     "abort": {
       "not_loaded": "이 기기는 아직 연결되지 않았습니다. 기기를 불러온 후 다시 시도하세요."
@@ -2325,6 +2326,9 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "선택한 코스에서는 추가 헹굼을 사용할 수 없습니다."
+    },
+    "security_resource_write_refused": {
+      "message": "{href}에 대한 쓰기가 거부되었습니다. OCF 보안 리소스(/oic/sec/...)에는 기기의 프로비저닝과 자격 증명이 들어 있으며, 여기에 쓰면 Home Assistant가 되돌릴 수 없는 방식으로 로컬 제어가 끊길 수 있습니다."
     }
   },
   "selector": {

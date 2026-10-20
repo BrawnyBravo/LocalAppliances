@@ -2195,7 +2195,8 @@
       "empty_payload": "Inserisci almeno un campo da scrivere.",
       "write_failed": "Operazione di scrittura non riuscita. Controlla i registri di Home Assistant per i dettagli.",
       "cloud_course_name_duplicate": "Due cicli hanno lo stesso nome. I nomi devono essere univoci.",
-      "cloud_course_unknown_course": "Quel programma non è tra quelli offerti da questo dispositivo. Selezionarne uno dall'elenco."
+      "cloud_course_unknown_course": "Quel programma non è tra quelli offerti da questo dispositivo. Selezionarne uno dall'elenco.",
+      "security_resource": "Le risorse di sicurezza OCF (/oic/sec/...) non possono essere scritte da qui: una scrittura lì può compromettere il controllo locale in un modo che Home Assistant non può annullare."
     },
     "abort": {
       "not_loaded": "Questo dispositivo non è ancora connesso. Riprova dopo il caricamento."
@@ -2325,6 +2326,9 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Risciacquo extra non è disponibile per il ciclo selezionato."
+    },
+    "security_resource_write_refused": {
+      "message": "La scrittura su {href} è rifiutata. Le risorse di sicurezza OCF (/oic/sec/...) contengono il provisioning e le credenziali dell'elettrodomestico; una scrittura lì può compromettere il controllo locale in un modo che Home Assistant non può annullare."
     }
   },
   "selector": {

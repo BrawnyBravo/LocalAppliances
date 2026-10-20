@@ -2129,3 +2129,26 @@ async def test_host_with_an_entry_handshakes_from_an_ephemeral_port(
     await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_HOST: MOCK_HOST})
 
     assert FakeSession.instances[0].local_port is None
+
+
+async def test_options_flow_debug_write_refuses_security_resource(
+    hass: HomeAssistant,
+    mock_coordinator_session,
+) -> None:
+    """The debug panel refuses an OCF security href (/oic/sec/...) up front,
+    with an error that says why, instead of sending it to the appliance."""
+    entry = MockConfigEntry(domain=DOMAIN, data=ENTRY_DATA, unique_id=f"localthings_{MOCK_SERIAL}")
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "debug_write"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"href": "/oic/sec/pstat"}
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "debug_write"
+    assert result["errors"] == {"href": "security_resource"}

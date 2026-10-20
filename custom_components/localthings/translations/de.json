@@ -2195,7 +2195,8 @@
       "empty_payload": "Geben Sie mindestens ein zu schreibendes Feld ein.",
       "write_failed": "Der Schreibvorgang ist fehlgeschlagen. Weitere Details finden Sie im Home-Assistant-Protokoll.",
       "cloud_course_name_duplicate": "Zwei Programme haben denselben Namen. Namen müssen eindeutig sein.",
-      "cloud_course_unknown_course": "Dieses Programm wird von diesem Gerät nicht angeboten. Wählen Sie eines aus der Liste."
+      "cloud_course_unknown_course": "Dieses Programm wird von diesem Gerät nicht angeboten. Wählen Sie eines aus der Liste.",
+      "security_resource": "OCF-Sicherheitsressourcen (/oic/sec/...) können hier nicht beschrieben werden: Ein Schreibvorgang dort kann die lokale Steuerung so stören, dass Home Assistant es nicht rückgängig machen kann."
     },
     "abort": {
       "not_loaded": "Dieses Gerät ist noch nicht verbunden. Versuchen Sie es erneut, sobald es geladen wurde."
@@ -2325,6 +2326,9 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Extra Rinse ist bei dem ausgewählten Programm nicht verfügbar."
+    },
+    "security_resource_write_refused": {
+      "message": "Das Schreiben nach {href} wird abgelehnt. OCF-Sicherheitsressourcen (/oic/sec/...) enthalten die Bereitstellung und die Zugangsdaten des Geräts; ein Schreibvorgang dort kann die lokale Steuerung so stören, dass Home Assistant es nicht rückgängig machen kann."
     }
   },
   "selector": {

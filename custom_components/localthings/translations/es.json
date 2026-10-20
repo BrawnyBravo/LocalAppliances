@@ -236,7 +236,8 @@
       "empty_payload": "Introduce al menos un campo para escribir.",
       "write_failed": "La escritura falló. Consulta los registros de Home Assistant para más detalles.",
       "cloud_course_name_duplicate": "Dos ciclos tienen el mismo nombre. Los nombres deben ser únicos.",
-      "cloud_course_unknown_course": "Ese programa no es uno que ofrezca este dispositivo. Elige uno de la lista."
+      "cloud_course_unknown_course": "Ese programa no es uno que ofrezca este dispositivo. Elige uno de la lista.",
+      "security_resource": "Los recursos de seguridad OCF (/oic/sec/...) no se pueden escribir desde aquí: escribir en ellos puede romper el control local de una forma que Home Assistant no puede deshacer."
     },
     "abort": {
       "not_loaded": "Este dispositivo aún no está conectado. Inténtalo de nuevo cuando se haya cargado."
@@ -366,6 +367,9 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "El aclarado extra no está disponible en el ciclo seleccionado."
+    },
+    "security_resource_write_refused": {
+      "message": "Se rechaza la escritura en {href}. Los recursos de seguridad OCF (/oic/sec/...) contienen el aprovisionamiento y las credenciales del aparato; escribir en ellos puede romper el control local de una forma que Home Assistant no puede deshacer."
     }
   },
   "entity": {

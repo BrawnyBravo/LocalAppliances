@@ -2382,13 +2382,22 @@ class LocalThingsOptionsFlow(config_entries.OptionsFlow):
         if coord is None:
             return self.async_abort(reason="not_loaded")
 
-        if user_input is not None:
-            self._debug_href = user_input["href"]
-            return await self.async_step_debug_edit()
+        from .coordinator import is_security_href
 
-        hrefs = sorted(coord.last_resources.keys())
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if is_security_href(user_input["href"]):
+                # Refused here as well as in the write service, so the panel
+                # says why instead of reporting a generic failed write.
+                errors["href"] = "security_resource"
+            else:
+                self._debug_href = user_input["href"]
+                return await self.async_step_debug_edit()
+
+        hrefs = sorted(h for h in coord.last_resources if not is_security_href(h))
         return self.async_show_form(
             step_id="debug_write",
+            errors=errors,
             data_schema=vol.Schema(
                 {
                     vol.Required("href"): SelectSelector(
