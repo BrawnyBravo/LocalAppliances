@@ -28,6 +28,7 @@ from ..entities import (
 )
 from .air_purifier import _AIR_QUALITY_SENSORS
 from .common import (
+    ALARMS,
     epoch_to_utc,
     filter_reset_button,
     has_sensor_type,
@@ -37,37 +38,11 @@ from .common import (
 )
 
 
-def _active_alarm_codes(items):
-    """Discard the hood firmware's retained/deleted ``ErrorCode_OFF`` row.
-
-    Unlike ``common._alarm_codes``, the hood retains a deleted alarm row in
-    its live representation, so this family-specific helper also checks state.
-    """
-    codes = []
-    for item in items or ():
-        if not isinstance(item, dict):
-            continue
-        if str(item.get("x.com.samsung.da.state", "")).lower() == "deleted":
-            continue
-        code = item.get("x.com.samsung.da.code")
-        if code and str(code).lower() != "errorcode_off":
-            codes.append(code)
-    return ", ".join(codes) if codes else "none"
-
-
-HOOD_ALARMS = Capability(
-    href="/alarms/vs/0",
-    poll_tier="hot",
-    entities=(
-        SensorDesc(
-            key="alarm_code",
-            field="x.com.samsung.da.items",
-            icon="mdi:alert",
-            entity_category="diagnostic",
-            value_fn=_active_alarm_codes,
-        ),
-    ),
-)
+# The shared common.ALARMS parser. The hood used to keep its own copy, which
+# had drifted: it dropped only the literal ErrorCode_OFF row, while the shared
+# one drops every <Name>_OFF placeholder. Both skip Deleted rows. Kept under
+# its own name for by_type/range_hood.py.
+HOOD_ALARMS = ALARMS
 
 
 def _hood_fan_write(payload, rep, href=None):

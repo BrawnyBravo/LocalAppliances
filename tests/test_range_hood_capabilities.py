@@ -177,3 +177,18 @@ def test_after_run_active_reads_on_off():
     assert active.value_fn is not None
     assert active.value_fn("On") is True
     assert active.value_fn("Off") is False
+
+
+def test_hood_alarms_use_the_shared_parser():
+    """The hood kept its own copy of the alarm parser that only dropped the
+    literal ErrorCode_OFF; the shared one drops every <Name>_OFF placeholder
+    row, which other families pre-populate one per alarm type."""
+    desc = next(e for e in range_hood.HOOD_ALARMS.entities if e.key == "alarm_code")
+    items = [
+        {"x.com.samsung.da.code": "ErrorCode_OFF"},
+        {"x.com.samsung.da.code": "FilterAlarm_OFF"},
+        {"x.com.samsung.da.code": "OldCode", "x.com.samsung.da.state": "Deleted"},
+    ]
+    assert desc.value_fn(items) == "none"
+    items.append({"x.com.samsung.da.code": "FilterAlarm"})
+    assert desc.value_fn(items) == "FilterAlarm"
