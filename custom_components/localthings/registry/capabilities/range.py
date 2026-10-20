@@ -20,10 +20,14 @@ indices the device actually reports -- an index absent from burnerList
 just never binds.
 
 Cooktop write surfaces here are unproven (no live device to verify against,
-same caveat as oven.py's RMW writes) -- power level uses the same
-read-modify-write pattern already proven safe elsewhere in this codebase.
+same caveat as oven.py's RMW writes). The power-level write names only the
+burner being changed: re-sending the cached list would push every other
+burner back to its last-polled level, re-lighting one turned down at the
+knob since. A standalone cooktop gets the read-only COOKTOP_STATUS_READ_ONLY
+instead (see capabilities/cooktop.py's no-remote-ignition rule).
 """
 
+import dataclasses
 from datetime import datetime
 
 from ..batch import is_stub_rep
@@ -82,8 +86,17 @@ def _burner_field_fn(i, field):
 
 
 def _burner_hot_surface_fn(i):
-    get_state = _burner_field_fn(i, "hotSurfaceState")
-    return lambda burner_list: get_state(burner_list) not in (None, "normal")
+    """None, not False, when this burner isn't in the list: a missing entry
+    (such as the one-burner optimistic entry a power write leaves until the
+    next poll) is no evidence the surface is cool."""
+
+    def value(burner_list):
+        burner = _burner(burner_list, i)
+        if burner is None:
+            return None
+        return burner.get("hotSurfaceState") not in (None, "normal")
+
+    return value
 
 
 def _burner_pan_detection_fn(i):
@@ -96,21 +109,22 @@ def _power_level_options(resources):
 
 
 def _burner_power_level_write(i):
+    """Only the changed burner goes on the wire, never the cached siblings.
+
+    The old read-modify-write re-sent every burner's cached powerLevel,
+    operationState and timer: a burner turned down or off at the panel since
+    the last poll would have been put back to its old heat level. A
+    one-entry burnerList is the same partial-merge shape the items[] writes
+    use (common.merge_items_field); if a board instead treats the list as a
+    full replacement, the worst case is the other burners turning off, not
+    on. Unverified on hardware, like the rest of this surface."""
+
     def write(p, rep, href=None):
-        burner_list = rep.get("burnerList")
-        if not burner_list:
+        if _burner(rep.get("burnerList"), i) is None:
             return None
-        new_list = []
-        found = False
-        for b in burner_list:
-            if b.get("burnerNumber") == i:
-                b = dict(b)
-                b["powerLevel"] = p
-                found = True
-            new_list.append(b)
-        if not found:
-            return None
-        return ["cooktop", "status", "vs", "0"], {"burnerList": new_list}
+        return ["cooktop", "status", "vs", "0"], {
+            "burnerList": [{"burnerNumber": i, "powerLevel": p}]
+        }
 
     return write
 
