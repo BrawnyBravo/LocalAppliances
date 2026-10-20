@@ -1584,3 +1584,33 @@ async def test_notifications_past_the_cap_are_counted_not_kept(hass, coordinator
 
     assert [n["rep"] for n in response["notifications"]] == [{"n": 0}, {"n": 1}]
     assert response["truncated"] is True
+
+
+async def test_read_resource_redacts_a_live_read(hass, coordinator, device_id):
+    """A live read is redacted like the no-href snapshot: these responses get
+    pasted into issues, and /information/vs/0 carries the serial number."""
+    fake = _FakeSession()
+    fake.queue_get(
+        "information/vs/0",
+        {"x.com.samsung.da.serialNum": "TEST-SERIAL-0000", "x.com.samsung.da.modelNum": "M1"},
+    )
+    coordinator._session = fake
+
+    response = await _call_read(hass, device_id, href="/information/vs/0")
+
+    assert response["rep"]["x.com.samsung.da.serialNum"] != "TEST-SERIAL-0000"
+    assert response["rep"]["x.com.samsung.da.modelNum"] == "M1"
+
+
+@pytest.mark.parametrize(
+    "href", ["/oic/sec/cred", "/OIC/sec/cred/", "oic/sec/cred?if=oic.if.baseline"]
+)
+async def test_read_resource_refuses_the_credential_store(hass, coordinator, device_id, href):
+    fake = _FakeSession()
+    coordinator._session = fake
+
+    with pytest.raises(ServiceValidationError) as err:
+        await _call_read(hass, device_id, href=href)
+
+    assert err.value.translation_key == "security_credential_read_refused"
+    assert fake.get_calls == []

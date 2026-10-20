@@ -2068,6 +2068,10 @@
         "data": {
           "device_token": "Gerätetoken (leer lassen, um eines anzufordern)"
         }
+      },
+      "reconfigure_certificate": {
+        "title": "Neues Gerätezertifikat akzeptieren?",
+        "description": "Das Gerät unter {host} hat ein anderes Sicherheitszertifikat vorgelegt als bei der Einrichtung dieses Eintrags. Bisher wurde ihm nichts gesendet.\n\nGespeichertes Zertifikat:\n{old_fingerprint}\n\nJetzt vorgelegtes Zertifikat:\n{new_fingerprint}\n\nFahre nur fort, wenn du weißt, dass es dein Gerät ist (etwa nach einer Reparatur, einem Zurücksetzen oder einem Platinentausch). Absenden akzeptiert das neue Zertifikat und sendet ihm das Zugriffstoken dieses Eintrags; schließe den Dialog, um den Eintrag unverändert zu lassen."
       }
     },
     "error": {
@@ -2095,7 +2099,8 @@
       "invalid_token": "Das Gerät hat dieses Gerätetoken abgelehnt. Lassen Sie das Feld leer, um ein neues anzufordern.",
       "callback_port_in_use": "Port 8889 ist auf Home Assistant bereits belegt, meist durch eine noch wartende Token-Anfrage. Versuchen Sie es in anderthalb Minuten erneut.",
       "callback_cert_rejected": "Das Gerät hat sich auf Port 8889 zurückgemeldet, aber das selbstsignierte Zertifikat von Home Assistant abgelehnt. Fügen Sie das AC14K_M-CA-Zertifikat und den Schlüssel ein, damit LocalThings ein akzeptiertes Zertifikat signieren kann; die Token-Anfrage wird dann erneut ausgeführt.",
-      "callback_ca_rejected": "Das Gerät hat sich auf Port 8889 zurückgemeldet, aber auch das mit AC14K_M signierte Zertifikat abgelehnt. Fügen Sie ein auf anderem Weg beschafftes Token ein; der genaue Handshake-Fehler steht im Home Assistant-Protokoll."
+      "callback_ca_rejected": "Das Gerät hat sich auf Port 8889 zurückgemeldet, aber auch das mit AC14K_M signierte Zertifikat abgelehnt. Fügen Sie ein auf anderem Weg beschafftes Token ein; der genaue Handshake-Fehler steht im Home Assistant-Protokoll.",
+      "certificate_changed": "Das Gerät unter dieser Adresse hat ein anderes Sicherheitszertifikat vorgelegt als bei der Einrichtung dieses Eintrags, daher wurde ihm nichts gesendet. Ist es dasselbe Gerät nach einer Reparatur oder einem Zurücksetzen, nutze Neu konfigurieren; dort wird dir das neue Zertifikat zur Bestätigung angezeigt."
     },
     "abort": {
       "already_configured": "Gerät ist bereits konfiguriert",
@@ -2195,7 +2200,8 @@
       "empty_payload": "Geben Sie mindestens ein zu schreibendes Feld ein.",
       "write_failed": "Der Schreibvorgang ist fehlgeschlagen. Weitere Details finden Sie im Home-Assistant-Protokoll.",
       "cloud_course_name_duplicate": "Zwei Programme haben denselben Namen. Namen müssen eindeutig sein.",
-      "cloud_course_unknown_course": "Dieses Programm wird von diesem Gerät nicht angeboten. Wählen Sie eines aus der Liste."
+      "cloud_course_unknown_course": "Dieses Programm wird von diesem Gerät nicht angeboten. Wählen Sie eines aus der Liste.",
+      "security_resource": "OCF-Sicherheitsressourcen (/oic/sec/...) können hier nicht beschrieben werden: Ein Schreibvorgang dort kann die lokale Steuerung so stören, dass Home Assistant es nicht rückgängig machen kann."
     },
     "abort": {
       "not_loaded": "Dieses Gerät ist noch nicht verbunden. Versuchen Sie es erneut, sobald es geladen wurde."
@@ -2212,6 +2218,14 @@
     "cloud_courses_undiscovered": {
       "title": "Heruntergeladene Programme für {device_name} nicht eingerichtet",
       "description": "{device_name} hat {pending} von {total} heruntergeladenen Programmen, die Home Assistant noch nicht anbieten kann. Ein heruntergeladenes Programm kann erst verwendet werden, sobald das Gerät damit geladen gesehen wurde -- im Bildschirm \"Download-Programme\" der SmartThings-App, nicht im Bildschirm \"Programm\" -- und Sie ihm einen Namen gegeben haben.\n\nUm sie einzurichten, gehen Sie zu Einstellungen > Geräte & Dienste > LocalAppliances > {device_name} > Konfigurieren > Download-Programme und folgen Sie den dortigen Anweisungen.\n\nNutzen Sie keine heruntergeladenen Programme? Gehen Sie stattdessen zu Konfigurieren > Geräteeinstellungen und schalten Sie \"Heruntergeladene Programme anbieten\" aus, um diese Erinnerung dauerhaft zu stoppen."
+    },
+    "device_identity_mismatch": {
+      "title": "Für {device_name} antwortet ein anderes Gerät",
+      "description": "Das Gerät unter {host} hat die Zugangsdaten dieses Eintrags akzeptiert, sich aber als ein anderes Gerät ausgewiesen, daher verwendet LocalThings es nicht mehr. Meist ist das Gerät auf eine neue Adresse umgezogen und ein anderes hat jetzt die alte. Öffne diesen Eintrag unter Einstellungen > Geräte & Dienste und richte ihn mit Neu konfigurieren auf die richtige Adresse aus. Dieser Hinweis verschwindet von selbst, sobald das richtige Gerät antwortet."
+    },
+    "appliance_certificate_changed": {
+      "title": "{device_name} hat ein anderes Sicherheitszertifikat vorgelegt",
+      "description": "Das Gerät unter {host} hat ein anderes Sicherheitszertifikat vorgelegt als das Gerät bei der Einrichtung, daher kommuniziert LocalThings nicht mehr damit und hat ihm das Zugriffstoken des Geräts nicht gesendet. Möglicherweise hat ein anderes Gerät die Adresse übernommen. Ist das Gerät auf eine neue Adresse umgezogen, richte diesen Eintrag mit Neu konfigurieren (Einstellungen > Geräte & Dienste) darauf aus. Ist es dasselbe Gerät und hat sich sein Zertifikat geändert (etwa nach einer Reparatur oder einem Zurücksetzen), übernimmt Neu konfigurieren auch das neue Zertifikat. Dieser Hinweis verschwindet von selbst, sobald das ursprüngliche Gerät antwortet."
     }
   },
   "exceptions": {
@@ -2325,6 +2339,18 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Extra Rinse ist bei dem ausgewählten Programm nicht verfügbar."
+    },
+    "security_resource_write_refused": {
+      "message": "Das Schreiben nach {href} wird abgelehnt. OCF-Sicherheitsressourcen (/oic/sec/...) enthalten die Bereitstellung und die Zugangsdaten des Geräts; ein Schreibvorgang dort kann die lokale Steuerung so stören, dass Home Assistant es nicht rückgängig machen kann."
+    },
+    "command_unconfirmed": {
+      "message": "Das Gerät hat auf den Befehl an {href} nicht rechtzeitig geantwortet. Er wurde nicht erneut gesendet, da er bereits ausgeführt worden sein könnte und ein zweites Senden ihn doppelt ausführen könnte. Prüfe das Gerät, bevor du es erneut versuchst."
+    },
+    "command_auth_rejected": {
+      "message": "Das Gerät hat das Geräte-Token dieses Eintrags abgelehnt. Authentifiziere den Eintrag unter Einstellungen > Geräte & Dienste neu, um ein neues zu erhalten."
+    },
+    "security_credential_read_refused": {
+      "message": "Das Lesen von {href} wird abgelehnt: Es enthält die Zugangsdaten des Geräts, die Home Assistant nie verlassen sollten."
     }
   },
   "selector": {

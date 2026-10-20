@@ -2068,6 +2068,10 @@
         "data": {
           "device_token": "Token zariadenia (nechajte prázdne a požiada sa o nový)"
         }
+      },
+      "reconfigure_certificate": {
+        "title": "Prijať nový certifikát spotrebiča?",
+        "description": "Spotrebič na adrese {host} predložil iný bezpečnostný certifikát než ten, s ktorým bola táto položka nastavená. Zatiaľ mu nebolo nič odoslané.\n\nUložený certifikát:\n{old_fingerprint}\n\nTeraz predložený certifikát:\n{new_fingerprint}\n\nPokračujte len vtedy, ak viete, že ide o váš spotrebič (napríklad po oprave, resete alebo výmene dosky). Odoslaním prijmete nový certifikát a pošlete mu prístupový token tejto položky; zatvorením dialógu ponecháte položku bez zmeny."
       }
     },
     "error": {
@@ -2095,7 +2099,8 @@
       "invalid_token": "Spotrebič tento token zariadenia odmietol. Nechajte pole prázdne a požiadajte o nový.",
       "callback_port_in_use": "Port 8889 je v Home Assistant už obsadený, zvyčajne ešte čakajúcou žiadosťou o token. Skúste to znova o minútu a pol.",
       "callback_cert_rejected": "Spotrebič sa ozval späť na porte 8889, ale odmietol certifikát Home Assistant podpísaný sám sebou. Vložte certifikát a kľúč CA AC14K_M, aby LocalThings podpísal certifikát, ktorý prijme; žiadosť o token sa potom spustí znova.",
-      "callback_ca_rejected": "Spotrebič sa ozval späť na porte 8889, ale odmietol aj certifikát podpísaný AC14K_M. Vložte token získaný iným spôsobom; chybu handshaku nájdete v protokole Home Assistant."
+      "callback_ca_rejected": "Spotrebič sa ozval späť na porte 8889, ale odmietol aj certifikát podpísaný AC14K_M. Vložte token získaný iným spôsobom; chybu handshaku nájdete v protokole Home Assistant.",
+      "certificate_changed": "Spotrebič na tejto adrese predložil iný bezpečnostný certifikát než ten, s ktorým bola táto položka nastavená, preto mu nebolo nič odoslané. Ak ide o ten istý spotrebič po oprave alebo resete, použite Prekonfigurovať, ktoré vám nový certifikát zobrazí na potvrdenie."
     },
     "abort": {
       "already_configured": "Zariadenie je už nakonfigurované",
@@ -2195,7 +2200,8 @@
       "empty_payload": "Zadajte aspoň jedno pole na zápis.",
       "write_failed": "Zápis zlyhal. Podrobnosti nájdete v protokoloch Home Assistant.",
       "cloud_course_name_duplicate": "Dva cykly majú rovnaký názov. Názvy musia byť jedinečné.",
-      "cloud_course_unknown_course": "Tento program spotrebič neponúka. Vyberte program zo zoznamu."
+      "cloud_course_unknown_course": "Tento program spotrebič neponúka. Vyberte program zo zoznamu.",
+      "security_resource": "Bezpečnostné prostriedky OCF (/oic/sec/...) sa tu nedajú zapisovať: zápis do nich môže narušiť miestne ovládanie spôsobom, ktorý Home Assistant nedokáže vrátiť."
     },
     "abort": {
       "not_loaded": "Toto zariadenie ešte nie je pripojené. Skúste to znova, keď sa načíta."
@@ -2212,6 +2218,14 @@
     "cloud_courses_undiscovered": {
       "title": "Stiahnuté cykly nie sú nastavené pre {device_name}",
       "description": "{device_name} má {pending} z {total} stiahnutých cyklov, ktoré Home Assistant zatiaľ nedokáže ponúknuť. Stiahnutý cyklus možno použiť až po tom, čo bol na spotrebiči zaznamenaný ako načítaný – na obrazovke „Stiahnuté cykly“ v aplikácii SmartThings, nie na obrazovke „Cyklus“ – a dostal názov.\n\nAk ich chcete nastaviť, prejdite do Nastavenia > Zariadenia a služby > LocalAppliances > {device_name} > Konfigurovať > Stiahnuté cykly a postupujte podľa pokynov.\n\nAk stiahnuté cykly nepoužívate, prejdite do Konfigurovať > Nastavenia zariadenia a vypnite možnosť „Ponúkať stiahnuté cykly“, čím toto pripomenutie natrvalo vypnete."
+    },
+    "device_identity_mismatch": {
+      "title": "Za {device_name} odpovedá iný spotrebič",
+      "description": "Spotrebič na adrese {host} prijal prihlasovacie údaje tejto položky, ale identifikoval sa ako iný spotrebič, takže ho LocalThings prestal používať. Zvyčajne to znamená, že sa spotrebič presunul na novú adresu a starú má teraz iný. Otvorte túto položku v Nastavenia > Zariadenia a služby a pomocou Prekonfigurovať ju nasmerujte na správnu adresu. Toto upozornenie samo zmizne, keď odpovie správny spotrebič."
+    },
+    "appliance_certificate_changed": {
+      "title": "{device_name} predložil iný bezpečnostný certifikát",
+      "description": "Zariadenie na adrese {host} predložilo iný bezpečnostný certifikát ako spotrebič pri nastavení, preto s ním LocalThings prestal komunikovať a neposlal mu prístupový token spotrebiča. Adresu spotrebiča mohlo prevziať iné zariadenie. Ak sa spotrebič presunul na novú adresu, nasmerujte túto položku pomocou Prekonfigurovať (Nastavenia > Zariadenia a služby). Ak ide o ten istý spotrebič a jeho certifikát sa zmenil (napríklad po oprave alebo resete), Prekonfigurovať prijme aj nový certifikát. Toto upozornenie samo zmizne, keď odpovie pôvodný spotrebič."
     }
   },
   "exceptions": {
@@ -2325,6 +2339,18 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Extra plákanie nie je pri vybranom cykle dostupné."
+    },
+    "security_resource_write_refused": {
+      "message": "Zápis do {href} je odmietnutý. Bezpečnostné prostriedky OCF (/oic/sec/...) uchovávajú zriadenie a prihlasovacie údaje spotrebiča; zápis do nich môže narušiť miestne ovládanie spôsobom, ktorý Home Assistant nedokáže vrátiť."
+    },
+    "command_unconfirmed": {
+      "message": "Spotrebič na príkaz pre {href} neodpovedal včas. Príkaz nebol odoslaný znova, pretože už mohol prebehnúť a druhé odoslanie by ho mohlo spustiť dvakrát. Pred ďalším pokusom skontrolujte spotrebič."
+    },
+    "command_auth_rejected": {
+      "message": "Spotrebič odmietol token zariadenia tejto položky. Overte položku znova v Nastavenia > Zariadenia a služby a získajte nový."
+    },
+    "security_credential_read_refused": {
+      "message": "Čítanie {href} je odmietnuté: obsahuje prihlasovacie údaje spotrebiča, ktoré by nikdy nemali opustiť Home Assistant."
     }
   },
   "selector": {

@@ -109,6 +109,10 @@
         "data": {
           "device_token": "Token del dispositivo (déjalo vacío para solicitar uno)"
         }
+      },
+      "reconfigure_certificate": {
+        "title": "¿Aceptar un nuevo certificado del aparato?",
+        "description": "El aparato en {host} presentó un certificado de seguridad distinto al de la configuración de esta entrada. Todavía no se le ha enviado nada.\n\nCertificado registrado:\n{old_fingerprint}\n\nCertificado presentado ahora:\n{new_fingerprint}\n\nContinúa solo si sabes que es tu aparato (por ejemplo tras una reparación, un restablecimiento o un cambio de placa). Envía para aceptar el nuevo certificado y enviarle el token de acceso de esta entrada; cierra este diálogo para dejar la entrada sin cambios."
       }
     },
     "error": {
@@ -136,7 +140,8 @@
       "invalid_token": "El electrodoméstico rechazó ese token. Deja el campo vacío para solicitar uno nuevo.",
       "callback_port_in_use": "El puerto 8889 ya está en uso en Home Assistant, normalmente por una solicitud de token que sigue esperando. Vuelve a intentarlo en un minuto y medio.",
       "callback_cert_rejected": "El electrodoméstico devolvió la llamada en el puerto 8889, pero rechazó el certificado autofirmado de Home Assistant. Pega el certificado y la clave de la CA AC14K_M para que LocalThings firme uno que acepte; después, la solicitud de token se repetirá.",
-      "callback_ca_rejected": "El electrodoméstico devolvió la llamada en el puerto 8889, pero también rechazó el certificado firmado con AC14K_M. Pega un token obtenido de otra forma y consulta el registro de Home Assistant para ver el error del handshake."
+      "callback_ca_rejected": "El electrodoméstico devolvió la llamada en el puerto 8889, pero también rechazó el certificado firmado con AC14K_M. Pega un token obtenido de otra forma y consulta el registro de Home Assistant para ver el error del handshake.",
+      "certificate_changed": "El aparato en esta dirección presentó un certificado de seguridad distinto al de la configuración de esta entrada, así que no se le ha enviado nada. Si es el mismo aparato tras una reparación o un restablecimiento, usa Reconfigurar, que te muestra el nuevo certificado para aceptarlo."
     },
     "abort": {
       "already_configured": "El dispositivo ya está configurado",
@@ -236,7 +241,8 @@
       "empty_payload": "Introduce al menos un campo para escribir.",
       "write_failed": "La escritura falló. Consulta los registros de Home Assistant para más detalles.",
       "cloud_course_name_duplicate": "Dos ciclos tienen el mismo nombre. Los nombres deben ser únicos.",
-      "cloud_course_unknown_course": "Ese programa no es uno que ofrezca este dispositivo. Elige uno de la lista."
+      "cloud_course_unknown_course": "Ese programa no es uno que ofrezca este dispositivo. Elige uno de la lista.",
+      "security_resource": "Los recursos de seguridad OCF (/oic/sec/...) no se pueden escribir desde aquí: escribir en ellos puede romper el control local de una forma que Home Assistant no puede deshacer."
     },
     "abort": {
       "not_loaded": "Este dispositivo aún no está conectado. Inténtalo de nuevo cuando se haya cargado."
@@ -253,6 +259,14 @@
     "cloud_courses_undiscovered": {
       "title": "Ciclos descargados sin configurar para {device_name}",
       "description": "{device_name} tiene {pending} de {total} ciclos descargados que Home Assistant todavía no puede ofrecer. Un ciclo descargado solo se puede usar una vez que el dispositivo se ha visto con él cargado -- en la pantalla \"Descarga de Programas\" de la app SmartThings, no en la de \"Ciclo\" -- y le has dado un nombre.\n\nPara configurarlos, ve a Ajustes > Dispositivos y servicios > LocalAppliances > {device_name} > Configurar > Ciclos descargados y sigue las instrucciones que aparecen allí.\n\n¿No usas ciclos descargados? Ve a Configurar > Ajustes del dispositivo y desactiva \"Ofrecer ciclos descargados\" para silenciar este aviso definitivamente."
+    },
+    "device_identity_mismatch": {
+      "title": "Otro aparato responde en lugar de {device_name}",
+      "description": "El aparato en {host} aceptó la credencial de esta entrada pero se identificó como otro aparato, así que LocalThings ha dejado de usarlo. Normalmente significa que el aparato cambió de dirección y otro tiene ahora la antigua. Abre esta entrada en Ajustes > Dispositivos y servicios y usa Reconfigurar para apuntarla a la dirección correcta. Este aviso desaparece solo cuando responda el aparato correcto."
+    },
+    "appliance_certificate_changed": {
+      "title": "{device_name} presentó un certificado de seguridad distinto",
+      "description": "Lo que respondió en {host} presentó un certificado de seguridad distinto al del aparato cuando se configuró, así que LocalThings ha dejado de comunicarse con él y no le ha enviado el token de acceso del aparato. Puede que otro dispositivo haya tomado la dirección del aparato. Si el aparato cambió de dirección, usa Reconfigurar en esta entrada (Ajustes > Dispositivos y servicios) para apuntarla allí. Si es el mismo aparato y su certificado cambió (por ejemplo tras una reparación o un restablecimiento), Reconfigurar también acepta el nuevo certificado. Este aviso desaparece solo cuando responda el aparato original."
     }
   },
   "exceptions": {
@@ -366,6 +380,18 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "El aclarado extra no está disponible en el ciclo seleccionado."
+    },
+    "security_resource_write_refused": {
+      "message": "Se rechaza la escritura en {href}. Los recursos de seguridad OCF (/oic/sec/...) contienen el aprovisionamiento y las credenciales del aparato; escribir en ellos puede romper el control local de una forma que Home Assistant no puede deshacer."
+    },
+    "command_unconfirmed": {
+      "message": "El aparato no respondió a tiempo al comando para {href}. No se ha vuelto a enviar, porque puede que ya se haya ejecutado y enviarlo otra vez podría ejecutarlo dos veces. Revisa el aparato antes de volver a intentarlo."
+    },
+    "command_auth_rejected": {
+      "message": "El aparato rechazó el token de dispositivo de esta entrada. Vuelve a autenticar la entrada desde Ajustes > Dispositivos y servicios para obtener uno nuevo."
+    },
+    "security_credential_read_refused": {
+      "message": "Se rechaza la lectura de {href}: contiene las credenciales del aparato, que nunca deberían salir de Home Assistant."
     }
   },
   "entity": {

@@ -2068,6 +2068,10 @@
         "data": {
           "device_token": "Apparaattoken (leeg laten om er een aan te vragen)"
         }
+      },
+      "reconfigure_certificate": {
+        "title": "Een nieuw apparaatcertificaat accepteren?",
+        "description": "Het apparaat op {host} toonde een ander beveiligingscertificaat dan waarmee dit item is ingesteld. Er is nog niets naartoe verzonden.\n\nVastgelegd certificaat:\n{old_fingerprint}\n\nNu getoond certificaat:\n{new_fingerprint}\n\nGa alleen verder als je weet dat dit jouw apparaat is (bijvoorbeeld na een reparatie, reset of vervanging van de printplaat). Verzenden accepteert het nieuwe certificaat en stuurt het toegangstoken van dit item ernaartoe; sluit dit venster om het item ongewijzigd te laten."
       }
     },
     "error": {
@@ -2095,7 +2099,8 @@
       "invalid_token": "Het apparaat heeft dat token geweigerd. Laat het veld leeg om een nieuw token aan te vragen.",
       "callback_port_in_use": "Poort 8889 is al in gebruik op Home Assistant, meestal door een tokenaanvraag die nog wacht. Probeer het over anderhalve minuut opnieuw.",
       "callback_cert_rejected": "Het apparaat belde terug op poort 8889, maar weigerde het zelfondertekende certificaat van Home Assistant. Plak het AC14K_M-CA-certificaat en de sleutel zodat LocalThings er een kan ondertekenen dat wel wordt geaccepteerd; daarna wordt de tokenaanvraag opnieuw uitgevoerd.",
-      "callback_ca_rejected": "Het apparaat belde terug op poort 8889, maar weigerde ook het met AC14K_M ondertekende certificaat. Plak een token dat je op een andere manier hebt verkregen; de handshakefout staat in het Home Assistant-logboek."
+      "callback_ca_rejected": "Het apparaat belde terug op poort 8889, maar weigerde ook het met AC14K_M ondertekende certificaat. Plak een token dat je op een andere manier hebt verkregen; de handshakefout staat in het Home Assistant-logboek.",
+      "certificate_changed": "Het apparaat op dit adres toonde een ander beveiligingscertificaat dan waarmee dit item is ingesteld, dus er is niets naartoe verzonden. Is het hetzelfde apparaat na een reparatie of reset, gebruik dan Opnieuw configureren; daar wordt het nieuwe certificaat getoond om te accepteren."
     },
     "abort": {
       "already_configured": "Apparaat is al geconfigureerd",
@@ -2195,7 +2200,8 @@
       "empty_payload": "Voer ten minste één veld in om te schrijven.",
       "write_failed": "De schrijfbewerking is mislukt. Raadpleeg de Home Assistant-logboeken voor meer informatie.",
       "cloud_course_name_duplicate": "Twee programma's hebben dezelfde naam. Namen moeten uniek zijn.",
-      "cloud_course_unknown_course": "Dat programma biedt dit apparaat niet aan. Kies er een uit de lijst."
+      "cloud_course_unknown_course": "Dat programma biedt dit apparaat niet aan. Kies er een uit de lijst.",
+      "security_resource": "OCF-beveiligingsresources (/oic/sec/...) kunnen hier niet worden beschreven: een schrijfactie daar kan lokale bediening breken op een manier die Home Assistant niet ongedaan kan maken."
     },
     "abort": {
       "not_loaded": "Dit apparaat is nog niet verbonden. Probeer het opnieuw zodra het is geladen."
@@ -2212,6 +2218,14 @@
     "cloud_courses_undiscovered": {
       "title": "Gedownloade programma's niet ingesteld voor {device_name}",
       "description": "{device_name} heeft {pending} van de {total} gedownloade programma's die Home Assistant nog niet kan aanbieden. Een gedownload programma kan pas worden gebruikt zodra het apparaat ermee geladen is gezien -- in het scherm \"Gedownloade programma's\" van de SmartThings-app, niet in \"Programma\" -- en je het een naam hebt gegeven.\n\nGa om ze in te stellen naar Instellingen > Apparaten & diensten > LocalAppliances > {device_name} > Configureren > Gedownloade programma's en volg de instructies daar.\n\nGebruik je geen gedownloade programma's? Ga dan naar Configureren > Apparaatinstellingen en zet \"Gedownloade programma's aanbieden\" uit om deze herinnering voorgoed te stoppen."
+    },
+    "device_identity_mismatch": {
+      "title": "Een ander apparaat antwoordt voor {device_name}",
+      "description": "Het apparaat op {host} accepteerde de inloggegevens van dit item, maar identificeerde zich als een ander apparaat, dus LocalThings gebruikt het niet meer. Meestal is het apparaat naar een nieuw adres verhuisd en heeft een ander nu het oude. Open dit item in Instellingen > Apparaten & diensten en gebruik Opnieuw configureren om het naar het juiste adres te laten wijzen. Deze melding verdwijnt vanzelf zodra het juiste apparaat antwoordt."
+    },
+    "appliance_certificate_changed": {
+      "title": "{device_name} toonde een ander beveiligingscertificaat",
+      "description": "Wat op {host} antwoordde, toonde een ander beveiligingscertificaat dan het apparaat bij de installatie, dus LocalThings communiceert er niet meer mee en heeft het toegangstoken van het apparaat niet verzonden. Mogelijk heeft een ander apparaat het adres overgenomen. Is het apparaat naar een nieuw adres verhuisd, gebruik dan Opnieuw configureren op dit item (Instellingen > Apparaten & diensten) om ernaar te wijzen. Is het hetzelfde apparaat en is het certificaat veranderd (bijvoorbeeld na een reparatie of reset), dan accepteert Opnieuw configureren ook het nieuwe certificaat. Deze melding verdwijnt vanzelf zodra het oorspronkelijke apparaat antwoordt."
     }
   },
   "exceptions": {
@@ -2325,6 +2339,18 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Extra Rinse is niet beschikbaar voor het geselecteerde programma."
+    },
+    "security_resource_write_refused": {
+      "message": "Schrijven naar {href} wordt geweigerd. OCF-beveiligingsresources (/oic/sec/...) bevatten de provisioning en de inloggegevens van het apparaat; een schrijfactie daar kan lokale bediening breken op een manier die Home Assistant niet ongedaan kan maken."
+    },
+    "command_unconfirmed": {
+      "message": "Het apparaat antwoordde niet op tijd op de opdracht naar {href}. Die is niet opnieuw verzonden, omdat hij mogelijk al is uitgevoerd en opnieuw verzenden hem twee keer zou kunnen uitvoeren. Controleer het apparaat voordat je het opnieuw probeert."
+    },
+    "command_auth_rejected": {
+      "message": "Het apparaat weigerde het apparaattoken van dit item. Verifieer het item opnieuw via Instellingen > Apparaten & diensten om een nieuw token te krijgen."
+    },
+    "security_credential_read_refused": {
+      "message": "Het lezen van {href} wordt geweigerd: het bevat de inloggegevens van het apparaat, die Home Assistant nooit mogen verlaten."
     }
   },
   "selector": {

@@ -119,3 +119,27 @@ async def test_handshake_finishing_after_close_closes_its_session(
 
     assert transports.opened[0].closed
     assert coordinator._session is None
+
+
+@pytest.mark.parametrize(
+    ("method", "store_fn"),
+    [("_persist_learned", "persist"), ("_persist_cloud_courses", "cloud_persist")],
+)
+async def test_persisting_after_close_is_a_no_op(
+    hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch, method: str, store_fn: str
+) -> None:
+    """A notify delivered while async_close runs can still schedule a save;
+    by the time it runs the entry may be reloading or already removed, so
+    it must not write to it."""
+    entry = MockConfigEntry(domain=DOMAIN, data=ENTRY_DATA, unique_id="localthings_CLOSE-PERSIST")
+    entry.add_to_hass(hass)
+    coord = LocalThingsCoordinator(hass, entry)
+    calls: list[object] = []
+    monkeypatch.setattr(coordinator_mod, store_fn, lambda *a, **k: calls.append(a))
+
+    getattr(coord, method)()
+    assert len(calls) == 1  # open: saves as before
+
+    coord._closed = True
+    getattr(coord, method)()
+    assert len(calls) == 1

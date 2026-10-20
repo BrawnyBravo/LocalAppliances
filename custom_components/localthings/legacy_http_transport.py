@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import http.client
 import json
 import logging
@@ -29,6 +30,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from .credentials import ApplianceCertificateMismatch
 from .legacy_http import (
     TP6X_RAC,
     Resource,
@@ -125,6 +127,17 @@ class _ApplianceState:
 _STATE: dict[tuple[str, int, int], _ApplianceState] = {}
 
 
+def forget(host: str, port: int) -> None:
+    """Drop everything held for the appliance at `host:port`.
+
+    For when its entry is deleted: otherwise a held cycle would survive
+    and resurface if the same address were added again. Not on a plain
+    unload or reload, which this state exists to outlive in the same way
+    it outlives a reconnect."""
+    for key in [key for key in list(_STATE) if key[:2] == (host, port)]:
+        _STATE.pop(key, None)
+
+
 def _device_path(index: int) -> str:
     return f"/devices/{index}"
 
@@ -143,8 +156,14 @@ class LegacyHttpTransport:
         key_pem: str,
         token: str,
         family: str | None = None,
+        cert_fingerprint: str | None = None,
     ) -> None:
+        """`cert_fingerprint` is the appliance certificate's SHA-256 pinned
+        on the entry. Without one, the first certificate that answers a
+        request successfully is learned (see `learned_cert_fingerprint`)."""
         self._host = host
+        self._pinned_fingerprint = cert_fingerprint
+        self._learned_fingerprint: str | None = None
         self._port = port
         self._cert_pem = cert_pem
         self._key_pem = key_pem
@@ -157,6 +176,13 @@ class LegacyHttpTransport:
     @property
     def host(self) -> str:
         return self._host
+
+    @property
+    def learned_cert_fingerprint(self) -> str | None:
+        """The certificate fingerprint this transport learned, if it had
+        none pinned and a request has since succeeded; for the caller to
+        record on the entry."""
+        return self._learned_fingerprint
 
     @property
     def port(self) -> int:
@@ -573,7 +599,9 @@ class LegacyHttpTransport:
         # any index a write or a rejected probe names.
         states = {
             index: state
-            for (host, port, index), state in _STATE.items()
+            # A snapshot: an executor thread can add an index meanwhile, and
+            # iterating the live dict would then fail the download.
+            for (host, port, index), state in list(_STATE.items())
             if (host, port) == (self._host, self._port) and (state.last_bodies or not index)
         }
         main = states.get(0, _ApplianceState()).last_bodies
@@ -624,6 +652,10 @@ class LegacyHttpTransport:
             self._host, self._port, context=self._ctx, timeout=timeout
         )
         try:
+            # Handshake first, on its own, so the peer's certificate is
+            # checked before the request -- and its bearer token -- is sent.
+            conn.connect()
+            fingerprint = self._check_peer(conn)
             conn.request(method, path, body=payload, headers=headers)
             response = conn.getresponse()
             raw = response.read()
@@ -631,6 +663,10 @@ class LegacyHttpTransport:
             conn.close()
         if response.status == 401:
             raise AuthRejected(f"{self._host} refused the device token")
+        if self._pinned_fingerprint is None and fingerprint is not None:
+            # Trust on first use: the first certificate that answered a
+            # request with this token is the appliance's.
+            self._pinned_fingerprint = self._learned_fingerprint = fingerprint
         if not raw:
             return response.status, None
         try:
@@ -648,6 +684,44 @@ class LegacyHttpTransport:
             if isinstance(description, str) and description:
                 return response.status, description
         return response.status, body
+
+    def _check_peer(self, conn: http.client.HTTPSConnection) -> str | None:
+        """The connected peer's certificate fingerprint, refusing one that
+        differs from the pin. A pinned entry whose peer shows no certificate
+        at all is refused too, rather than trusted."""
+        fingerprint = _peer_fingerprint(conn)
+        if self._pinned_fingerprint is not None and fingerprint != self._pinned_fingerprint:
+            raise ApplianceCertificateMismatch(
+                f"{self._host}:{self._port} presented a different TLS certificate than "
+                f"the one recorded for this entry; the device token was not sent"
+            )
+        return fingerprint
+
+
+def fetch_peer_fingerprint(
+    host: str, port: int, cert_pem: str, key_pem: str, timeout: float = 15.0
+) -> str | None:
+    """The appliance certificate's fingerprint from a TLS handshake alone --
+    no request is sent, so nothing (no token) reaches the peer. For the
+    config flow to compare against an entry's pin before using its token."""
+    conn = http.client.HTTPSConnection(
+        host, port, context=client_context(cert_pem, key_pem), timeout=timeout
+    )
+    try:
+        conn.connect()
+        return _peer_fingerprint(conn)
+    finally:
+        conn.close()
+
+
+def _peer_fingerprint(conn: Any) -> str | None:
+    """SHA-256 (hex) of the peer's DER certificate. Available even though
+    the certificate is not verified: `binary_form` returns it regardless."""
+    sock = getattr(conn, "sock", None)
+    if sock is None:
+        return None
+    der = sock.getpeercert(binary_form=True)
+    return hashlib.sha256(der).hexdigest() if der else None
 
 
 def _remaining(deadline: float) -> float:

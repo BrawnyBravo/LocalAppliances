@@ -2129,3 +2129,47 @@ async def test_host_with_an_entry_handshakes_from_an_ephemeral_port(
     await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_HOST: MOCK_HOST})
 
     assert FakeSession.instances[0].local_port is None
+
+
+async def test_options_flow_debug_write_refuses_security_resource(
+    hass: HomeAssistant,
+    mock_coordinator_session,
+) -> None:
+    """The debug panel refuses an OCF security href (/oic/sec/...) up front,
+    with an error that says why, instead of sending it to the appliance."""
+    entry = MockConfigEntry(domain=DOMAIN, data=ENTRY_DATA, unique_id=f"localthings_{MOCK_SERIAL}")
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "debug_write"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"href": "/oic/sec/pstat"}
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "debug_write"
+    assert result["errors"] == {"href": "security_resource"}
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("uuid:3f2504e0-4f89-11d3-9a0c-0305e82c3301", "3f2504e0-4f89-11d3-9a0c-0305e82c3301"),
+        (
+            "OCF Device uuid:3F2504E0-4F89-11D3-9A0C-0305E82C3301",
+            "3F2504E0-4F89-11D3-9A0C-0305E82C3301",
+        ),
+        ("uuid:abc", None),
+        ("uuid:----", None),
+        ("no identifier here", None),
+    ],
+)
+def test_cloud_uuid_must_be_well_formed(value: str, expected: str | None) -> None:
+    """The UUID read from an unauthenticated peer becomes the minted leaf's
+    subject, so a malformed one is rejected instead of minted (review L8)."""
+    from custom_components.localthings.config_flow import _uuid_in_subject_value
+
+    assert _uuid_in_subject_value(value) == expected

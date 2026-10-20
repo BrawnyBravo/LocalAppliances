@@ -2068,6 +2068,10 @@
         "data": {
           "device_token": "기기 토큰 (비워 두면 새로 요청)"
         }
+      },
+      "reconfigure_certificate": {
+        "title": "새 기기 인증서를 수락하시겠습니까?",
+        "description": "{host}의 기기가 이 항목을 설정할 때와 다른 보안 인증서를 제시했습니다. 아직 아무것도 보내지 않았습니다.\n\n기록된 인증서:\n{old_fingerprint}\n\n지금 제시된 인증서:\n{new_fingerprint}\n\n자신의 기기임이 확실한 경우에만 계속하세요(예: 수리, 초기화 또는 보드 교체 후). 제출하면 새 인증서를 수락하고 이 항목의 액세스 토큰을 보냅니다. 항목을 그대로 두려면 이 창을 닫으세요."
       }
     },
     "error": {
@@ -2095,7 +2099,8 @@
       "invalid_token": "가전제품이 해당 기기 토큰을 거부했습니다. 새 토큰을 요청하려면 칸을 비워 두세요.",
       "callback_port_in_use": "Home Assistant의 포트 8889가 이미 사용 중입니다. 보통 아직 대기 중인 토큰 요청 때문입니다. 1분 30초 후에 다시 시도하세요.",
       "callback_cert_rejected": "가전이 포트 8889로 콜백했지만 Home Assistant의 자체 서명 인증서를 거부했습니다. LocalThings가 기기가 받아들일 인증서에 서명할 수 있도록 AC14K_M CA 인증서와 키를 붙여 넣으세요. 그러면 토큰 요청이 다시 실행됩니다.",
-      "callback_ca_rejected": "가전이 포트 8889로 콜백했지만 AC14K_M으로 서명된 인증서도 거부했습니다. 다른 방법으로 얻은 토큰을 붙여 넣고, 핸드셰이크 오류는 Home Assistant 로그에서 확인하세요."
+      "callback_ca_rejected": "가전이 포트 8889로 콜백했지만 AC14K_M으로 서명된 인증서도 거부했습니다. 다른 방법으로 얻은 토큰을 붙여 넣고, 핸드셰이크 오류는 Home Assistant 로그에서 확인하세요.",
+      "certificate_changed": "이 주소의 기기가 이 항목을 설정할 때와 다른 보안 인증서를 제시하여 아무것도 보내지 않았습니다. 수리나 초기화 후의 같은 기기라면 재구성을 사용하세요. 새 인증서를 보여 주고 수락할 수 있습니다."
     },
     "abort": {
       "already_configured": "기기가 이미 구성되어 있습니다",
@@ -2195,7 +2200,8 @@
       "empty_payload": "쓸 필드를 하나 이상 입력하세요.",
       "write_failed": "쓰기에 실패했습니다. 자세한 내용은 Home Assistant 로그에서 확인하세요.",
       "cloud_course_name_duplicate": "두 코스의 이름이 같습니다. 이름은 서로 달라야 합니다.",
-      "cloud_course_unknown_course": "이 기기가 제공하지 않는 코스입니다. 목록에서 선택하세요."
+      "cloud_course_unknown_course": "이 기기가 제공하지 않는 코스입니다. 목록에서 선택하세요.",
+      "security_resource": "OCF 보안 리소스(/oic/sec/...)는 여기서 쓸 수 없습니다. 여기에 쓰면 Home Assistant가 되돌릴 수 없는 방식으로 로컬 제어가 끊길 수 있습니다."
     },
     "abort": {
       "not_loaded": "이 기기는 아직 연결되지 않았습니다. 기기를 불러온 후 다시 시도하세요."
@@ -2212,6 +2218,14 @@
     "cloud_courses_undiscovered": {
       "title": "{device_name}의 다운로드 코스가 설정되지 않음",
       "description": "{device_name}에는 Home Assistant가 아직 제공할 수 없는 다운로드한 코스가 {total}개 중 {pending}개 있습니다. 다운로드한 코스는 SmartThings 앱의 \"다운로드 코스\" 화면(\"코스\" 화면이 아님)에서 기기가 해당 코스로 로드된 상태로 확인되고 이름을 지정한 후에만 사용할 수 있습니다.\n\n설정하려면 설정 > 기기 및 서비스 > LocalAppliances > {device_name} > 구성 > 다운로드 코스로 이동하여 안내를 따르세요.\n\n다운로드 코스를 사용하지 않나요? 대신 구성 > 기기 설정으로 이동하여 \"다운로드 코스 제공\"을 꺼서 이 알림을 완전히 중지하세요."
+    },
+    "device_identity_mismatch": {
+      "title": "{device_name} 대신 다른 기기가 응답하고 있습니다",
+      "description": "{host}의 기기가 이 항목의 자격 증명을 받아들였지만 다른 기기로 자신을 식별하여 LocalThings가 사용을 중단했습니다. 보통 기기가 새 주소로 옮겨 가고 다른 기기가 이전 주소를 쓰게 된 경우입니다. 설정 > 기기 및 서비스에서 이 항목을 열고 재구성으로 올바른 주소를 지정하세요. 올바른 기기가 응답하면 이 알림은 자동으로 사라집니다."
+    },
+    "appliance_certificate_changed": {
+      "title": "{device_name}이(가) 다른 보안 인증서를 제시했습니다",
+      "description": "{host}에서 응답한 기기가 설정 당시 기기와 다른 보안 인증서를 제시하여 LocalThings가 통신을 중단했고 기기의 액세스 토큰을 보내지 않았습니다. 다른 기기가 이 기기의 주소를 차지했을 수 있습니다. 기기가 새 주소로 옮겨 갔다면 이 항목의 재구성(설정 > 기기 및 서비스)으로 새 주소를 지정하세요. 같은 기기이고 인증서가 바뀐 경우(예: 수리나 초기화 후) 재구성에서 새 인증서도 받아들입니다. 원래 기기가 응답하면 이 알림은 자동으로 사라집니다."
     }
   },
   "exceptions": {
@@ -2325,6 +2339,18 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "선택한 코스에서는 추가 헹굼을 사용할 수 없습니다."
+    },
+    "security_resource_write_refused": {
+      "message": "{href}에 대한 쓰기가 거부되었습니다. OCF 보안 리소스(/oic/sec/...)에는 기기의 프로비저닝과 자격 증명이 들어 있으며, 여기에 쓰면 Home Assistant가 되돌릴 수 없는 방식으로 로컬 제어가 끊길 수 있습니다."
+    },
+    "command_unconfirmed": {
+      "message": "기기가 {href}에 대한 명령에 제때 응답하지 않았습니다. 이미 실행되었을 수 있고 다시 보내면 두 번 실행될 수 있으므로 다시 보내지 않았습니다. 다시 시도하기 전에 기기를 확인하세요."
+    },
+    "command_auth_rejected": {
+      "message": "기기가 이 항목의 기기 토큰을 거부했습니다. 설정 > 기기 및 서비스에서 이 항목을 다시 인증하여 새 토큰을 받으세요."
+    },
+    "security_credential_read_refused": {
+      "message": "{href} 읽기가 거부되었습니다. 이 리소스에는 Home Assistant 밖으로 나가서는 안 되는 기기의 자격 증명이 들어 있습니다."
     }
   },
   "selector": {

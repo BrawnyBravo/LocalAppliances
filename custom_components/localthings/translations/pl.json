@@ -2068,6 +2068,10 @@
         "data": {
           "device_token": "Token urządzenia (pozostaw puste, aby o niego poprosić)"
         }
+      },
+      "reconfigure_certificate": {
+        "title": "Zaakceptować nowy certyfikat urządzenia?",
+        "description": "Urządzenie pod adresem {host} przedstawiło inny certyfikat bezpieczeństwa niż ten, z którym skonfigurowano ten wpis. Nic jeszcze do niego nie wysłano.\n\nZapisany certyfikat:\n{old_fingerprint}\n\nCertyfikat przedstawiony teraz:\n{new_fingerprint}\n\nKontynuuj tylko, jeśli wiesz, że to twoje urządzenie (np. po naprawie, resecie lub wymianie płyty). Zatwierdź, aby zaakceptować nowy certyfikat i wysłać do niego token dostępu tego wpisu; zamknij to okno, aby pozostawić wpis bez zmian."
       }
     },
     "error": {
@@ -2095,7 +2099,8 @@
       "invalid_token": "Urządzenie odrzuciło ten token. Pozostaw pole puste, aby poprosić o nowy.",
       "callback_port_in_use": "Port 8889 jest już zajęty w Home Assistant, zwykle przez wciąż oczekujące żądanie tokenu. Spróbuj ponownie za półtorej minuty.",
       "callback_cert_rejected": "Urządzenie oddzwoniło na port 8889, ale odrzuciło samopodpisany certyfikat Home Assistant. Wklej certyfikat i klucz CA AC14K_M, aby LocalThings podpisał certyfikat, który zostanie zaakceptowany; potem żądanie tokenu zostanie powtórzone.",
-      "callback_ca_rejected": "Urządzenie oddzwoniło na port 8889, ale odrzuciło również certyfikat podpisany przez AC14K_M. Wklej token uzyskany w inny sposób; błąd uzgadniania znajdziesz w dzienniku Home Assistant."
+      "callback_ca_rejected": "Urządzenie oddzwoniło na port 8889, ale odrzuciło również certyfikat podpisany przez AC14K_M. Wklej token uzyskany w inny sposób; błąd uzgadniania znajdziesz w dzienniku Home Assistant.",
+      "certificate_changed": "Urządzenie pod tym adresem przedstawiło inny certyfikat bezpieczeństwa niż ten, z którym skonfigurowano ten wpis, więc nic do niego nie wysłano. Jeśli to to samo urządzenie po naprawie lub resecie, użyj opcji Zmień konfigurację, która pokaże nowy certyfikat do zaakceptowania."
     },
     "abort": {
       "already_configured": "Urządzenie jest już skonfigurowane",
@@ -2195,7 +2200,8 @@
       "empty_payload": "Podaj co najmniej jedno pole do zapisania.",
       "write_failed": "Zapis nie powiódł się. Szczegóły znajdziesz w dziennikach Home Assistant.",
       "cloud_course_name_duplicate": "Dwa cykle mają tę samą nazwę. Nazwy muszą być unikalne.",
-      "cloud_course_unknown_course": "To urządzenie nie oferuje takiego programu. Wybierz jeden z listy."
+      "cloud_course_unknown_course": "To urządzenie nie oferuje takiego programu. Wybierz jeden z listy.",
+      "security_resource": "Zasobów bezpieczeństwa OCF (/oic/sec/...) nie można tu zapisywać: zapis w nich może zepsuć sterowanie lokalne w sposób, którego Home Assistant nie potrafi cofnąć."
     },
     "abort": {
       "not_loaded": "To urządzenie nie jest jeszcze połączone. Spróbuj ponownie, gdy się wczyta."
@@ -2212,6 +2218,14 @@
     "cloud_courses_undiscovered": {
       "title": "Pobrane cykle nieskonfigurowane dla {device_name}",
       "description": "Urządzenie {device_name} ma {pending} z {total} pobranych cykli, których Home Assistant nie potrafi jeszcze udostępnić. Pobrany cykl można wykorzystać dopiero wtedy, gdy urządzenie zostanie zauważone z tym cyklem załadowanym — na ekranie „Pobrane cykle” w aplikacji SmartThings, a nie na ekranie „Cykl” — i gdy nadasz mu nazwę.\n\nAby je skonfigurować, przejdź do Ustawienia > Urządzenia i usługi > LocalAppliances > {device_name} > Konfiguruj > Pobrane cykle i postępuj zgodnie z instrukcjami.\n\nNie używasz pobranych cykli? Przejdź zamiast tego do Konfiguruj > Ustawienia urządzenia i wyłącz „Udostępniaj pobrane cykle”, aby wyciszyć to przypomnienie na stałe."
+    },
+    "device_identity_mismatch": {
+      "title": "Zamiast {device_name} odpowiada inne urządzenie",
+      "description": "Urządzenie pod adresem {host} przyjęło poświadczenia tego wpisu, ale przedstawiło się jako inne urządzenie, więc LocalThings przestał go używać. Zwykle oznacza to, że urządzenie zmieniło adres, a stary ma teraz inne. Otwórz ten wpis w Ustawienia > Urządzenia i usługi i użyj opcji Zmień konfigurację, aby wskazać właściwy adres. To powiadomienie zniknie samo, gdy odpowie właściwe urządzenie."
+    },
+    "appliance_certificate_changed": {
+      "title": "{device_name} przedstawił inny certyfikat bezpieczeństwa",
+      "description": "To, co odpowiedziało pod adresem {host}, przedstawiło inny certyfikat bezpieczeństwa niż urządzenie podczas konfiguracji, więc LocalThings przestał się z nim komunikować i nie wysłał mu tokenu dostępu urządzenia. Adres urządzenia mogło przejąć inne urządzenie. Jeśli urządzenie zmieniło adres, użyj opcji Zmień konfigurację w tym wpisie (Ustawienia > Urządzenia i usługi), aby go wskazać. Jeśli to to samo urządzenie, a jego certyfikat się zmienił (np. po naprawie lub resecie), Zmień konfigurację przyjmie też nowy certyfikat. To powiadomienie zniknie samo, gdy odpowie pierwotne urządzenie."
     }
   },
   "exceptions": {
@@ -2325,6 +2339,18 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Dodatkowe płukanie nie jest dostępne dla wybranego cyklu."
+    },
+    "security_resource_write_refused": {
+      "message": "Zapis do {href} został odrzucony. Zasoby bezpieczeństwa OCF (/oic/sec/...) przechowują konfigurację i poświadczenia urządzenia; zapis w nich może zepsuć sterowanie lokalne w sposób, którego Home Assistant nie potrafi cofnąć."
+    },
+    "command_unconfirmed": {
+      "message": "Urządzenie nie odpowiedziało na czas na polecenie dla {href}. Nie wysłano go ponownie, ponieważ mogło już zostać wykonane, a ponowne wysłanie mogłoby wykonać je dwa razy. Sprawdź urządzenie przed ponowną próbą."
+    },
+    "command_auth_rejected": {
+      "message": "Urządzenie odrzuciło token tego wpisu. Uwierzytelnij wpis ponownie w Ustawienia > Urządzenia i usługi, aby uzyskać nowy."
+    },
+    "security_credential_read_refused": {
+      "message": "Odczyt {href} został odrzucony: zawiera poświadczenia urządzenia, które nigdy nie powinny opuszczać Home Assistant."
     }
   },
   "selector": {

@@ -2068,6 +2068,10 @@
         "data": {
           "device_token": "Token del dispositivo (lascia vuoto per richiederne uno)"
         }
+      },
+      "reconfigure_certificate": {
+        "title": "Accettare un nuovo certificato dell'elettrodomestico?",
+        "description": "L'elettrodomestico all'indirizzo {host} ha presentato un certificato di sicurezza diverso da quello con cui è stata configurata questa voce. Non gli è ancora stato inviato nulla.\n\nCertificato registrato:\n{old_fingerprint}\n\nCertificato presentato ora:\n{new_fingerprint}\n\nContinua solo se sai che è il tuo elettrodomestico (ad esempio dopo una riparazione, un ripristino o una sostituzione della scheda). Invia per accettare il nuovo certificato e inviargli il token di accesso di questa voce; chiudi questa finestra per lasciare la voce invariata."
       }
     },
     "error": {
@@ -2095,7 +2099,8 @@
       "invalid_token": "L'apparecchio ha rifiutato quel token. Lascia vuoto il campo per richiederne uno nuovo.",
       "callback_port_in_use": "La porta 8889 è già in uso su Home Assistant, di solito da una richiesta di token ancora in attesa. Riprova tra un minuto e mezzo.",
       "callback_cert_rejected": "L'elettrodomestico ha risposto sulla porta 8889 ma ha rifiutato il certificato autofirmato di Home Assistant. Incolla il certificato e la chiave della CA AC14K_M perché LocalThings ne firmi uno accettato; poi la richiesta del token verrà ripetuta.",
-      "callback_ca_rejected": "L'elettrodomestico ha risposto sulla porta 8889 ma ha rifiutato anche il certificato firmato con AC14K_M. Incolla un token ottenuto in altro modo e controlla il log di Home Assistant per l'errore di handshake."
+      "callback_ca_rejected": "L'elettrodomestico ha risposto sulla porta 8889 ma ha rifiutato anche il certificato firmato con AC14K_M. Incolla un token ottenuto in altro modo e controlla il log di Home Assistant per l'errore di handshake.",
+      "certificate_changed": "L'elettrodomestico a questo indirizzo ha presentato un certificato di sicurezza diverso da quello con cui è stata configurata questa voce, quindi non gli è stato inviato nulla. Se è lo stesso elettrodomestico dopo una riparazione o un ripristino, usa Riconfigura, che ti mostra il nuovo certificato da accettare."
     },
     "abort": {
       "already_configured": "Il dispositivo è già configurato",
@@ -2195,7 +2200,8 @@
       "empty_payload": "Inserisci almeno un campo da scrivere.",
       "write_failed": "Operazione di scrittura non riuscita. Controlla i registri di Home Assistant per i dettagli.",
       "cloud_course_name_duplicate": "Due cicli hanno lo stesso nome. I nomi devono essere univoci.",
-      "cloud_course_unknown_course": "Quel programma non è tra quelli offerti da questo dispositivo. Selezionarne uno dall'elenco."
+      "cloud_course_unknown_course": "Quel programma non è tra quelli offerti da questo dispositivo. Selezionarne uno dall'elenco.",
+      "security_resource": "Le risorse di sicurezza OCF (/oic/sec/...) non possono essere scritte da qui: una scrittura lì può compromettere il controllo locale in un modo che Home Assistant non può annullare."
     },
     "abort": {
       "not_loaded": "Questo dispositivo non è ancora connesso. Riprova dopo il caricamento."
@@ -2212,6 +2218,14 @@
     "cloud_courses_undiscovered": {
       "title": "Cicli scaricati non configurati per {device_name}",
       "description": "{device_name} ha {pending} cicli scaricati su {total} che Home Assistant non può ancora offrire. Un ciclo scaricato può essere usato solo dopo che il dispositivo è stato rilevato con quel ciclo caricato -- nella schermata \"Cicli scaricati\" dell'app SmartThings, non in quella \"Ciclo\" -- ed è stato assegnato un nome.\n\nPer configurarli, andare su Impostazioni > Dispositivi e servizi > LocalAppliances > {device_name} > Configura > Cicli scaricati e seguire le istruzioni presenti lì.\n\nNon si usano cicli scaricati? Andare invece su Configura > Impostazioni dispositivo e disattivare \"Offri cicli scaricati\" per silenziare questo promemoria definitivamente."
+    },
+    "device_identity_mismatch": {
+      "title": "Un altro elettrodomestico risponde al posto di {device_name}",
+      "description": "L'elettrodomestico all'indirizzo {host} ha accettato le credenziali di questa voce ma si è identificato come un altro elettrodomestico, quindi LocalThings ha smesso di usarlo. Di solito significa che l'elettrodomestico ha cambiato indirizzo e ora un altro ha quello vecchio. Apri questa voce in Impostazioni > Dispositivi e servizi e usa Riconfigura per puntarla all'indirizzo corretto. Questo avviso scompare da solo quando risponde l'elettrodomestico giusto."
+    },
+    "appliance_certificate_changed": {
+      "title": "{device_name} ha presentato un certificato di sicurezza diverso",
+      "description": "Ciò che ha risposto all'indirizzo {host} ha presentato un certificato di sicurezza diverso da quello dell'elettrodomestico al momento della configurazione, quindi LocalThings ha smesso di comunicare con esso e non gli ha inviato il token di accesso. Un altro dispositivo potrebbe aver preso l'indirizzo dell'elettrodomestico. Se l'elettrodomestico ha cambiato indirizzo, usa Riconfigura su questa voce (Impostazioni > Dispositivi e servizi) per puntarla lì. Se è lo stesso elettrodomestico e il suo certificato è cambiato (ad esempio dopo una riparazione o un ripristino), Riconfigura accetta anche il nuovo certificato. Questo avviso scompare da solo quando risponde l'elettrodomestico originale."
     }
   },
   "exceptions": {
@@ -2325,6 +2339,18 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Risciacquo extra non è disponibile per il ciclo selezionato."
+    },
+    "security_resource_write_refused": {
+      "message": "La scrittura su {href} è rifiutata. Le risorse di sicurezza OCF (/oic/sec/...) contengono il provisioning e le credenziali dell'elettrodomestico; una scrittura lì può compromettere il controllo locale in un modo che Home Assistant non può annullare."
+    },
+    "command_unconfirmed": {
+      "message": "L'elettrodomestico non ha risposto in tempo al comando per {href}. Non è stato inviato di nuovo, perché potrebbe essere già stato eseguito e inviarlo due volte potrebbe eseguirlo due volte. Controlla l'elettrodomestico prima di riprovare."
+    },
+    "command_auth_rejected": {
+      "message": "L'elettrodomestico ha rifiutato il token del dispositivo di questa voce. Esegui di nuovo l'autenticazione della voce da Impostazioni > Dispositivi e servizi per ottenerne uno nuovo."
+    },
+    "security_credential_read_refused": {
+      "message": "La lettura di {href} è rifiutata: contiene le credenziali dell'elettrodomestico, che non dovrebbero mai lasciare Home Assistant."
     }
   },
   "selector": {
