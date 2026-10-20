@@ -274,13 +274,9 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
     def __init__(self, coordinator: LocalThingsCoordinator, bound) -> None:
         super().__init__(coordinator, bound)
         self._attr_name = None  # primary entity: no name suffix
-        self._attr_supported_features = (
-            ClimateEntityFeature.TARGET_TEMPERATURE
-            | ClimateEntityFeature.FAN_MODE
-            | ClimateEntityFeature.PRESET_MODE
-            | ClimateEntityFeature.TURN_ON
-            | ClimateEntityFeature.TURN_OFF
-        )
+        # Only the always-present controls; the rest are added per unit in
+        # supported_features below.
+        self._attr_supported_features = ClimateEntityFeature.TURN_ON | ClimateEntityFeature.TURN_OFF
         # (href, raw device code) pairs already logged by _warn_unmapped --
         # these properties are read on every refresh, so an un-deduped
         # warning would spam the log for a genuinely unrecognized code.
@@ -288,11 +284,32 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
 
     @property
     def supported_features(self) -> ClimateEntityFeature:
-        # HA renders an empty swing menu if this flag has no matching options.
+        # HA renders an empty menu (or, for temperature, a 7-35 degree setpoint
+        # with no value) when a flag has nothing behind it, and a write to a
+        # resource the unit does not have is rejected -- so every optional
+        # control is gated on this unit actually offering it. A fresh-air
+        # ventilator (ACA-KR-TP2-21-AN9000) has no temperature or preset
+        # resource at all.
         features = self._attr_supported_features
+        if self._has_target_temperature():
+            features |= ClimateEntityFeature.TARGET_TEMPERATURE
+        if self.fan_modes:
+            features |= ClimateEntityFeature.FAN_MODE
+        if self.preset_modes:
+            features |= ClimateEntityFeature.PRESET_MODE
         if self.swing_modes:
             features |= ClimateEntityFeature.SWING_MODE
         return features
+
+    def _has_target_temperature(self) -> bool:
+        """Whether this unit has a setpoint resource to read and write.
+
+        Judged by the href being known at all (a not-yet-fetched stub
+        counts), not by its value, so the control does not flicker while a
+        rep is momentarily empty. Falls back to the discovery view on an
+        offline load (issue #295), when the live cache is still empty."""
+        resources = self._resources or self.coordinator.discovery_canonical(self._bound.subdevice)
+        return TEMP_DESIRED_HREF in resources or TEMPS_VS_HREF in resources
 
     # -- resource helpers ---------------------------------------------------
 
