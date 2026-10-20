@@ -1602,7 +1602,9 @@ async def test_read_resource_redacts_a_live_read(hass, coordinator, device_id):
     assert response["rep"]["x.com.samsung.da.modelNum"] == "M1"
 
 
-@pytest.mark.parametrize("href", ["/oic/sec/cred", "/OIC/sec/cred/", "oic/sec/cred?if=oic.if.baseline"])
+@pytest.mark.parametrize(
+    "href", ["/oic/sec/cred", "/OIC/sec/cred/", "oic/sec/cred?if=oic.if.baseline"]
+)
 async def test_read_resource_refuses_the_credential_store(hass, coordinator, device_id, href):
     fake = _FakeSession()
     coordinator._session = fake

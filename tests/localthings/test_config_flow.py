@@ -2158,7 +2158,10 @@ async def test_options_flow_debug_write_refuses_security_resource(
     ("value", "expected"),
     [
         ("uuid:3f2504e0-4f89-11d3-9a0c-0305e82c3301", "3f2504e0-4f89-11d3-9a0c-0305e82c3301"),
-        ("OCF Device uuid:3F2504E0-4F89-11D3-9A0C-0305E82C3301", "3F2504E0-4F89-11D3-9A0C-0305E82C3301"),
+        (
+            "OCF Device uuid:3F2504E0-4F89-11D3-9A0C-0305E82C3301",
+            "3F2504E0-4F89-11D3-9A0C-0305E82C3301",
+        ),
         ("uuid:abc", None),
         ("uuid:----", None),
         ("no identifier here", None),

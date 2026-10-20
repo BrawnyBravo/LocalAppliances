@@ -68,9 +68,7 @@ def test_diagnostics_survives_a_concurrent_new_index(monkeypatch) -> None:
         "192.0.2.10", 8888, cert_pem="C", key_pem="K", token="tok123456", family="TP6X_WASHER"
     )
     for index in range(200):
-        lht._STATE[("192.0.2.10", 8888, index)] = lht._ApplianceState(
-            last_bodies={"Device": {}}
-        )
+        lht._STATE[("192.0.2.10", 8888, index)] = lht._ApplianceState(last_bodies={"Device": {}})
 
     stop = threading.Event()
 

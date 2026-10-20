@@ -30,6 +30,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from .credentials import ApplianceCertificateMismatch
 from .legacy_http import (
     TP6X_RAC,
     Resource,
@@ -52,7 +53,6 @@ from .legacy_http import (
     with_cavity_modes,
     with_staged,
 )
-from .credentials import ApplianceCertificateMismatch
 from .legacy_http_tls import client_context
 from .registry.capabilities.laundry import (
     OPTION_KIND_RINSE,
@@ -684,7 +684,6 @@ class LegacyHttpTransport:
             if isinstance(description, str) and description:
                 return response.status, description
         return response.status, body
-
 
     def _check_peer(self, conn: http.client.HTTPSConnection) -> str | None:
         """The connected peer's certificate fingerprint, refusing one that

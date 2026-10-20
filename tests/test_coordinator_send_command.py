@@ -236,9 +236,7 @@ async def test_settle_window_is_armed_before_the_optimistic_apply(coordinator) -
     """The settle guard must already be armed when the optimistic value
     lands; otherwise a stale notify can slip in between and be held."""
     href = "/course/vs/0"
-    coordinator._observe.apply(
-        href, {"x.com.samsung.da.options": ["Course_16"]}, source="poll"
-    )
+    coordinator._observe.apply(href, {"x.com.samsung.da.options": ["Course_16"]}, source="poll")
     observe = coordinator._observe
     original_apply = observe.apply
     armed_at_apply: list[float | None] = []

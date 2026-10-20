@@ -185,9 +185,7 @@ async def test_a_certificate_mismatch_raises_its_own_repair(hass: HomeAssistant)
     with pytest.raises(UpdateFailed):
         await coord._async_update_data()
 
-    issue = ir.async_get(hass).async_get_issue(
-        DOMAIN, f"device_identity_mismatch_{entry.entry_id}"
-    )
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, f"device_identity_mismatch_{entry.entry_id}")
     assert issue is not None
     assert issue.translation_key == "appliance_certificate_changed"
     assert _Conn.sent == []

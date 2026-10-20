@@ -39,9 +39,9 @@ from .const import (
     CONF_DEVICE_KEY,
     CONF_DEVICE_TYPE,
     CONF_HOST,
-    CONF_LEGACY_CERT_SHA256,
     CONF_LEARN_MODES,
     CONF_LEARNED_MODES,
+    CONF_LEGACY_CERT_SHA256,
     CONF_MAC,
     CONF_MANUFACTURER,
     CONF_MODEL,
@@ -2814,8 +2814,7 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 unconfirmed = sent and not idempotent and isinstance(e, TimeoutError)
                 if unconfirmed:
                     self._log.warning(
-                        "no answer to %s; not re-sending it, since it may already have "
-                        "run: %s",
+                        "no answer to %s; not re-sending it, since it may already have run: %s",
                         write_href,
                         e,
                     )

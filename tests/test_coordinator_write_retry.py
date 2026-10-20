@@ -85,7 +85,9 @@ async def test_a_timed_out_non_idempotent_write_is_not_re_sent(coordinator) -> N
     _wire(coordinator, session)
 
     with pytest.raises(HomeAssistantError) as err:
-        await coordinator._async_put(["course", "vs", "0"], {"a": 1}, "/course/vs/0", idempotent=False)
+        await coordinator._async_put(
+            ["course", "vs", "0"], {"a": 1}, "/course/vs/0", idempotent=False
+        )
 
     assert err.value.translation_key == "command_unconfirmed"
     assert len(session.writes) == 1
@@ -133,6 +135,8 @@ async def test_a_readable_setting_write_is_treated_as_idempotent(coordinator) ->
     coordinator._async_put = put
 
     desc = laundry.cycle_select(translation_key="dryer_cycle", icon="x")
-    await coordinator.async_send_command(BoundEntity(href=href, capability=Capability(), desc=desc), "1D")
+    await coordinator.async_send_command(
+        BoundEntity(href=href, capability=Capability(), desc=desc), "1D"
+    )
 
     assert put.await_args.kwargs["idempotent"] is True
