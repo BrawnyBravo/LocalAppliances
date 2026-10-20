@@ -340,6 +340,27 @@ def _payload_present_in(payload: dict | list, readback: dict) -> bool:
     )
 
 
+def _merge_burner_list(cached: Any, written: list) -> list:
+    """`written` burnerList entries merged onto `cached` by burnerNumber:
+    each written burner's fields replace that burner's, other burners keep
+    theirs, and a burner not cached yet is appended."""
+    if not isinstance(cached, list):
+        return list(written)
+    merged = [dict(b) if isinstance(b, dict) else b for b in cached]
+    index = {
+        b.get("burnerNumber"): i
+        for i, b in enumerate(merged)
+        if isinstance(b, dict) and "burnerNumber" in b
+    }
+    for entry in written:
+        number = entry.get("burnerNumber") if isinstance(entry, dict) else None
+        if number is not None and number in index:
+            merged[index[number]] = {**merged[index[number]], **entry}
+        else:
+            merged.append(entry)
+    return merged
+
+
 def _validate_debug_write_item(item: dict) -> tuple[list[str], str, dict | list, float, bool]:
     """The checks `async_raw_write` has always applied to a single write
     (issue #54), reused per-item by `async_raw_write_sequence` (issue
@@ -2697,6 +2718,16 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 optimistic_body = {
                     **optimistic_body,
                     "x.com.samsung.da.items": merge_items_field(cached_items, new_items),
+                }
+            # Same fact, burnerList[] shape: a cooktop write names only the
+            # burner it changes, so the other burners would read unknown
+            # until the next poll if the list were replaced wholesale.
+            new_burners = body.get("burnerList")
+            if isinstance(new_burners, list):
+                cached_burners = (self._cache.get(write_href) or {}).get("burnerList")
+                optimistic_body = {
+                    **optimistic_body,
+                    "burnerList": _merge_burner_list(cached_burners, new_burners),
                 }
             armed_settle = self._observe.mark_write_pending(
                 write_href, settle_s=self._POST_TIMEOUT_S + self._POLL_TIMEOUT_S
