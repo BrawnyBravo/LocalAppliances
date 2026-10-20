@@ -669,7 +669,11 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
     @property
     def fan_modes(self) -> list[str]:
         if self._legacy_airflow():
-            # This resource carries no supportedModes, so the full scale is offered.
+            # This resource carries no supportedModes, so the full scale is
+            # offered. A known limitation: a unit without Turbo rejects it.
+            # The capability bit maps that gate presets (_legacy_preset_codes)
+            # may gate this too, but no capture or app transcription says
+            # which bit, and guessing could hide a speed the unit has.
             return list(_DEVICE_TO_FAN.values())
         rep = self._rep(WIND_STRENGTH_HREF)
         modes = []
@@ -697,6 +701,9 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
     @property
     def swing_modes(self) -> list[str]:
         if self._legacy_airflow():
+            # Every direction, for the same reason as fan_modes above: no
+            # known bit says whether this unit swings horizontally, so one
+            # that cannot rejects "horizontal"/"both" (a known limitation).
             return list(_SWING_TO_DEVICE.keys())
         if self._swing_via_direction():
             return self._read_modes(WIND_DIRECTION_HREF, _DEVICE_TO_SWING)
