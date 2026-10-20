@@ -503,6 +503,10 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # climate.py's frequent per-property reads don't rebuild it from
         # scratch each time.
         self._canonical_cache: dict[tuple[str, str], dict] = {}
+        # Bumped on every invalidation, so a view built across one is not
+        # stored (see canonical_resources).
+        self._canonical_generation = 0
+        self._canonical_lock = threading.Lock()
         # Localized {instance_name} labels keyed by instance-name id, loaded
         # at setup by entity.async_load_instance_names (issue #533).
         self.instance_names: dict[str, str] = {}
@@ -675,9 +679,22 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         cached = self._canonical_cache.get(view_key)
         if cached is not None:
             return cached
+        generation = self._canonical_generation
         view = canonical_view(subdevice, self.entity_resources(), self.subdevices)
-        self._canonical_cache[view_key] = view
+        # A notify or poll on another thread may have changed the cache
+        # while this view was being built; storing it then would pin the
+        # stale view until the next unrelated change. Store only if no
+        # invalidation happened in between.
+        with self._canonical_lock:
+            if self._canonical_generation == generation:
+                self._canonical_cache[view_key] = view
         return view
+
+    def _invalidate_canonical(self) -> None:
+        """Drop every memoized canonical view. Safe from any thread."""
+        with self._canonical_lock:
+            self._canonical_generation += 1
+            self._canonical_cache.clear()
 
     @property
     def rehydrated(self) -> bool:
@@ -850,7 +867,7 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         called this same method since before this option existed -- would
         sit stale until whatever poll or observe happened to run next.
         """
-        self._canonical_cache.clear()
+        self._invalidate_canonical()
         self._refresh_cloud_course_issue()
         self._push_cache_snapshot()
 
@@ -1218,7 +1235,7 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.last_response = dt_util.utcnow()
         if not changed:
             return
-        self._canonical_cache.clear()
+        self._invalidate_canonical()
         with self._push_pending_lock:
             if self._push_pending:
                 return
@@ -2860,7 +2877,7 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 translation_placeholders=err.placeholders,
             ) from err
         self._log.info("holding %s=%r until the cook starts", param, value)
-        self._canonical_cache.clear()
+        self._invalidate_canonical()
         self._publish_data()
 
     async def async_start_cooking(
@@ -2916,7 +2933,7 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # measured start had one.
         await self._async_put(path, body, "/" + "/".join(path))
         held.clear()
-        self._canonical_cache.clear()
+        self._invalidate_canonical()
         await self.async_request_refresh()
 
     # ------------------------------------------------------------------
