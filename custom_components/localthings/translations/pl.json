@@ -2068,6 +2068,10 @@
         "data": {
           "device_token": "Token urządzenia (pozostaw puste, aby o niego poprosić)"
         }
+      },
+      "reconfigure_certificate": {
+        "title": "Zaakceptować nowy certyfikat urządzenia?",
+        "description": "Urządzenie pod adresem {host} przedstawiło inny certyfikat bezpieczeństwa niż ten, z którym skonfigurowano ten wpis. Nic jeszcze do niego nie wysłano.\n\nZapisany certyfikat:\n{old_fingerprint}\n\nCertyfikat przedstawiony teraz:\n{new_fingerprint}\n\nKontynuuj tylko, jeśli wiesz, że to twoje urządzenie (np. po naprawie, resecie lub wymianie płyty). Zatwierdź, aby zaakceptować nowy certyfikat i wysłać do niego token dostępu tego wpisu; zamknij to okno, aby pozostawić wpis bez zmian."
       }
     },
     "error": {
@@ -2095,7 +2099,8 @@
       "invalid_token": "Urządzenie odrzuciło ten token. Pozostaw pole puste, aby poprosić o nowy.",
       "callback_port_in_use": "Port 8889 jest już zajęty w Home Assistant, zwykle przez wciąż oczekujące żądanie tokenu. Spróbuj ponownie za półtorej minuty.",
       "callback_cert_rejected": "Urządzenie oddzwoniło na port 8889, ale odrzuciło samopodpisany certyfikat Home Assistant. Wklej certyfikat i klucz CA AC14K_M, aby LocalThings podpisał certyfikat, który zostanie zaakceptowany; potem żądanie tokenu zostanie powtórzone.",
-      "callback_ca_rejected": "Urządzenie oddzwoniło na port 8889, ale odrzuciło również certyfikat podpisany przez AC14K_M. Wklej token uzyskany w inny sposób; błąd uzgadniania znajdziesz w dzienniku Home Assistant."
+      "callback_ca_rejected": "Urządzenie oddzwoniło na port 8889, ale odrzuciło również certyfikat podpisany przez AC14K_M. Wklej token uzyskany w inny sposób; błąd uzgadniania znajdziesz w dzienniku Home Assistant.",
+      "certificate_changed": "Urządzenie pod tym adresem przedstawiło inny certyfikat bezpieczeństwa niż ten, z którym skonfigurowano ten wpis, więc nic do niego nie wysłano. Jeśli to to samo urządzenie po naprawie lub resecie, użyj opcji Zmień konfigurację, która pokaże nowy certyfikat do zaakceptowania."
     },
     "abort": {
       "already_configured": "Urządzenie jest już skonfigurowane",

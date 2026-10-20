@@ -2068,6 +2068,10 @@
         "data": {
           "device_token": "Jeton d'appareil (laisser vide pour en demander un)"
         }
+      },
+      "reconfigure_certificate": {
+        "title": "Accepter un nouveau certificat d'appareil ?",
+        "description": "L'appareil à l'adresse {host} a présenté un autre certificat de sécurité que celui avec lequel cette entrée a été configurée. Rien ne lui a encore été envoyé.\n\nCertificat enregistré :\n{old_fingerprint}\n\nCertificat présenté maintenant :\n{new_fingerprint}\n\nNe continuez que si vous savez qu'il s'agit de votre appareil (par exemple après une réparation, une réinitialisation ou un remplacement de carte). Validez pour accepter le nouveau certificat et lui envoyer le jeton d'accès de cette entrée ; fermez cette fenêtre pour laisser l'entrée inchangée."
       }
     },
     "error": {
@@ -2095,7 +2099,8 @@
       "invalid_token": "L'appareil a rejeté ce jeton d'appareil. Laissez le champ vide pour en demander un nouveau.",
       "callback_port_in_use": "Le port 8889 est déjà utilisé sur Home Assistant, généralement par une demande de jeton encore en attente. Réessayez dans une minute et demie.",
       "callback_cert_rejected": "L'appareil a rappelé sur le port 8889 mais a refusé le certificat auto-signé de Home Assistant. Collez le certificat CA AC14K_M et sa clé pour que LocalThings puisse en signer un qu'il accepte ; la demande de jeton sera alors relancée.",
-      "callback_ca_rejected": "L'appareil a rappelé sur le port 8889 mais a également refusé le certificat signé par AC14K_M. Collez un jeton obtenu par un autre moyen, et consultez le journal de Home Assistant pour l'erreur de négociation."
+      "callback_ca_rejected": "L'appareil a rappelé sur le port 8889 mais a également refusé le certificat signé par AC14K_M. Collez un jeton obtenu par un autre moyen, et consultez le journal de Home Assistant pour l'erreur de négociation.",
+      "certificate_changed": "L'appareil à cette adresse a présenté un autre certificat de sécurité que celui avec lequel cette entrée a été configurée ; rien ne lui a donc été envoyé. S'il s'agit du même appareil après une réparation ou une réinitialisation, utilisez Reconfigurer, qui vous montre le nouveau certificat à accepter."
     },
     "abort": {
       "already_configured": "L'appareil est déjà configuré",

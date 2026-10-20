@@ -2068,6 +2068,10 @@
         "data": {
           "device_token": "Token zařízení (nechte prázdné a vyžádá se nový)"
         }
+      },
+      "reconfigure_certificate": {
+        "title": "Přijmout nový certifikát spotřebiče?",
+        "description": "Spotřebič na adrese {host} předložil jiný bezpečnostní certifikát než ten, se kterým byla tato položka nastavena. Zatím mu nebylo nic odesláno.\n\nUložený certifikát:\n{old_fingerprint}\n\nNyní předložený certifikát:\n{new_fingerprint}\n\nPokračujte jen tehdy, pokud víte, že jde o váš spotřebič (například po opravě, resetu nebo výměně desky). Odesláním nový certifikát přijmete a pošlete mu přístupový token této položky; zavřením dialogu ponecháte položku beze změny."
       }
     },
     "error": {
@@ -2095,7 +2099,8 @@
       "invalid_token": "Spotřebič tento token zařízení odmítl. Nechte pole prázdné a vyžádejte si nový.",
       "callback_port_in_use": "Port 8889 je v Home Assistant už obsazený, obvykle ještě čekající žádostí o token. Zkuste to znovu za minutu a půl.",
       "callback_cert_rejected": "Spotřebič se ozval zpět na portu 8889, ale odmítl certifikát Home Assistant podepsaný sám sebou. Vložte certifikát a klíč CA AC14K_M, aby LocalThings podepsal certifikát, který přijme; žádost o token se pak spustí znovu.",
-      "callback_ca_rejected": "Spotřebič se ozval zpět na portu 8889, ale odmítl i certifikát podepsaný AC14K_M. Vložte token získaný jiným způsobem; chybu handshaku najdete v protokolu Home Assistant."
+      "callback_ca_rejected": "Spotřebič se ozval zpět na portu 8889, ale odmítl i certifikát podepsaný AC14K_M. Vložte token získaný jiným způsobem; chybu handshaku najdete v protokolu Home Assistant.",
+      "certificate_changed": "Spotřebič na této adrese předložil jiný bezpečnostní certifikát než ten, se kterým byla tato položka nastavena, proto mu nebylo nic odesláno. Pokud jde o tentýž spotřebič po opravě nebo resetu, použijte Překonfigurovat, které vám nový certifikát zobrazí k potvrzení."
     },
     "abort": {
       "already_configured": "Zařízení je již nakonfigurováno",

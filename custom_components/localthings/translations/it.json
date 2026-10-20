@@ -2068,6 +2068,10 @@
         "data": {
           "device_token": "Token del dispositivo (lascia vuoto per richiederne uno)"
         }
+      },
+      "reconfigure_certificate": {
+        "title": "Accettare un nuovo certificato dell'elettrodomestico?",
+        "description": "L'elettrodomestico all'indirizzo {host} ha presentato un certificato di sicurezza diverso da quello con cui è stata configurata questa voce. Non gli è ancora stato inviato nulla.\n\nCertificato registrato:\n{old_fingerprint}\n\nCertificato presentato ora:\n{new_fingerprint}\n\nContinua solo se sai che è il tuo elettrodomestico (ad esempio dopo una riparazione, un ripristino o una sostituzione della scheda). Invia per accettare il nuovo certificato e inviargli il token di accesso di questa voce; chiudi questa finestra per lasciare la voce invariata."
       }
     },
     "error": {
@@ -2095,7 +2099,8 @@
       "invalid_token": "L'apparecchio ha rifiutato quel token. Lascia vuoto il campo per richiederne uno nuovo.",
       "callback_port_in_use": "La porta 8889 è già in uso su Home Assistant, di solito da una richiesta di token ancora in attesa. Riprova tra un minuto e mezzo.",
       "callback_cert_rejected": "L'elettrodomestico ha risposto sulla porta 8889 ma ha rifiutato il certificato autofirmato di Home Assistant. Incolla il certificato e la chiave della CA AC14K_M perché LocalThings ne firmi uno accettato; poi la richiesta del token verrà ripetuta.",
-      "callback_ca_rejected": "L'elettrodomestico ha risposto sulla porta 8889 ma ha rifiutato anche il certificato firmato con AC14K_M. Incolla un token ottenuto in altro modo e controlla il log di Home Assistant per l'errore di handshake."
+      "callback_ca_rejected": "L'elettrodomestico ha risposto sulla porta 8889 ma ha rifiutato anche il certificato firmato con AC14K_M. Incolla un token ottenuto in altro modo e controlla il log di Home Assistant per l'errore di handshake.",
+      "certificate_changed": "L'elettrodomestico a questo indirizzo ha presentato un certificato di sicurezza diverso da quello con cui è stata configurata questa voce, quindi non gli è stato inviato nulla. Se è lo stesso elettrodomestico dopo una riparazione o un ripristino, usa Riconfigura, che ti mostra il nuovo certificato da accettare."
     },
     "abort": {
       "already_configured": "Il dispositivo è già configurato",

@@ -2068,6 +2068,10 @@
         "data": {
           "device_token": "Device token (leave empty to request one)"
         }
+      },
+      "reconfigure_certificate": {
+        "title": "Accept a new appliance certificate?",
+        "description": "The appliance at {host} presented a different security certificate than the one this entry was set up with. Nothing has been sent to it yet.\n\nRecorded certificate:\n{old_fingerprint}\n\nCertificate presented now:\n{new_fingerprint}\n\nOnly continue if you know this is your appliance (for example after a repair, a reset or a board replacement). Submit to accept the new certificate and send this entry's access token to it; close this dialog to leave the entry unchanged."
       }
     },
     "error": {
@@ -2095,7 +2099,8 @@
       "invalid_token": "The appliance rejected that device token. Leave the field empty to request a new one.",
       "callback_port_in_use": "Port 8889 is already in use on Home Assistant, usually by a token request still waiting. Try again in a minute and a half.",
       "callback_cert_rejected": "The appliance called back on port 8889 but refused Home Assistant's self-signed certificate. Paste the AC14K_M CA certificate and key so LocalThings can sign one it accepts; the token request then runs again.",
-      "callback_ca_rejected": "The appliance called back on port 8889 but refused the AC14K_M-signed certificate too. Paste a token you obtained another way, and see the Home Assistant log for the handshake error."
+      "callback_ca_rejected": "The appliance called back on port 8889 but refused the AC14K_M-signed certificate too. Paste a token you obtained another way, and see the Home Assistant log for the handshake error.",
+      "certificate_changed": "The appliance at this address presented a different security certificate than the one this entry was set up with, so nothing was sent to it. If it is the same appliance after a repair or reset, use Reconfigure, which shows the new certificate for you to accept."
     },
     "abort": {
       "already_configured": "Device is already configured",

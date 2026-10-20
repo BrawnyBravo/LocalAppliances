@@ -191,3 +191,21 @@ async def test_a_certificate_mismatch_raises_its_own_repair(hass: HomeAssistant)
     assert issue is not None
     assert issue.translation_key == "appliance_certificate_changed"
     assert _Conn.sent == []
+
+
+def test_handshake_only_fingerprint_sends_nothing() -> None:
+    from custom_components.localthings.legacy_http_transport import fetch_peer_fingerprint
+
+    assert fetch_peer_fingerprint("192.0.2.10", 8888, "C", "K") == PIN_A
+    assert _Conn.sent == []
+
+
+def test_a_pinned_probe_refuses_a_different_certificate_before_any_request() -> None:
+    """What reauth and Reconfigure rely on: the new or existing token never
+    reaches a peer that does not hold the pinned certificate."""
+    from custom_components.localthings.config_flow import _probe_legacy
+
+    _Conn.peer = CERT_B
+    with pytest.raises(ApplianceCertificateMismatch):
+        _probe_legacy("192.0.2.10", "C", "K", "new-token", PIN_A)
+    assert _Conn.sent == []

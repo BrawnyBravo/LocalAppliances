@@ -2068,6 +2068,10 @@
         "data": {
           "device_token": "Token zariadenia (nechajte prázdne a požiada sa o nový)"
         }
+      },
+      "reconfigure_certificate": {
+        "title": "Prijať nový certifikát spotrebiča?",
+        "description": "Spotrebič na adrese {host} predložil iný bezpečnostný certifikát než ten, s ktorým bola táto položka nastavená. Zatiaľ mu nebolo nič odoslané.\n\nUložený certifikát:\n{old_fingerprint}\n\nTeraz predložený certifikát:\n{new_fingerprint}\n\nPokračujte len vtedy, ak viete, že ide o váš spotrebič (napríklad po oprave, resete alebo výmene dosky). Odoslaním prijmete nový certifikát a pošlete mu prístupový token tejto položky; zatvorením dialógu ponecháte položku bez zmeny."
       }
     },
     "error": {
@@ -2095,7 +2099,8 @@
       "invalid_token": "Spotrebič tento token zariadenia odmietol. Nechajte pole prázdne a požiadajte o nový.",
       "callback_port_in_use": "Port 8889 je v Home Assistant už obsadený, zvyčajne ešte čakajúcou žiadosťou o token. Skúste to znova o minútu a pol.",
       "callback_cert_rejected": "Spotrebič sa ozval späť na porte 8889, ale odmietol certifikát Home Assistant podpísaný sám sebou. Vložte certifikát a kľúč CA AC14K_M, aby LocalThings podpísal certifikát, ktorý prijme; žiadosť o token sa potom spustí znova.",
-      "callback_ca_rejected": "Spotrebič sa ozval späť na porte 8889, ale odmietol aj certifikát podpísaný AC14K_M. Vložte token získaný iným spôsobom; chybu handshaku nájdete v protokole Home Assistant."
+      "callback_ca_rejected": "Spotrebič sa ozval späť na porte 8889, ale odmietol aj certifikát podpísaný AC14K_M. Vložte token získaný iným spôsobom; chybu handshaku nájdete v protokole Home Assistant.",
+      "certificate_changed": "Spotrebič na tejto adrese predložil iný bezpečnostný certifikát než ten, s ktorým bola táto položka nastavená, preto mu nebolo nič odoslané. Ak ide o ten istý spotrebič po oprave alebo resete, použite Prekonfigurovať, ktoré vám nový certifikát zobrazí na potvrdenie."
     },
     "abort": {
       "already_configured": "Zariadenie je už nakonfigurované",

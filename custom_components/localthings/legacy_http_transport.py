@@ -699,6 +699,22 @@ class LegacyHttpTransport:
         return fingerprint
 
 
+def fetch_peer_fingerprint(
+    host: str, port: int, cert_pem: str, key_pem: str, timeout: float = 15.0
+) -> str | None:
+    """The appliance certificate's fingerprint from a TLS handshake alone --
+    no request is sent, so nothing (no token) reaches the peer. For the
+    config flow to compare against an entry's pin before using its token."""
+    conn = http.client.HTTPSConnection(
+        host, port, context=client_context(cert_pem, key_pem), timeout=timeout
+    )
+    try:
+        conn.connect()
+        return _peer_fingerprint(conn)
+    finally:
+        conn.close()
+
+
 def _peer_fingerprint(conn: Any) -> str | None:
     """SHA-256 (hex) of the peer's DER certificate. Available even though
     the certificate is not verified: `binary_form` returns it regardless."""
