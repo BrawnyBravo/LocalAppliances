@@ -214,6 +214,31 @@ COOKTOP_STATUS = Capability(
     ),
 )
 
+def _read_only_power_level(desc):
+    """The burner power-level select as a plain sensor under the same key."""
+    if not (isinstance(desc, SelectDesc) and desc.key.endswith("_power_level")):
+        return desc
+    return SensorDesc(
+        key=desc.key,
+        field=desc.field,
+        icon=desc.icon,
+        translation_key="burner_power_level",
+        translation_placeholders=desc.translation_placeholders,
+        exists_fn=desc.exists_fn,
+        value_fn=desc.value_fn,
+    )
+
+
+# For the standalone cooktop registry (by_type/cooktop.py): capabilities/
+# cooktop.py's rule is that a cooktop must not be remotely ignited by an
+# automation, and the power-level select can light a burner (its options
+# include boost and keepWarm). Same entities otherwise; the child lock is not
+# a heat control and stays writable.
+COOKTOP_STATUS_READ_ONLY = dataclasses.replace(
+    COOKTOP_STATUS,
+    entities=tuple(_read_only_power_level(e) for e in COOKTOP_STATUS.entities),
+)
+
 # Static burner-count/power-level-list metadata, read directly by
 # COOKTOP_STATUS's power-level select (options=_power_level_options)
 # rather than exposed through its own entity.

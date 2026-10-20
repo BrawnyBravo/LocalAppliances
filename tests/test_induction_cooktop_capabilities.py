@@ -95,3 +95,36 @@ def test_nv9000d_resolves_with_complete_coverage():
     state = _state("induction_cooktop_nv9000d")
     assert state["cooktop_safety_shutoff_enabled"] is True
     assert not any(key.startswith(("probe_", "paired_hood_")) for key in state)
+
+
+def _bound_burner_status_descs(name):
+    from custom_components.localthings.registry.entities import SelectDesc
+
+    reg, resources = _cooktop(name)
+    bound = discover(resources, reg.capabilities, reg.pattern_capabilities)
+    descs = [b.desc for b in bound if b.href == "/cooktop/status/vs/0"]
+    return descs, SelectDesc
+
+
+def test_standalone_cooktop_power_level_is_read_only():
+    """cooktop.py's rule: a cooktop must not be remotely ignited by an
+    automation. The range combo's burner power-level select (options include
+    boost and keepWarm) used to bind here too; on a standalone cooktop it is
+    a read-only sensor under the same key."""
+    from custom_components.localthings.registry.entities import SensorDesc
+
+    for name in ("induction_cooktop", "induction_cooktop_nv9000d"):
+        descs, select_desc = _bound_burner_status_descs(name)
+        power = [d for d in descs if d.key.endswith("_power_level")]
+        assert power, name
+        assert all(isinstance(d, SensorDesc) for d in power), name
+        assert not [d for d in descs if isinstance(d, select_desc)], name
+        # The only writable control left on the burner surface is the lock.
+        writable = sorted(d.key for d in descs if getattr(d, "write_fn", None) is not None)
+        assert writable == ["cooktop_child_lock"], name
+
+
+def test_standalone_cooktop_power_level_reads_the_burner():
+    state = _state()
+    assert state["burner_0_power_level"] is not None
+    assert "burner_3_power_level" not in state

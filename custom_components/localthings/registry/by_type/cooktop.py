@@ -9,7 +9,9 @@ binds only on the board that serves its hrefs:
   PR #23) report burner state as strings in /mode/vs/0's options array.
   Read-only: no write contract has been verified for them.
 - TP1X_DA-KS-COOKTOP boards (NV8500T, NV9000D; issue #86) serve the range
-  combo's /cooktop/status/vs/0 burnerList surface, reused from range.py.
+  combo's /cooktop/status/vs/0 burnerList surface, reused from range.py in
+  its read-only form: the burner power level is a sensor here, not the
+  range's select, so nothing in this registry can light a burner.
 
 The one href both serve differently is /power/vs/0, split on which surface
 the board has.
@@ -81,7 +83,7 @@ REGISTRY = DeviceRegistry(
                     cooktop.DIAGNOSIS,
                     cooktop.COOKTOP_CONNECTED,
                     # /cooktop/status/vs/0 burnerList boards.
-                    range_caps.COOKTOP_STATUS,
+                    range_caps.COOKTOP_STATUS_READ_ONLY,
                     range_caps.COOKTOP_SPEC,
                     range_caps.COOKTOP_SAFETY,
                     range_caps.PROBE_STATUS,
