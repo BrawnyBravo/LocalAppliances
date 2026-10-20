@@ -378,6 +378,12 @@
     },
     "security_resource_write_refused": {
       "message": "Se rechaza la escritura en {href}. Los recursos de seguridad OCF (/oic/sec/...) contienen el aprovisionamiento y las credenciales del aparato; escribir en ellos puede romper el control local de una forma que Home Assistant no puede deshacer."
+    },
+    "command_unconfirmed": {
+      "message": "El aparato no respondió a tiempo al comando para {href}. No se ha vuelto a enviar, porque puede que ya se haya ejecutado y enviarlo otra vez podría ejecutarlo dos veces. Revisa el aparato antes de volver a intentarlo."
+    },
+    "command_auth_rejected": {
+      "message": "El aparato rechazó el token de dispositivo de esta entrada. Vuelve a autenticar la entrada desde Ajustes > Dispositivos y servicios para obtener uno nuevo."
     }
   },
   "entity": {

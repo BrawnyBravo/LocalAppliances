@@ -2337,6 +2337,12 @@
     },
     "security_resource_write_refused": {
       "message": "L'écriture vers {href} est refusée. Les ressources de sécurité OCF (/oic/sec/...) contiennent le provisionnement et les identifiants de l'appareil ; y écrire peut casser le contrôle local d'une manière que Home Assistant ne peut pas annuler."
+    },
+    "command_unconfirmed": {
+      "message": "L'appareil n'a pas répondu à temps à la commande vers {href}. Elle n'a pas été renvoyée, car elle a peut-être déjà été exécutée et la renvoyer pourrait l'exécuter deux fois. Vérifiez l'appareil avant de réessayer."
+    },
+    "command_auth_rejected": {
+      "message": "L'appareil a refusé le jeton d'appareil de cette entrée. Ré-authentifiez l'entrée depuis Paramètres > Appareils et services pour en obtenir un nouveau."
     }
   },
   "selector": {

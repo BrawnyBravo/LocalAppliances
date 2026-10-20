@@ -2337,6 +2337,12 @@
     },
     "security_resource_write_refused": {
       "message": "Schrijven naar {href} wordt geweigerd. OCF-beveiligingsresources (/oic/sec/...) bevatten de provisioning en de inloggegevens van het apparaat; een schrijfactie daar kan lokale bediening breken op een manier die Home Assistant niet ongedaan kan maken."
+    },
+    "command_unconfirmed": {
+      "message": "Het apparaat antwoordde niet op tijd op de opdracht naar {href}. Die is niet opnieuw verzonden, omdat hij mogelijk al is uitgevoerd en opnieuw verzenden hem twee keer zou kunnen uitvoeren. Controleer het apparaat voordat je het opnieuw probeert."
+    },
+    "command_auth_rejected": {
+      "message": "Het apparaat weigerde het apparaattoken van dit item. Verifieer het item opnieuw via Instellingen > Apparaten & diensten om een nieuw token te krijgen."
     }
   },
   "selector": {

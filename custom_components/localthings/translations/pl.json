@@ -2337,6 +2337,12 @@
     },
     "security_resource_write_refused": {
       "message": "Zapis do {href} został odrzucony. Zasoby bezpieczeństwa OCF (/oic/sec/...) przechowują konfigurację i poświadczenia urządzenia; zapis w nich może zepsuć sterowanie lokalne w sposób, którego Home Assistant nie potrafi cofnąć."
+    },
+    "command_unconfirmed": {
+      "message": "Urządzenie nie odpowiedziało na czas na polecenie dla {href}. Nie wysłano go ponownie, ponieważ mogło już zostać wykonane, a ponowne wysłanie mogłoby wykonać je dwa razy. Sprawdź urządzenie przed ponowną próbą."
+    },
+    "command_auth_rejected": {
+      "message": "Urządzenie odrzuciło token tego wpisu. Uwierzytelnij wpis ponownie w Ustawienia > Urządzenia i usługi, aby uzyskać nowy."
     }
   },
   "selector": {

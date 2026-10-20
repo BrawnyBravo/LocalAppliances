@@ -2337,6 +2337,12 @@
     },
     "security_resource_write_refused": {
       "message": "Zápis do {href} je odmítnut. Bezpečnostní prostředky OCF (/oic/sec/...) uchovávají zřízení a přihlašovací údaje spotřebiče; zápis do nich může narušit místní ovládání způsobem, který Home Assistant nedokáže vrátit."
+    },
+    "command_unconfirmed": {
+      "message": "Spotřebič na příkaz pro {href} neodpověděl včas. Příkaz nebyl odeslán znovu, protože už mohl proběhnout a druhé odeslání by ho mohlo spustit dvakrát. Před dalším pokusem zkontrolujte spotřebič."
+    },
+    "command_auth_rejected": {
+      "message": "Spotřebič odmítl token zařízení této položky. Ověřte položku znovu v Nastavení > Zařízení a služby a získejte nový."
     }
   },
   "selector": {

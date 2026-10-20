@@ -11,7 +11,7 @@ import time
 from collections.abc import Callable, Sequence
 from dataclasses import asdict
 from datetime import datetime, timedelta
-from typing import Any, cast
+from typing import Any, NoReturn, cast
 from urllib.parse import unquote, urlsplit
 
 from homeassistant.config_entries import ConfigEntry
@@ -2716,7 +2716,9 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 )
 
         try:
-            await self._async_put(path_segs, body, write_href, on_retry=_rearm)
+            await self._async_put(
+                path_segs, body, write_href, on_retry=_rearm, idempotent=not write_only
+            )
             if (
                 remote_control_off
                 and not write_only
@@ -2769,16 +2771,33 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         body: dict | list,
         write_href: str,
         on_retry: Callable[[], None] | None = None,
+        *,
+        idempotent: bool = True,
     ) -> None:
         """PUT `body`, reconnecting and retrying once on a dead session.
-        Raises HomeAssistantError if the retry fails too."""
+        Raises HomeAssistantError if the retry fails too.
+
+        `idempotent=False` is for writes that do something each time they
+        land -- a start, a drum clean, a cook-start batch. A timeout waiting
+        for the answer to one of those does not mean it was not carried
+        out: the request went out and only the acknowledgement is missing.
+        Re-sending it could run the command twice, so after a response
+        timeout such a write is reported instead of retried. A failure
+        before the request was sent (no session, a failed reconnect) is
+        still retried; so is any failure of an idempotent setpoint, which
+        is harmless to repeat.
+        """
+        sent = False
 
         def _do_put():
+            nonlocal sent
+            sent = False
             if self._session is None:
                 self._connect_session()
             sess = self._session
             if sess is None:
                 raise RuntimeError("no session")
+            sent = True
             code, response = sess.write(path_segs, body, timeout=self._POST_TIMEOUT_S)
             self._log.info("PUT %s → code %#04x", write_href, code)
             return code, response
@@ -2789,8 +2808,19 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         async with self._session_lock:
             try:
                 code, response = await self.hass.async_add_executor_job(_do_put)
+            except AuthRejected as e:
+                await self._async_auth_rejected(e)
             except Exception as e:
-                self._log.warning("command failed for %s, reconnecting: %s", write_href, e)
+                unconfirmed = sent and not idempotent and isinstance(e, TimeoutError)
+                if unconfirmed:
+                    self._log.warning(
+                        "no answer to %s; not re-sending it, since it may already have "
+                        "run: %s",
+                        write_href,
+                        e,
+                    )
+                else:
+                    self._log.warning("command failed for %s, reconnecting: %s", write_href, e)
                 await self.hass.async_add_executor_job(self._close_session)
                 # The session is dead the moment it's closed, so any OBSERVE
                 # subscriptions on it are too -- downgrade here, before the
@@ -2801,9 +2831,17 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 if self._observe.mode == MODE_OBSERVE:
                     self._observe.downgrade_to_poll()
                     self._resubscribe_due = True
+                if unconfirmed:
+                    raise HomeAssistantError(
+                        translation_domain=DOMAIN,
+                        translation_key="command_unconfirmed",
+                        translation_placeholders={"href": write_href},
+                    ) from e
                 await asyncio.sleep(self._RECONNECT_PAUSE_S)
                 try:
                     code, response = await self.hass.async_add_executor_job(_do_put)
+                except AuthRejected as e2:
+                    await self._async_auth_rejected(e2)
                 except Exception as e2:
                     self._log.error("command failed for %s after reconnect: %s", write_href, e2)
                     raise HomeAssistantError(
@@ -2821,6 +2859,18 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 translation_key="command_refused",
                 translation_placeholders={"href": write_href, "error": _refusal(code, response)},
             )
+
+    async def _async_auth_rejected(self, err: AuthRejected) -> NoReturn:
+        """A write the 8888 bridge refused with a 401: the device token is
+        no longer accepted. Retrying with the same token cannot help, so
+        start reauthentication -- what a poll's 401 already does -- and
+        say so."""
+        await self.hass.async_add_executor_job(self._close_session)
+        self._entry.async_start_reauth(self.hass)
+        raise ConfigEntryAuthFailed(
+            translation_domain=DOMAIN,
+            translation_key="command_auth_rejected",
+        ) from err
 
     # ------------------------------------------------------------------
     # Oven and microwave cook start (issue #473). See cook.py.
@@ -2998,7 +3048,7 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # No readback after the write: smartthings-local found the
         # fetch-back itself is what reverts some boards, and neither
         # measured start had one.
-        await self._async_put(path, body, "/" + "/".join(path))
+        await self._async_put(path, body, "/" + "/".join(path), idempotent=False)
         held.clear()
         self._invalidate_canonical()
         await self.async_request_refresh()

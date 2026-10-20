@@ -2337,6 +2337,12 @@
     },
     "security_resource_write_refused": {
       "message": "La scrittura su {href} è rifiutata. Le risorse di sicurezza OCF (/oic/sec/...) contengono il provisioning e le credenziali dell'elettrodomestico; una scrittura lì può compromettere il controllo locale in un modo che Home Assistant non può annullare."
+    },
+    "command_unconfirmed": {
+      "message": "L'elettrodomestico non ha risposto in tempo al comando per {href}. Non è stato inviato di nuovo, perché potrebbe essere già stato eseguito e inviarlo due volte potrebbe eseguirlo due volte. Controlla l'elettrodomestico prima di riprovare."
+    },
+    "command_auth_rejected": {
+      "message": "L'elettrodomestico ha rifiutato il token del dispositivo di questa voce. Esegui di nuovo l'autenticazione della voce da Impostazioni > Dispositivi e servizi per ottenerne uno nuovo."
     }
   },
   "selector": {

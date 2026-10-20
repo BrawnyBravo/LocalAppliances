@@ -2337,6 +2337,12 @@
     },
     "security_resource_write_refused": {
       "message": "Das Schreiben nach {href} wird abgelehnt. OCF-Sicherheitsressourcen (/oic/sec/...) enthalten die Bereitstellung und die Zugangsdaten des Geräts; ein Schreibvorgang dort kann die lokale Steuerung so stören, dass Home Assistant es nicht rückgängig machen kann."
+    },
+    "command_unconfirmed": {
+      "message": "Das Gerät hat auf den Befehl an {href} nicht rechtzeitig geantwortet. Er wurde nicht erneut gesendet, da er bereits ausgeführt worden sein könnte und ein zweites Senden ihn doppelt ausführen könnte. Prüfe das Gerät, bevor du es erneut versuchst."
+    },
+    "command_auth_rejected": {
+      "message": "Das Gerät hat das Geräte-Token dieses Eintrags abgelehnt. Authentifiziere den Eintrag unter Einstellungen > Geräte & Dienste neu, um ein neues zu erhalten."
     }
   },
   "selector": {

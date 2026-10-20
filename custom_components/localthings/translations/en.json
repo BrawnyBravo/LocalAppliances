@@ -2337,6 +2337,12 @@
     },
     "security_resource_write_refused": {
       "message": "Writing to {href} is refused. OCF security resources (/oic/sec/...) hold the appliance's provisioning and credentials; a write there can break local control in a way Home Assistant cannot undo."
+    },
+    "command_unconfirmed": {
+      "message": "The appliance did not answer the command to {href} in time. It was not sent again, because it may already have run and sending it twice could run it twice. Check the appliance before trying again."
+    },
+    "command_auth_rejected": {
+      "message": "The appliance refused this entry's device token. Re-authenticate the entry from Settings > Devices & Services to get a new one."
     }
   },
   "selector": {
