@@ -2213,6 +2213,10 @@
     "cloud_courses_undiscovered": {
       "title": "Pobrane cykle nieskonfigurowane dla {device_name}",
       "description": "Urządzenie {device_name} ma {pending} z {total} pobranych cykli, których Home Assistant nie potrafi jeszcze udostępnić. Pobrany cykl można wykorzystać dopiero wtedy, gdy urządzenie zostanie zauważone z tym cyklem załadowanym — na ekranie „Pobrane cykle” w aplikacji SmartThings, a nie na ekranie „Cykl” — i gdy nadasz mu nazwę.\n\nAby je skonfigurować, przejdź do Ustawienia > Urządzenia i usługi > LocalAppliances > {device_name} > Konfiguruj > Pobrane cykle i postępuj zgodnie z instrukcjami.\n\nNie używasz pobranych cykli? Przejdź zamiast tego do Konfiguruj > Ustawienia urządzenia i wyłącz „Udostępniaj pobrane cykle”, aby wyciszyć to przypomnienie na stałe."
+    },
+    "device_identity_mismatch": {
+      "title": "Zamiast {device_name} odpowiada inne urządzenie",
+      "description": "Urządzenie pod adresem {host} przyjęło poświadczenia tego wpisu, ale przedstawiło się jako inne urządzenie, więc LocalThings przestał go używać. Zwykle oznacza to, że urządzenie zmieniło adres, a stary ma teraz inne. Otwórz ten wpis w Ustawienia > Urządzenia i usługi i użyj opcji Zmień konfigurację, aby wskazać właściwy adres. To powiadomienie zniknie samo, gdy odpowie właściwe urządzenie."
     }
   },
   "exceptions": {

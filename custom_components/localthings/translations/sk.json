@@ -2213,6 +2213,10 @@
     "cloud_courses_undiscovered": {
       "title": "Stiahnuté cykly nie sú nastavené pre {device_name}",
       "description": "{device_name} má {pending} z {total} stiahnutých cyklov, ktoré Home Assistant zatiaľ nedokáže ponúknuť. Stiahnutý cyklus možno použiť až po tom, čo bol na spotrebiči zaznamenaný ako načítaný – na obrazovke „Stiahnuté cykly“ v aplikácii SmartThings, nie na obrazovke „Cyklus“ – a dostal názov.\n\nAk ich chcete nastaviť, prejdite do Nastavenia > Zariadenia a služby > LocalAppliances > {device_name} > Konfigurovať > Stiahnuté cykly a postupujte podľa pokynov.\n\nAk stiahnuté cykly nepoužívate, prejdite do Konfigurovať > Nastavenia zariadenia a vypnite možnosť „Ponúkať stiahnuté cykly“, čím toto pripomenutie natrvalo vypnete."
+    },
+    "device_identity_mismatch": {
+      "title": "Za {device_name} odpovedá iný spotrebič",
+      "description": "Spotrebič na adrese {host} prijal prihlasovacie údaje tejto položky, ale identifikoval sa ako iný spotrebič, takže ho LocalThings prestal používať. Zvyčajne to znamená, že sa spotrebič presunul na novú adresu a starú má teraz iný. Otvorte túto položku v Nastavenia > Zariadenia a služby a pomocou Prekonfigurovať ju nasmerujte na správnu adresu. Toto upozornenie samo zmizne, keď odpovie správny spotrebič."
     }
   },
   "exceptions": {

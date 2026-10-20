@@ -2213,6 +2213,10 @@
     "cloud_courses_undiscovered": {
       "title": "Cicli scaricati non configurati per {device_name}",
       "description": "{device_name} ha {pending} cicli scaricati su {total} che Home Assistant non può ancora offrire. Un ciclo scaricato può essere usato solo dopo che il dispositivo è stato rilevato con quel ciclo caricato -- nella schermata \"Cicli scaricati\" dell'app SmartThings, non in quella \"Ciclo\" -- ed è stato assegnato un nome.\n\nPer configurarli, andare su Impostazioni > Dispositivi e servizi > LocalAppliances > {device_name} > Configura > Cicli scaricati e seguire le istruzioni presenti lì.\n\nNon si usano cicli scaricati? Andare invece su Configura > Impostazioni dispositivo e disattivare \"Offri cicli scaricati\" per silenziare questo promemoria definitivamente."
+    },
+    "device_identity_mismatch": {
+      "title": "Un altro elettrodomestico risponde al posto di {device_name}",
+      "description": "L'elettrodomestico all'indirizzo {host} ha accettato le credenziali di questa voce ma si è identificato come un altro elettrodomestico, quindi LocalThings ha smesso di usarlo. Di solito significa che l'elettrodomestico ha cambiato indirizzo e ora un altro ha quello vecchio. Apri questa voce in Impostazioni > Dispositivi e servizi e usa Riconfigura per puntarla all'indirizzo corretto. Questo avviso scompare da solo quando risponde l'elettrodomestico giusto."
     }
   },
   "exceptions": {

@@ -2213,6 +2213,10 @@
     "cloud_courses_undiscovered": {
       "title": "Heruntergeladene Programme für {device_name} nicht eingerichtet",
       "description": "{device_name} hat {pending} von {total} heruntergeladenen Programmen, die Home Assistant noch nicht anbieten kann. Ein heruntergeladenes Programm kann erst verwendet werden, sobald das Gerät damit geladen gesehen wurde -- im Bildschirm \"Download-Programme\" der SmartThings-App, nicht im Bildschirm \"Programm\" -- und Sie ihm einen Namen gegeben haben.\n\nUm sie einzurichten, gehen Sie zu Einstellungen > Geräte & Dienste > LocalAppliances > {device_name} > Konfigurieren > Download-Programme und folgen Sie den dortigen Anweisungen.\n\nNutzen Sie keine heruntergeladenen Programme? Gehen Sie stattdessen zu Konfigurieren > Geräteeinstellungen und schalten Sie \"Heruntergeladene Programme anbieten\" aus, um diese Erinnerung dauerhaft zu stoppen."
+    },
+    "device_identity_mismatch": {
+      "title": "Für {device_name} antwortet ein anderes Gerät",
+      "description": "Das Gerät unter {host} hat die Zugangsdaten dieses Eintrags akzeptiert, sich aber als ein anderes Gerät ausgewiesen, daher verwendet LocalThings es nicht mehr. Meist ist das Gerät auf eine neue Adresse umgezogen und ein anderes hat jetzt die alte. Öffne diesen Eintrag unter Einstellungen > Geräte & Dienste und richte ihn mit Neu konfigurieren auf die richtige Adresse aus. Dieser Hinweis verschwindet von selbst, sobald das richtige Gerät antwortet."
     }
   },
   "exceptions": {

@@ -91,6 +91,9 @@ class DeviceIdentityMismatch(Exception):
     reauthentication signal keeps the user out of a form that cannot help.
     """
 
+    # The Repair the coordinator raises for it (translations "issues").
+    issue_key = "device_identity_mismatch"
+
 
 class DeviceBinding(Enum):
     """What an authenticated session proved about *which* device answered.

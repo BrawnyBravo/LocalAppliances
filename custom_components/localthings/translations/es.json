@@ -254,6 +254,10 @@
     "cloud_courses_undiscovered": {
       "title": "Ciclos descargados sin configurar para {device_name}",
       "description": "{device_name} tiene {pending} de {total} ciclos descargados que Home Assistant todavía no puede ofrecer. Un ciclo descargado solo se puede usar una vez que el dispositivo se ha visto con él cargado -- en la pantalla \"Descarga de Programas\" de la app SmartThings, no en la de \"Ciclo\" -- y le has dado un nombre.\n\nPara configurarlos, ve a Ajustes > Dispositivos y servicios > LocalAppliances > {device_name} > Configurar > Ciclos descargados y sigue las instrucciones que aparecen allí.\n\n¿No usas ciclos descargados? Ve a Configurar > Ajustes del dispositivo y desactiva \"Ofrecer ciclos descargados\" para silenciar este aviso definitivamente."
+    },
+    "device_identity_mismatch": {
+      "title": "Otro aparato responde en lugar de {device_name}",
+      "description": "El aparato en {host} aceptó la credencial de esta entrada pero se identificó como otro aparato, así que LocalThings ha dejado de usarlo. Normalmente significa que el aparato cambió de dirección y otro tiene ahora la antigua. Abre esta entrada en Ajustes > Dispositivos y servicios y usa Reconfigurar para apuntarla a la dirección correcta. Este aviso desaparece solo cuando responda el aparato correcto."
     }
   },
   "exceptions": {

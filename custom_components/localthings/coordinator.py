@@ -506,6 +506,9 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Bumped on every invalidation, so a view built across one is not
         # stored (see canonical_resources).
         self._canonical_generation = 0
+        # Whether the "a different appliance answered" Repair is up; see
+        # _raise_identity_issue.
+        self._identity_issue_raised = False
         self._canonical_lock = threading.Lock()
         # Localized {instance_name} labels keyed by instance-name id, loaded
         # at setup by entity.async_load_instance_names (issue #533).
@@ -1311,6 +1314,12 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 raise RuntimeError(f"poll timed out and the session no longer answers: {e}") from e
             raise
         except AuthRejected:
+            raise
+        except DeviceIdentityMismatch:
+            # The wrong appliance answered: not a session to keep, and not a
+            # generic failure to wrap -- _async_update_data reports it as
+            # its own Repair.
+            self._close_session()
             raise
         except DecodeError as e:
             # The device answered; its answer is what could not be read.
@@ -2260,8 +2269,35 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._reconnect_times.append(now)
         return len(self._reconnect_times) >= self._RECONNECT_WARN_THRESHOLD
 
+    def _identity_issue_id(self) -> str:
+        return f"device_identity_mismatch_{self._entry.entry_id}"
+
+    def _raise_identity_issue(self, err: DeviceIdentityMismatch) -> None:
+        """Tell the user, in Repairs, that a different appliance answered.
+
+        A log line alone left an entry unavailable indefinitely with
+        nothing in the UI saying why. Not fixable from the Repair itself:
+        the remedy is the entry's Reconfigure, which the text points to.
+        """
+        self._identity_issue_raised = True
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            self._identity_issue_id(),
+            is_fixable=False,
+            severity=ir.IssueSeverity.ERROR,
+            translation_key=getattr(err, "issue_key", "device_identity_mismatch"),
+            translation_placeholders={
+                "device_name": self._entry.title,
+                "host": str(self._entry.data.get(CONF_HOST, "")),
+            },
+        )
+
     def _mark_device_answered(self) -> None:
         """Clear the bookkeeping a poll getting through invalidates."""
+        if self._identity_issue_raised:
+            self._identity_issue_raised = False
+            ir.async_delete_issue(self.hass, DOMAIN, self._identity_issue_id())
         self.last_response = dt_util.utcnow()
         self._persist_moved_port()
         self._consecutive_poll_timeouts = 0
@@ -2315,6 +2351,13 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             except AuthRejected as e:
                 await self.hass.async_add_executor_job(self._close_session)
                 raise ConfigEntryAuthFailed(str(e)) from e
+            except DeviceIdentityMismatch as e:
+                # Reconnecting or rediscovering the port would only reach
+                # the same wrong appliance at the same address; what fixes
+                # it is the user pointing the entry at the right one.
+                await self.hass.async_add_executor_job(self._close_session)
+                self._raise_identity_issue(e)
+                return self._device_unreachable("device identity mismatch", e)
             except Exception as e:
                 if self._closed:
                     # async_close closed the session under this read: nothing
@@ -2360,6 +2403,8 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 try:
                     resources = await self.hass.async_add_executor_job(self._poll_once)
                 except Exception as e2:
+                    if isinstance(e2, DeviceIdentityMismatch):
+                        self._raise_identity_issue(e2)
                     return self._device_unreachable("poll failed after reconnect", e2)
                 else:
                     self._mark_device_answered()

@@ -2213,6 +2213,10 @@
     "cloud_courses_undiscovered": {
       "title": "Downloaded cycles not set up for {device_name}",
       "description": "{device_name} has {pending} of {total} downloaded cycle(s) that Home Assistant can't offer yet. A downloaded cycle can only be used once the appliance has been seen with it loaded -- in the SmartThings app's \"Download cycles\" screen, not the \"Cycle\" one -- and you've given it a name.\n\nTo set them up, go to Settings > Devices & Services > LocalAppliances > {device_name} > Configure > Download cycles and follow the instructions there.\n\nDon't use downloaded cycles? Go to Configure > Device settings instead and turn off \"Offer downloaded cycles\" to silence this reminder for good."
+    },
+    "device_identity_mismatch": {
+      "title": "A different appliance is answering for {device_name}",
+      "description": "The appliance at {host} accepted this entry's credential but identified itself as a different appliance, so LocalThings has stopped using it. This usually means the appliance moved to a new address and another one now has the old address. Open this entry in Settings > Devices & Services and use Reconfigure to point it at the right address. This notice clears on its own once the right appliance answers."
     }
   },
   "exceptions": {
