@@ -285,7 +285,7 @@ async def test_single_burner_write_keeps_the_other_burners_cached(coordinator) -
 
     await coordinator.async_send_command(bound, "7")
 
-    posted_path, posted_body = coordinator._session.post_calls[0]
+    _posted_path, posted_body = coordinator._session.post_calls[0]
     assert posted_body == {"burnerList": [{"burnerNumber": 1, "powerLevel": "7"}]}
     assert coordinator._cache.get(href)["burnerList"] == [
         {"burnerNumber": 0, "powerLevel": "3", "panDetection": True},
