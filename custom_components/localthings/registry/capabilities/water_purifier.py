@@ -318,6 +318,9 @@ SOUND_VOLUME = Capability(
             field="level",
             icon="mdi:volume-medium",
             entity_category="config",
+            # Same gate as air_purifier.SOUND_VOLUME: with no maxLevel the
+            # slider would collapse to 0..0 instead of there being no entity.
+            exists_fn=lambda rep, resources: is_stub_rep(rep) or "maxLevel" in rep,
             native_min_fn=lambda rep: int_or_none(rep.get("minLevel")) or 0,
             native_max_fn=lambda rep: int_or_none(rep.get("maxLevel")) or 0,
             step_fn=lambda rep: int_or_none(rep.get("resolution")) or 1,

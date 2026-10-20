@@ -467,3 +467,17 @@ def test_ailite_alarm_in_mute_is_read_only():
     assert isinstance(desc, BinarySensorDesc)
     assert desc.value_fn("true") is True
     assert desc.value_fn("false") is False
+
+
+def test_sound_volume_needs_a_reported_max_level():
+    """Same gate as air_purifier.SOUND_VOLUME: a board reporting no maxLevel
+    would collapse the slider to 0..0 rather than give no entity. This copy
+    is also bound for the refrigerator registry. A stub rep keeps the
+    not-yet-fetched carve-out."""
+    from custom_components.localthings.registry.capabilities import water_purifier as wp
+
+    desc = next(e for e in wp.SOUND_VOLUME.entities if e.key == "sound_volume")
+    assert desc.exists_fn is not None
+    assert desc.exists_fn({"level": "2", "minLevel": "0", "resolution": "1"}, {}) is False
+    assert desc.exists_fn({"level": "2", "minLevel": "0", "maxLevel": "3"}, {}) is True
+    assert desc.exists_fn({"href": "/settings/sound/volume/vs/0"}, {}) is True
