@@ -391,6 +391,7 @@ OVEN_OPERATIONAL_STATE = Capability(
             key="operation_time_minutes",
             field="x.com.samsung.da.operationTime",
             unit="min",
+            device_class="duration",
             state_class="measurement",
             value_fn=_op_minutes,
         ),

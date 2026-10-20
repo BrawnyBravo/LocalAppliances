@@ -190,6 +190,7 @@ HOOD_FILTER = Capability(
             key="hood_filter_capacity",
             field="x.com.samsung.da.filterCapacity",
             unit="h",
+            device_class="duration",
             icon="mdi:timer-outline",
             entity_category="diagnostic",
             enabled_default=False,

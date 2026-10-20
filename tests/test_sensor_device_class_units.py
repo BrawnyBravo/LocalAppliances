@@ -92,3 +92,16 @@ def test_particulate_units_use_has_own_mu_codepoint():
         assert unit is not None, device_class
         assert unit == f"{greek_mu}g/m³", (device_class, [hex(ord(c)) for c in unit])
         assert micro_sign not in unit, device_class
+
+
+def test_time_readings_with_a_unit_are_durations():
+    """A time reading with an h/min unit and no duration device_class loses
+    HA's duration formatting and unit conversion."""
+    from custom_components.localthings.registry.capabilities import oven, range_hood
+
+    hood = next(e for e in range_hood.HOOD_FILTER.entities if e.key == "hood_filter_capacity")
+    assert (hood.device_class, hood.unit) == ("duration", "h")
+    op = next(
+        e for e in oven.OVEN_OPERATIONAL_STATE.entities if e.key == "operation_time_minutes"
+    )
+    assert (op.device_class, op.unit) == ("duration", "min")
