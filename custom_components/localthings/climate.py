@@ -617,7 +617,7 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
     # -- hvac mode ----------------------------------------------------------
 
     @property
-    def hvac_mode(self) -> HVACMode:
+    def hvac_mode(self) -> HVACMode | None:
         if not self._is_on():
             return HVACMode.OFF
         device = _first(self._rep(MODE_HREF).get(_MODES_FIELD))
@@ -629,7 +629,11 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
             and device not in _NON_HVAC_OPTION_CODES
         ):
             self._warn_unmapped(MODE_HREF, device)
-        return _DEVICE_TO_HVAC.get(device, HVACMode.AUTO)
+        # Unknown rather than a guessed Auto when the mode cannot be read (an
+        # empty or stub rep) or maps to nothing: a unit with no Auto at all
+        # would otherwise briefly show one, and an automation keyed on it
+        # would fire. Same as zone_climate.
+        return _DEVICE_TO_HVAC.get(device) if device is not None else None
 
     @property
     def hvac_modes(self) -> list[HVACMode]:
