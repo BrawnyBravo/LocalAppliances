@@ -126,3 +126,25 @@ def test_every_air_quality_sensor_still_reads_a_plain_int():
     for key in PARTICULATE + GRADED:
         value = _desc(key).value_fn(rep["x.com.samsung.da.items"])
         assert isinstance(value, int), (key, value)
+
+
+def test_range_hood_types_the_same_particulate_readings():
+    """The range hood reads the same /sensors/vs/0 Dust/FineDust/
+    SuperFineDust items (its 18/14/9 readings are part of the evidence for
+    the PM mapping), so it carries the same device_class, unit and
+    state_class rather than appearing as unitless numbers with no history.
+
+    No statistics relabel is needed for it: without a state_class these
+    sensors never recorded long-term statistics, so there is no unitless
+    history for the new unit to clash with."""
+    from custom_components.localthings.registry.capabilities import range_hood
+
+    hood = {d.key: d for d in range_hood.AIR_QUALITY.entities}
+    for key in PARTICULATE:
+        purifier = _desc(key)
+        assert hood[key].device_class == purifier.device_class, key
+        assert hood[key].unit == purifier.unit, key
+        assert hood[key].state_class == "measurement", key
+    # The graded reading stays as it was.
+    assert hood["clean_level"].device_class is None
+    assert hood["clean_level"].unit is None

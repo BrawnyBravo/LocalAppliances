@@ -26,6 +26,7 @@ from ..entities import (
     SensorDesc,
     SwitchDesc,
 )
+from .air_purifier import _AIR_QUALITY_SENSORS
 from .common import (
     epoch_to_utc,
     filter_reset_button,
@@ -241,6 +242,17 @@ AFTER_RUN = Capability(
 # air_purifier.AIR_QUALITY needed for a board that reports only some of them
 # (issue #414). No hood dump has been short one yet; this is the guard, not a
 # fix for anything observed here.
+#
+# The particulate rows come from air_purifier._AIR_QUALITY_SENSORS (as
+# air_monitor's do): the same /sensors/vs/0 items, typed pm10/pm25/pm1 in
+# ug/m3 with a measurement state_class. They used to be bare numbers with no
+# unit or history here while the identical purifier readings were typed --
+# and the hood's own 18/14/9 readings are part of that mapping's evidence.
+# No statistics relabel is needed: with no state_class before, these never
+# recorded long-term statistics, so no unitless history exists to clash
+# with the new unit.
+_PARTICULATE_TYPES = ("Dust", "FineDust", "SuperFineDust")
+
 AIR_QUALITY = Capability(
     href="/sensors/vs/0",
     poll_tier="warm",
@@ -256,14 +268,15 @@ AIR_QUALITY = Capability(
             SensorDesc(
                 key=key,
                 field="x.com.samsung.da.items",
+                icon=icon,
+                state_class=state_class,
+                device_class=device_class,
+                unit=unit,
                 exists_fn=has_sensor_type(type_),
                 value_fn=lambda items, t=type_: sensor_item_value(items, t),
             )
-            for key, type_ in (
-                ("dust", "Dust"),
-                ("fine_dust", "FineDust"),
-                ("super_fine_dust", "SuperFineDust"),
-            )
+            for key, icon, type_, state_class, device_class, unit in _AIR_QUALITY_SENSORS
+            if type_ in _PARTICULATE_TYPES
         ),
     ),
 )
