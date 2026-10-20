@@ -212,14 +212,26 @@ def _option_write(prefix, new_value):
 # ---------------------------------------------------------------------------
 
 
-def _oven_setpoint_write(p, rep, href=None):
-    """RMW write to /temperatures/vs/0 items array."""
+def _oven_setpoint_write(p, rep, href=None, resources=None):
+    """RMW write to /temperatures/vs/0 items array.
+
+    Validated against the same range the slider shows: the current (or
+    held) mode's own modeSpec range when it declares one (_mode_setpoint_
+    bounds), rounded to the step from that range's minimum the way
+    cook._check_temperature does; the static per-unit bounds otherwise. The
+    write used to check only the static bounds, so a mid-cook 280 C Bake or
+    150 F Dehydrate the slider offered was dropped."""
     try:
         temp = float(p)
     except (TypeError, ValueError):
         return None
-    min_v, max_v, step_v = _setpoint_bounds(rep)
-    temp_i = int(round(temp / step_v) * step_v)
+    mode_bounds = cook.temp_bounds(resources) if resources else None
+    if mode_bounds is not None:
+        min_v, max_v, step_v = mode_bounds
+        temp_i = int(min_v + round((temp - min_v) / step_v) * step_v)
+    else:
+        min_v, max_v, step_v = _setpoint_bounds(rep)
+        temp_i = int(round(temp / step_v) * step_v)
     if not (min_v <= temp_i <= max_v):
         return None
     items = rep.get("x.com.samsung.da.items")

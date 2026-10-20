@@ -145,6 +145,56 @@ def test_oven_setpoint_rejects_out_of_range_fahrenheit():
     assert desc.write_fn(600, rep) is None  # above F max (550)
 
 
+def _mid_cook_range(mode, unit):
+    """The NX60T8311SS range dump, put mid-cook in `mode` with the oven
+    reporting `unit` ('Fahrenheit'/'Celsius')."""
+    import copy
+
+    from tests.conftest import _load_device
+
+    resources = copy.deepcopy(_load_device("range_nx60t8311ss"))
+    resources["/mode/vs/0"]["x.com.samsung.da.modes"] = [mode]
+    for item in resources["/temperatures/vs/0"]["x.com.samsung.da.items"]:
+        item["x.com.samsung.da.unit"] = unit
+    return resources
+
+
+def _mid_cook_write(resources, value):
+    desc = _oven_setpoint_desc()
+    assert desc.write_fn is not None
+    rep = resources["/temperatures/vs/0"]
+    return desc.write_fn(value, rep, "/temperatures/vs/0", resources)
+
+
+def test_oven_setpoint_write_accepts_the_modes_own_celsius_range():
+    """Bake on this board runs 80-285 C (modeSpec). The slider offers that
+    range (bounds_fn), so the write must accept it too: 280 C used to be
+    dropped against the static 270 C cap."""
+    result = _mid_cook_write(_mid_cook_range("Bake", "Celsius"), 280)
+    assert result is not None
+    assert result[1]["x.com.samsung.da.items"][0]["x.com.samsung.da.desired"] == "280"
+
+
+def test_oven_setpoint_write_accepts_dehydrate_below_the_static_minimum():
+    """Dehydrate on this board runs 100-225 F, below the static 175 F floor."""
+    resources = _mid_cook_range("Dehydrate", "Fahrenheit")
+    result = _mid_cook_write(resources, 150)
+    assert result is not None
+    assert result[1]["x.com.samsung.da.items"][0]["x.com.samsung.da.desired"] == "150"
+    # Still bounded by the mode's own range.
+    assert _mid_cook_write(resources, 300) is None
+    assert _mid_cook_write(resources, 90) is None
+
+
+def test_oven_setpoint_write_without_a_mode_range_keeps_static_bounds():
+    """Broil's 'range' is two codes, not degrees, so the static bounds apply."""
+    resources = _mid_cook_range("Broil", "Fahrenheit")
+    assert _mid_cook_write(resources, 150) is None
+    result = _mid_cook_write(resources, 352)
+    assert result is not None
+    assert result[1]["x.com.samsung.da.items"][0]["x.com.samsung.da.desired"] == "350"
+
+
 def test_oven_setpoint_native_bounds_track_live_unit():
     desc = _oven_setpoint_desc()
     celsius_rep = {"x.com.samsung.da.items": [{"x.com.samsung.da.unit": "Celsius"}]}
