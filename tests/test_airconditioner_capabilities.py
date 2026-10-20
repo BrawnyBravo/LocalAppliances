@@ -1226,3 +1226,27 @@ def test_odor_controller_is_read_only():
     )
     assert not hasattr(active, "write_fn") or active.write_fn is None
     assert not hasattr(progress, "write_fn") or progress.write_fn is None
+
+
+def test_shared_keys_bind_only_one_href():
+    """display_light and absence_clean each come from two different hrefs.
+    No dump has shown both of a pair, but a board that did would register
+    two entities under one unique_id; the dedicated /light/vs/0 and the
+    /csi/ resource win."""
+    from custom_components.localthings.registry.capabilities import airconditioner as ac
+
+    mode_light = next(e for e in ac.CLIMATE.entities if e.key == "display_light")
+    mode_rep = {"x.com.samsung.da.options": ["Light_On"]}
+    assert mode_light.exists_fn(mode_rep, {"/mode/vs/0": mode_rep}) is True
+    both = {"/mode/vs/0": mode_rep, "/light/vs/0": {"mode": "On"}}
+    assert mode_light.exists_fn(mode_rep, both) is False
+
+    mds = next(e for e in ac.MDS_ABSENCE_CLEAN.entities if e.key == "absence_clean")
+    rep = {"mode": "On", "supportedModes": ["On", "Off"]}
+    assert mds.exists_fn(rep, {"/mds/absenceclean/vs/0": rep}) is True
+    assert mds.exists_fn({"href": "/mds/absenceclean/vs/0"}, {}) is True
+    assert mds.exists_fn({"supportedModes": ["On", "Off"]}, {}) is False
+    assert (
+        mds.exists_fn(rep, {"/mds/absenceclean/vs/0": rep, "/csi/absenceclean/vs/0": rep})
+        is False
+    )

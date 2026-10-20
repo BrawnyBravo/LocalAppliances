@@ -12,6 +12,7 @@ capabilities/__init__.py) -- AC-only, by_type registry only.
 import math
 from dataclasses import replace
 
+from ..batch import is_stub_rep
 from ..capability import Capability
 from ..entities import (
     BinarySensorDesc,
@@ -235,6 +236,14 @@ def _has_display_light_option(rep, resources):
     token rather than a dedicated /light/vs/0 switch -- the two encodings
     are mutually exclusive across observed boards."""
     return any(isinstance(o, str) and o.startswith("Light_") for o in _mode_options(rep))
+
+
+def _display_light_option_only(rep, resources):
+    """The options-token light, unless the board also has the dedicated
+    /light/vs/0 (DISPLAY_LIGHT), which then wins: both share one key, so
+    binding both would register two entities under one unique_id. No dump
+    shows both; this enforces the exclusivity rather than relying on it."""
+    return _has_display_light_option(rep, resources) and "/light/vs/0" not in resources
 
 
 def _display_light_on(rep):
@@ -679,7 +688,7 @@ CLIMATE = Capability(
         SwitchDesc(
             key="display_light",
             rep_fn=_display_light_on,
-            exists_fn=_has_display_light_option,
+            exists_fn=_display_light_option_only,
             write_fn=_display_light_write,
             icon="mdi:led-on",
             entity_category="config",
@@ -1449,8 +1458,8 @@ ABSENCE_CLEAN = Capability(
 # supportedModes: [On, Off]} shape under /mds/absenceclean/vs/0 instead --
 # confirmed against that board's own fixture, not guessed. Shares
 # ABSENCE_CLEAN's key/translation: no dump has ever reported both hrefs
-# together, so there's nothing for the two to collide over in
-# adapter.flatten().
+# together; the exists_fn below makes /csi/ win if one ever does, rather
+# than registering two entities under one unique_id.
 MDS_ABSENCE_CLEAN = Capability(
     href="/mds/absenceclean/vs/0",
     poll_tier="cold",
@@ -1460,6 +1469,11 @@ MDS_ABSENCE_CLEAN = Capability(
             field="mode",
             icon="mdi:broom",
             entity_category="config",
+            # ABSENCE_CLEAN's /csi/ href wins if a board ever reports both.
+            exists_fn=lambda rep, resources: (
+                (is_stub_rep(rep) or "mode" in rep)
+                and "/csi/absenceclean/vs/0" not in resources
+            ),
             value_fn=lambda v: v == "On",
             write_fn=lambda p, rep, href=None: (
                 ["mds", "absenceclean", "vs", "0"],
