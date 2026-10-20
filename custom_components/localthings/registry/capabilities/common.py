@@ -39,6 +39,14 @@ def int_or_none(v):
         return None
 
 
+def percent_or_none(v):
+    """int_or_none for a 0-100 percentage, with a negative reading as unknown:
+    the wine cellar's deodorizer filter reports filterUsage "-1", which as a
+    -1 % measurement would sit in long-term statistics as a negative floor."""
+    n = int_or_none(v)
+    return n if n is not None and n >= 0 else None
+
+
 # 0xFEFE, which FAC_BORA boards report as instantaneousPower while off or in
 # standby and a real reading while running (issue #625).
 _NO_READING_POWER = 65278.0
@@ -106,7 +114,7 @@ def filter_usage_percent(rep):
     other families' fixtures), which only holds if `filterUsage` is already
     a percent -- dividing by capacity again would read that filter as fresh
     at 20%."""
-    return int_or_none(rep.get("x.com.samsung.da.filterUsage"))
+    return percent_or_none(rep.get("x.com.samsung.da.filterUsage"))
 
 
 def filter_usage_hours(rep):
@@ -704,6 +712,7 @@ WATER_FILTER = Capability(
             unit="%",
             state_class="measurement",
             icon="mdi:filter",
+            value_fn=percent_or_none,
         ),
         SensorDesc(
             key="filter_status",

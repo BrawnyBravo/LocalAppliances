@@ -27,7 +27,7 @@ from ..entities import (
     SwitchDesc,
     TimeDesc,
 )
-from .common import filter_reset_button, int_or_none, normalize_temp_unit
+from .common import filter_reset_button, int_or_none, normalize_temp_unit, percent_or_none
 
 # Display names for the beverage zone, flex zone, ice type, and
 # ice-making-status enums below live in translations/en.json, keyed by the
@@ -329,7 +329,7 @@ AIR_FILTER = Capability(
             state_class="measurement",
             icon="mdi:air-filter",
             entity_category="diagnostic",
-            value_fn=int_or_none,
+            value_fn=percent_or_none,
         ),
         SensorDesc(
             key="air_filter_status",
@@ -474,8 +474,8 @@ AUTO_DOOR_VARIANT = Capability(
 # deodorizing filter AIR_FILTER models -- filterUsage/filterStatus at a
 # different href, same 0-100-percentage-already shape (see AIR_FILTER's own
 # comment). filterUsage reads '-1' on the only dump seen (filterStatus
-# 'normal'), relayed as-is rather than special-cased -- no second dump to
-# confirm whether that's a real sentinel or this unit just not tracking it.
+# 'normal'); whatever it means, it isn't a 0-100 reading, so
+# percent_or_none reports it as unknown rather than -1 % in statistics.
 # Own 'deodor_'-prefixed keys rather than reusing AIR_FILTER.entities
 # verbatim -- same collision AIR_FILTER's own 'air_' prefix was chosen to
 # avoid against WATER_FILTER, and both filters are plausible on one unit
@@ -492,7 +492,7 @@ DEODOR_FILTER = Capability(
             state_class="measurement",
             icon="mdi:air-filter",
             entity_category="diagnostic",
-            value_fn=int_or_none,
+            value_fn=percent_or_none,
         ),
         SensorDesc(
             key="deodor_filter_status",

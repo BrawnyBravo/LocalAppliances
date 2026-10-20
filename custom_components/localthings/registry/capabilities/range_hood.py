@@ -32,6 +32,7 @@ from .common import (
     filter_reset_button,
     has_sensor_type,
     int_or_none,
+    percent_or_none,
     sensor_item_value,
 )
 
@@ -173,7 +174,7 @@ HOOD_FILTER = Capability(
             state_class="measurement",
             icon="mdi:air-filter",
             entity_category="diagnostic",
-            value_fn=int_or_none,
+            value_fn=percent_or_none,
         ),
         SensorDesc(
             key="hood_filter_status",
