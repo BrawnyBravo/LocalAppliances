@@ -179,6 +179,7 @@ async def test_offline_snapshot_restores_status_without_using_stale_values(hass)
         assert isinstance(bound.desc, BinarySensorDesc)
         entity = LocalThingsBinarySensor(restored, bound)
         assert entity.is_on is None
+        assert entity.unique_id is not None
         registry.async_get_or_create("switch", DOMAIN, entity.unique_id, config_entry=online._entry)
     _drop_oven_power_switches(hass, online._entry, restored)
     assert not [
