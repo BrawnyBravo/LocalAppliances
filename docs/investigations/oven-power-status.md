@@ -35,14 +35,6 @@ its existing precedence and behavior.
 The replacement uses the existing `power_switch` binary-sensor translation in
 all ten languages. No translation changes are required.
 
-## Upgrading
-
-Power moves from the switch platform to the binary-sensor platform. Existing
-Power switch references in dashboards or automations need updating; they cannot
-be preserved as switch actions. Cleanup logs each removed entity. The replacement
-gets its own registry row, so a custom name or disabled setting on the old switch
-is not transferred. Other entities are retained.
-
 ## Evidence and regression checks
 
 The owner's NV51K7770S observations are recorded in the
