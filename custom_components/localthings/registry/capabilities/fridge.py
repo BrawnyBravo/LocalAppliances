@@ -70,20 +70,61 @@ TEMP_CURRENT_GENERIC = Capability(
 )
 
 
+_SETPOINT_PREFIX = "/temperature/desired/"
+# The vendor items[] calls the cooler compartment "Fridge".
+_COMPARTMENT_ALIASES = {"fridge": "cooler"}
+# Used only before /temperatures/vs/0 has been read (a stub rep with no
+# items[] to match against): the ids every fridge dump reports for these two.
+_FALLBACK_ITEM_IDS = {("cooler",): "1", ("freezer",): "0"}
+
+
+def _compartment_words(href):
+    """('winecellar', 'top') for /temperature/desired/winecellar/top/vs/0."""
+    tail = href[len(_SETPOINT_PREFIX) :] if href.startswith(_SETPOINT_PREFIX) else href
+    return tuple(
+        s.lower() for s in tail.strip("/").split("/") if s and s != "vs" and not s.isdigit()
+    )
+
+
+def _description_words(description):
+    """('winecellar', 'top') for the vendor description 'WineCellar-top'."""
+    words = str(description or "").lower().replace("_", "-").replace(" ", "-").split("-")
+    return tuple(_COMPARTMENT_ALIASES.get(w, w) for w in words if w)
+
+
+def _vendor_item_id(href, vendor_rep):
+    """The /temperatures/vs/0 item id for `href`'s compartment, read from the
+    board's own items[] by description; None when the board names no such
+    compartment."""
+    want = _compartment_words(href)
+    items = vendor_rep.get("x.com.samsung.da.items")
+    if not isinstance(items, list):
+        return _FALLBACK_ITEM_IDS.get(want) if is_stub_rep(vendor_rep) else None
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if _description_words(item.get("x.com.samsung.da.description")) == want:
+            item_id = item.get("x.com.samsung.da.id")
+            return str(item_id) if item_id is not None else None
+    return None
+
+
 def _temp_setpoint_write(p, rep, href=None, resources=None):
     """Prefer vendor /temperatures/vs/0 when present, else the direct OCF
     /temperature/desired/ write -- on some models only the vendor path
-    commits. Item IDs follow the Samsung convention: "0" = Freezer,
-    "1" = Fridge/Cooler."""
+    commits.
+
+    The item id comes from the board's own items[], matched on description
+    against the compartment named in `href` ("Freezer" -> freezer, "Fridge"
+    -> cooler, "WineCellar-top" -> winecellar/top). It used to be a fixed
+    cooler "1" / freezer "0" table, which dropped every wine-cellar write
+    (ids "2" and "3"). A compartment the items[] doesn't name falls back to
+    the direct write on its own href instead of being dropped."""
     if not href:
         return None
-    if resources and "/temperatures/vs/0" in resources:
-        if "/cooler/" in href:
-            item_id = "1"
-        elif "/freezer/" in href:
-            item_id = "0"
-        else:
-            return None
+    vendor = (resources or {}).get("/temperatures/vs/0")
+    item_id = _vendor_item_id(href, vendor) if isinstance(vendor, dict) else None
+    if item_id is not None:
         return (
             ["temperatures", "vs", "0"],
             {
