@@ -54,6 +54,7 @@ path, not permission. Same call as common.py's KIDS_LOCK_VS_FALLBACK
 always error.
 """
 
+from ..batch import is_stub_rep
 from ..capability import Capability
 from ..entities import (
     BinarySensorDesc,
@@ -185,6 +186,13 @@ def _mode_write(p, rep, href=None):
     if p not in valid:
         return None
     return ["mode", "vs", "0"], {"x.com.samsung.da.modes": [p]}
+
+
+def _sound_exists(rep, resources):
+    """Bind only when options[] carries a Sound_ token, like the lamp switch
+    (#300's phantom-switch class); a stub rep still gets its first chance."""
+    options = rep.get("x.com.samsung.da.options")
+    return is_stub_rep(rep) or option_value(options, "Sound") is not None
 
 
 def _sound_write(p, rep, href=None):
@@ -373,6 +381,7 @@ MICROWAVE_MODE = Capability(
             field="x.com.samsung.da.options",
             icon="mdi:volume-high",
             entity_category="config",
+            exists_fn=_sound_exists,
             value_fn=lambda opts: option_value(opts, "Sound") == "On",
             write_fn=_sound_write,
         ),

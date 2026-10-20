@@ -911,3 +911,18 @@ def test_progress_reads_unknown_for_the_fixed_201_a_running_cook_reports():
     assert desc.rep_fn({**running, "x.com.samsung.da.progressPercentage": "201"}) is None
     assert desc.rep_fn({**running, "x.com.samsung.da.progressPercentage": "40"}) == 40
     assert desc.rep_fn({"x.com.samsung.da.state": "Ready"}) == 0
+
+
+def test_sound_switches_gate_on_their_option_token():
+    """Like lamp/fast_preheat/natural_steam: a board whose options[] carries
+    no Sound_ token gets no sound switch (the #300 phantom-switch class),
+    while a stub rep keeps the not-yet-fetched carve-out."""
+    for cap in (microwave.MICROWAVE_MODE, oven.OVEN_MODE):
+        desc = next(
+            e for e in cap.entities if e.key == "sound" and isinstance(e, SwitchDesc)
+        )
+        assert desc.exists_fn is not None, cap.href
+        assert desc.exists_fn({"x.com.samsung.da.options": ["Sound_On"]}, {}) is True
+        assert desc.exists_fn({"x.com.samsung.da.options": ["Lamp_Off"]}, {}) is False
+        assert desc.exists_fn({"href": "/mode/vs/0"}, {}) is True
+
