@@ -27,7 +27,7 @@ from ..entities import (
     SwitchDesc,
     TimeDesc,
 )
-from .common import filter_reset_button, int_or_none, normalize_temp_unit, percent_or_none
+from .common import filter_reset_button, normalize_temp_unit, percent_or_none
 
 # Display names for the beverage zone, flex zone, ice type, and
 # ice-making-status enums below live in translations/en.json, keyed by the

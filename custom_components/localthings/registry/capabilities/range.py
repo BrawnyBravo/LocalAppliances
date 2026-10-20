@@ -214,6 +214,7 @@ COOKTOP_STATUS = Capability(
     ),
 )
 
+
 def _read_only_power_level(desc):
     """The burner power-level select as a plain sensor under the same key."""
     if not (isinstance(desc, SelectDesc) and desc.key.endswith("_power_level")):
@@ -260,6 +261,7 @@ COOKTOP_SAFETY = Capability(
         ),
     ),
 )
+
 
 # Bluetooth meat probe (issue #86). While disconnected the board reports
 # idle placeholders (operationBurnerNumber -1, temperatures 0, battery 0):

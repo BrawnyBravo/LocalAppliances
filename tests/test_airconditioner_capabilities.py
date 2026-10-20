@@ -1247,6 +1247,5 @@ def test_shared_keys_bind_only_one_href():
     assert mds.exists_fn({"href": "/mds/absenceclean/vs/0"}, {}) is True
     assert mds.exists_fn({"supportedModes": ["On", "Off"]}, {}) is False
     assert (
-        mds.exists_fn(rep, {"/mds/absenceclean/vs/0": rep, "/csi/absenceclean/vs/0": rep})
-        is False
+        mds.exists_fn(rep, {"/mds/absenceclean/vs/0": rep, "/csi/absenceclean/vs/0": rep}) is False
     )

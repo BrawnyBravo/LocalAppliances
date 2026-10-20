@@ -1471,8 +1471,7 @@ MDS_ABSENCE_CLEAN = Capability(
             entity_category="config",
             # ABSENCE_CLEAN's /csi/ href wins if a board ever reports both.
             exists_fn=lambda rep, resources: (
-                (is_stub_rep(rep) or "mode" in rep)
-                and "/csi/absenceclean/vs/0" not in resources
+                (is_stub_rep(rep) or "mode" in rep) and "/csi/absenceclean/vs/0" not in resources
             ),
             value_fn=lambda v: v == "On",
             write_fn=lambda p, rep, href=None: (

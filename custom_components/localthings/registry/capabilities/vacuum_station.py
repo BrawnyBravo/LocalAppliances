@@ -90,10 +90,7 @@ DUSTBIN_SETTING = Capability(
     ),
 )
 
-# stickStatus's exact meaning (docked? powered? charging?) isn't confirmed
-# from this single On/Off dump -- exposed as a plain diagnostic sensor
-# rather than a binary_sensor, so no polarity/semantic is asserted that
-# might be wrong.
+
 def _uvc_supported(rep):
     """False only when the station says outright it has no UV-C: the VS9700
     (issue #478) reports uvcSupport "Off" and uvcIntensive "not supporting".
@@ -108,11 +105,13 @@ def _uvc_intensive_exists(rep, _resources):
 
 
 def _uvc_finished_exists(rep, _resources):
-    return is_stub_rep(rep) or (
-        _uvc_supported(rep) and "x.com.samsung.da.uvcFinishedTime" in rep
-    )
+    return is_stub_rep(rep) or (_uvc_supported(rep) and "x.com.samsung.da.uvcFinishedTime" in rep)
 
 
+# stickStatus's exact meaning (docked? powered? charging?) isn't confirmed
+# from this single On/Off dump -- exposed as a plain diagnostic sensor
+# rather than a binary_sensor, so no polarity/semantic is asserted that
+# might be wrong.
 CLEANSTATION_STATUS = Capability(
     href="/status/cleanstation/vs/0",
     poll_tier="warm",

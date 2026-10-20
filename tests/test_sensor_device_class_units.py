@@ -101,7 +101,5 @@ def test_time_readings_with_a_unit_are_durations():
 
     hood = next(e for e in range_hood.HOOD_FILTER.entities if e.key == "hood_filter_capacity")
     assert (hood.device_class, hood.unit) == ("duration", "h")
-    op = next(
-        e for e in oven.OVEN_OPERATIONAL_STATE.entities if e.key == "operation_time_minutes"
-    )
+    op = next(e for e in oven.OVEN_OPERATIONAL_STATE.entities if e.key == "operation_time_minutes")
     assert (op.device_class, op.unit) == ("duration", "min")

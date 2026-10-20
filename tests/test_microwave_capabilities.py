@@ -918,9 +918,7 @@ def test_sound_switches_gate_on_their_option_token():
     no Sound_ token gets no sound switch (the #300 phantom-switch class),
     while a stub rep keeps the not-yet-fetched carve-out."""
     for cap in (microwave.MICROWAVE_MODE, oven.OVEN_MODE):
-        desc = next(
-            e for e in cap.entities if e.key == "sound" and isinstance(e, SwitchDesc)
-        )
+        desc = next(e for e in cap.entities if e.key == "sound" and isinstance(e, SwitchDesc))
         assert desc.exists_fn is not None, cap.href
         assert desc.exists_fn({"x.com.samsung.da.options": ["Sound_On"]}, {}) is True
         assert desc.exists_fn({"x.com.samsung.da.options": ["Lamp_Off"]}, {}) is False
@@ -942,10 +940,7 @@ def test_microwave_child_lock_reads_a_missing_field_as_unknown():
     """common.KIDS_LOCK_* return None for a missing field; this lock used to
     read a missing childLock as unlocked."""
     desc = next(
-        e
-        for cap in (microwave.MICROWAVE_STATUS,)
-        for e in cap.entities
-        if e.key == "child_lock"
+        e for cap in (microwave.MICROWAVE_STATUS,) for e in cap.entities if e.key == "child_lock"
     )
     assert desc.value_fn(None) is None
     # device_class lock reads inverted: True = unlocked.

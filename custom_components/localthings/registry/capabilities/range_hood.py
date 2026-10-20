@@ -37,7 +37,6 @@ from .common import (
     sensor_item_value,
 )
 
-
 # The shared common.ALARMS parser. The hood used to keep its own copy, which
 # had drifted: it dropped only the literal ErrorCode_OFF row, while the shared
 # one drops every <Name>_OFF placeholder. Both skip Deleted rows. Kept under
