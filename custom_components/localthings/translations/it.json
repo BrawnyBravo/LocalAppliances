@@ -2217,6 +2217,10 @@
     "device_identity_mismatch": {
       "title": "Un altro elettrodomestico risponde al posto di {device_name}",
       "description": "L'elettrodomestico all'indirizzo {host} ha accettato le credenziali di questa voce ma si è identificato come un altro elettrodomestico, quindi LocalThings ha smesso di usarlo. Di solito significa che l'elettrodomestico ha cambiato indirizzo e ora un altro ha quello vecchio. Apri questa voce in Impostazioni > Dispositivi e servizi e usa Riconfigura per puntarla all'indirizzo corretto. Questo avviso scompare da solo quando risponde l'elettrodomestico giusto."
+    },
+    "appliance_certificate_changed": {
+      "title": "{device_name} ha presentato un certificato di sicurezza diverso",
+      "description": "Ciò che ha risposto all'indirizzo {host} ha presentato un certificato di sicurezza diverso da quello dell'elettrodomestico al momento della configurazione, quindi LocalThings ha smesso di comunicare con esso e non gli ha inviato il token di accesso. Un altro dispositivo potrebbe aver preso l'indirizzo dell'elettrodomestico. Se l'elettrodomestico ha cambiato indirizzo, usa Riconfigura su questa voce (Impostazioni > Dispositivi e servizi) per puntarla lì. Se è lo stesso elettrodomestico e il suo certificato è cambiato (ad esempio dopo una riparazione o un ripristino), Riconfigura accetta anche il nuovo certificato. Questo avviso scompare da solo quando risponde l'elettrodomestico originale."
     }
   },
   "exceptions": {

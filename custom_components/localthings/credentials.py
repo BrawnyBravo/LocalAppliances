@@ -95,6 +95,15 @@ class DeviceIdentityMismatch(Exception):
     issue_key = "device_identity_mismatch"
 
 
+class ApplianceCertificateMismatch(DeviceIdentityMismatch):
+    """The 8888 appliance presented a different TLS certificate than the
+    one recorded for this entry, so nothing was sent to it -- in particular
+    not the device token. Something else may hold the appliance's address.
+    """
+
+    issue_key = "appliance_certificate_changed"
+
+
 class DeviceBinding(Enum):
     """What an authenticated session proved about *which* device answered.
 

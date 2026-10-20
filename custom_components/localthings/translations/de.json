@@ -2217,6 +2217,10 @@
     "device_identity_mismatch": {
       "title": "Für {device_name} antwortet ein anderes Gerät",
       "description": "Das Gerät unter {host} hat die Zugangsdaten dieses Eintrags akzeptiert, sich aber als ein anderes Gerät ausgewiesen, daher verwendet LocalThings es nicht mehr. Meist ist das Gerät auf eine neue Adresse umgezogen und ein anderes hat jetzt die alte. Öffne diesen Eintrag unter Einstellungen > Geräte & Dienste und richte ihn mit Neu konfigurieren auf die richtige Adresse aus. Dieser Hinweis verschwindet von selbst, sobald das richtige Gerät antwortet."
+    },
+    "appliance_certificate_changed": {
+      "title": "{device_name} hat ein anderes Sicherheitszertifikat vorgelegt",
+      "description": "Das Gerät unter {host} hat ein anderes Sicherheitszertifikat vorgelegt als das Gerät bei der Einrichtung, daher kommuniziert LocalThings nicht mehr damit und hat ihm das Zugriffstoken des Geräts nicht gesendet. Möglicherweise hat ein anderes Gerät die Adresse übernommen. Ist das Gerät auf eine neue Adresse umgezogen, richte diesen Eintrag mit Neu konfigurieren (Einstellungen > Geräte & Dienste) darauf aus. Ist es dasselbe Gerät und hat sich sein Zertifikat geändert (etwa nach einer Reparatur oder einem Zurücksetzen), übernimmt Neu konfigurieren auch das neue Zertifikat. Dieser Hinweis verschwindet von selbst, sobald das ursprüngliche Gerät antwortet."
     }
   },
   "exceptions": {

@@ -2217,6 +2217,10 @@
     "device_identity_mismatch": {
       "title": "Un autre appareil répond à la place de {device_name}",
       "description": "L'appareil à l'adresse {host} a accepté l'identifiant de cette entrée mais s'est présenté comme un autre appareil ; LocalThings a donc cessé de l'utiliser. En général, l'appareil a changé d'adresse et un autre occupe désormais l'ancienne. Ouvrez cette entrée dans Paramètres > Appareils et services et utilisez Reconfigurer pour la diriger vers la bonne adresse. Cet avis disparaît de lui-même dès que le bon appareil répond."
+    },
+    "appliance_certificate_changed": {
+      "title": "{device_name} a présenté un autre certificat de sécurité",
+      "description": "Ce qui a répondu à l'adresse {host} a présenté un autre certificat de sécurité que l'appareil lors de sa configuration ; LocalThings a donc cessé de communiquer avec lui et ne lui a pas envoyé le jeton d'accès de l'appareil. Un autre appareil a peut-être pris son adresse. Si l'appareil a changé d'adresse, utilisez Reconfigurer sur cette entrée (Paramètres > Appareils et services) pour la diriger vers la nouvelle. S'il s'agit du même appareil et que son certificat a changé (par exemple après une réparation ou une réinitialisation), Reconfigurer accepte aussi le nouveau certificat. Cet avis disparaît de lui-même dès que l'appareil d'origine répond."
     }
   },
   "exceptions": {

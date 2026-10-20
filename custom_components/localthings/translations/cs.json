@@ -2217,6 +2217,10 @@
     "device_identity_mismatch": {
       "title": "Za {device_name} odpovídá jiný spotřebič",
       "description": "Spotřebič na adrese {host} přijal přihlašovací údaje této položky, ale identifikoval se jako jiný spotřebič, takže jej LocalThings přestal používat. Obvykle to znamená, že se spotřebič přesunul na novou adresu a starou adresu má nyní jiný. Otevřete tuto položku v Nastavení > Zařízení a služby a pomocí Překonfigurovat ji nasměrujte na správnou adresu. Toto upozornění samo zmizí, jakmile odpoví správný spotřebič."
+    },
+    "appliance_certificate_changed": {
+      "title": "{device_name} předložil jiný bezpečnostní certifikát",
+      "description": "Zařízení na adrese {host} předložilo jiný bezpečnostní certifikát než spotřebič při nastavení, proto s ním LocalThings přestal komunikovat a neposlal mu přístupový token spotřebiče. Adresu spotřebiče mohlo převzít jiné zařízení. Pokud se spotřebič přesunul na novou adresu, nasměrujte tuto položku pomocí Překonfigurovat (Nastavení > Zařízení a služby). Pokud jde o tentýž spotřebič a jeho certifikát se změnil (například po opravě nebo resetu), Překonfigurovat přijme i nový certifikát. Toto upozornění samo zmizí, jakmile odpoví původní spotřebič."
     }
   },
   "exceptions": {

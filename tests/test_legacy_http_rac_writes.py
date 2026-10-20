@@ -24,9 +24,15 @@ class _FakeConnection:
     log: ClassVar[list[tuple[str, str, dict | None, dict]]] = []
     routes: ClassVar[dict] = {}
 
+    # No TLS peer to fingerprint; the transport then pins nothing.
+    sock = None
+
     def __init__(self, host, port, context=None, timeout=None):
         self._status = 200
         self._body: dict | None = None
+
+    def connect(self):
+        pass
 
     def request(self, method, path, body=None, headers=None):
         payload = json.loads(body) if body else None

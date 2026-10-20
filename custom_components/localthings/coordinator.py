@@ -39,6 +39,7 @@ from .const import (
     CONF_DEVICE_KEY,
     CONF_DEVICE_TYPE,
     CONF_HOST,
+    CONF_LEGACY_CERT_SHA256,
     CONF_LEARN_MODES,
     CONF_LEARNED_MODES,
     CONF_MAC,
@@ -1137,6 +1138,18 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return
         self.hass.config_entries.async_update_entry(
             self._entry, data={**self._entry.data, CONF_PORT: port}
+        )
+
+    def _persist_learned_cert_pin(self) -> None:
+        """Record the 8888 appliance's certificate fingerprint the first
+        time a poll succeeds on an entry that has none (entries made before
+        pinning existed, or a Reconfigure that cleared it). From then on a
+        different certificate is refused before the device token is sent."""
+        learned = getattr(self._session, "learned_cert_fingerprint", None)
+        if learned is None or self._entry.data.get(CONF_LEGACY_CERT_SHA256):
+            return
+        self.hass.config_entries.async_update_entry(
+            self._entry, data={**self._entry.data, CONF_LEGACY_CERT_SHA256: learned}
         )
 
     def _open_session(self, port: int) -> None:
@@ -2300,6 +2313,7 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             ir.async_delete_issue(self.hass, DOMAIN, self._identity_issue_id())
         self.last_response = dt_util.utcnow()
         self._persist_moved_port()
+        self._persist_learned_cert_pin()
         self._consecutive_poll_timeouts = 0
         if self._failed_cycles:
             self._log.info("device answered again after %d failed cycles", self._failed_cycles)

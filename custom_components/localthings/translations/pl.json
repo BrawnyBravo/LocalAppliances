@@ -2217,6 +2217,10 @@
     "device_identity_mismatch": {
       "title": "Zamiast {device_name} odpowiada inne urządzenie",
       "description": "Urządzenie pod adresem {host} przyjęło poświadczenia tego wpisu, ale przedstawiło się jako inne urządzenie, więc LocalThings przestał go używać. Zwykle oznacza to, że urządzenie zmieniło adres, a stary ma teraz inne. Otwórz ten wpis w Ustawienia > Urządzenia i usługi i użyj opcji Zmień konfigurację, aby wskazać właściwy adres. To powiadomienie zniknie samo, gdy odpowie właściwe urządzenie."
+    },
+    "appliance_certificate_changed": {
+      "title": "{device_name} przedstawił inny certyfikat bezpieczeństwa",
+      "description": "To, co odpowiedziało pod adresem {host}, przedstawiło inny certyfikat bezpieczeństwa niż urządzenie podczas konfiguracji, więc LocalThings przestał się z nim komunikować i nie wysłał mu tokenu dostępu urządzenia. Adres urządzenia mogło przejąć inne urządzenie. Jeśli urządzenie zmieniło adres, użyj opcji Zmień konfigurację w tym wpisie (Ustawienia > Urządzenia i usługi), aby go wskazać. Jeśli to to samo urządzenie, a jego certyfikat się zmienił (np. po naprawie lub resecie), Zmień konfigurację przyjmie też nowy certyfikat. To powiadomienie zniknie samo, gdy odpowie pierwotne urządzenie."
     }
   },
   "exceptions": {

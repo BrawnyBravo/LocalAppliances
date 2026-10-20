@@ -258,6 +258,10 @@
     "device_identity_mismatch": {
       "title": "Otro aparato responde en lugar de {device_name}",
       "description": "El aparato en {host} aceptó la credencial de esta entrada pero se identificó como otro aparato, así que LocalThings ha dejado de usarlo. Normalmente significa que el aparato cambió de dirección y otro tiene ahora la antigua. Abre esta entrada en Ajustes > Dispositivos y servicios y usa Reconfigurar para apuntarla a la dirección correcta. Este aviso desaparece solo cuando responda el aparato correcto."
+    },
+    "appliance_certificate_changed": {
+      "title": "{device_name} presentó un certificado de seguridad distinto",
+      "description": "Lo que respondió en {host} presentó un certificado de seguridad distinto al del aparato cuando se configuró, así que LocalThings ha dejado de comunicarse con él y no le ha enviado el token de acceso del aparato. Puede que otro dispositivo haya tomado la dirección del aparato. Si el aparato cambió de dirección, usa Reconfigurar en esta entrada (Ajustes > Dispositivos y servicios) para apuntarla allí. Si es el mismo aparato y su certificado cambió (por ejemplo tras una reparación o un restablecimiento), Reconfigurar también acepta el nuevo certificado. Este aviso desaparece solo cuando responda el aparato original."
     }
   },
   "exceptions": {

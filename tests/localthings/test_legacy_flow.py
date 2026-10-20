@@ -239,6 +239,8 @@ def test_probe_reads_an_unmapped_family_for_identity_only(monkeypatch) -> None:
     families: list[str | None] = []
 
     class _Transport:
+        learned_cert_fingerprint = None
+
         def __init__(self, *args, family=None, **kwargs):
             families.append(family)
 
@@ -269,6 +271,8 @@ def test_probe_reads_a_mapped_family_through_its_table(monkeypatch) -> None:
     families: list[str | None] = []
 
     class _Transport:
+        learned_cert_fingerprint = None
+
         def __init__(self, *args, family=None, **kwargs):
             families.append(family)
 
@@ -539,3 +543,58 @@ async def test_reauth_stores_the_ca_signed_leaf_it_needed(
     assert entry.data[CONF_LEAF_CERT_PEM] == "CA-FULLCHAIN"
     assert entry.data[CONF_LEAF_KEY_PEM] == "CA-LEAFKEY"
     assert entry.data[CONF_CA_CERT_PEM] == "CA-CERT"
+
+
+_PIN = "ab" * 32
+
+
+async def test_the_entry_pins_the_certificate_that_answered(
+    hass: HomeAssistant, legacy_bridge
+) -> None:
+    """Trust on first use: the appliance certificate seen at setup is stored,
+    so a later connection to anything else is refused before the device
+    token is sent."""
+    from custom_components.localthings.const import CONF_LEGACY_CERT_SHA256
+
+    _, probe, _mint = legacy_bridge
+    probe.return_value = {**LEGACY_DEVICE, "legacy_cert_sha256": _PIN}
+    result = await _start(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_DEVICE_TOKEN: ""}
+    )
+
+    assert result["data"][CONF_LEGACY_CERT_SHA256] == _PIN
+
+
+async def test_reconfigure_re_pins_the_certificate(hass: HomeAssistant, legacy_bridge) -> None:
+    """Reconfigure is the user-confirmed way to accept a replaced or reset
+    appliance's new certificate."""
+    from custom_components.localthings.const import CONF_LEGACY_CERT_SHA256
+
+    _, probe, _mint = legacy_bridge
+    probe.return_value = {**LEGACY_DEVICE, "legacy_cert_sha256": "cd" * 32}
+    entry = _legacy_entry(hass, **{CONF_LEGACY_CERT_SHA256: _PIN})
+
+    result = await entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_HOST: MOCK_HOST}
+    )
+
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data[CONF_LEGACY_CERT_SHA256] == "cd" * 32
+
+
+async def test_reauth_keeps_the_certificate_pin(hass: HomeAssistant, legacy_bridge) -> None:
+    from custom_components.localthings.const import CONF_LEGACY_CERT_SHA256
+
+    _, probe, _mint = legacy_bridge
+    probe.return_value = {**LEGACY_DEVICE, "legacy_cert_sha256": "cd" * 32}
+    entry = _legacy_entry(hass, **{CONF_LEGACY_CERT_SHA256: _PIN})
+
+    result = await entry.start_reauth_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_DEVICE_TOKEN: "new-token"}
+    )
+
+    assert result["reason"] == "reauth_successful"
+    assert entry.data[CONF_LEGACY_CERT_SHA256] == _PIN

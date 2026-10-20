@@ -64,10 +64,16 @@ class _FakeConnection:
     # path must answer differently.
     routes: ClassVar[dict] = {}
 
+    # No TLS peer to fingerprint; the transport then pins nothing.
+    sock = None
+
     def __init__(self, host, port, context=None, timeout=None):
         self.host, self.port, self.timeout = host, port, timeout
         self._status = 200
         self._body: dict | None = None
+
+    def connect(self):
+        pass
 
     def request(self, method, path, body=None, headers=None):
         payload = json.loads(body) if body else None

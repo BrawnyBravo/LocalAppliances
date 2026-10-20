@@ -57,6 +57,7 @@ from .const import (
     CONF_LEAF_CERT_PEM,
     CONF_LEAF_KEY_PEM,
     CONF_LEARN_MODES,
+    CONF_LEGACY_CERT_SHA256,
     CONF_LEGACY_FAMILY,
     CONF_MAC,
     CONF_MANUFACTURER,
@@ -446,11 +447,14 @@ def _probe_legacy(host: str, cert_pem: str, key_pem: str, token: str) -> dict:
         )
         transport.connect()
         try:
-            return _read_device(transport, host, LEGACY_HTTP_PORT)
+            info = _read_device(transport, host, LEGACY_HTTP_PORT)
         except (OSError, http.client.HTTPException) as err:
             raise CannotConnect(f"{host}:{LEGACY_HTTP_PORT} did not answer: {err}") from err
         finally:
             transport.close()
+        # The certificate that just answered with this token: pinned on the
+        # entry so later connections refuse any other (trust on first use).
+        return {**info, "legacy_cert_sha256": transport.learned_cert_fingerprint}
 
     info = _read(None)
     family = info.get("description", "")
@@ -1108,6 +1112,11 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_TRANSPORT: TRANSPORT_LEGACY_HTTP,
                         CONF_DEVICE_TOKEN: self._legacy_token,
                         CONF_LEGACY_FAMILY: info.get("description", ""),
+                        **(
+                            {CONF_LEGACY_CERT_SHA256: info["legacy_cert_sha256"]}
+                            if info.get("legacy_cert_sha256")
+                            else {}
+                        ),
                     }
                     if self._legacy_token
                     else {}
@@ -1596,6 +1605,10 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_LEAF_KEY_PEM: key_pem,
                     CONF_CA_CERT_PEM: self._ca_cert_pem,
                     CONF_CA_KEY_PEM: self._ca_key_pem,
+                    # The certificate pin is deliberately kept: a reauth is
+                    # only started by a 401, which a pinned entry can only
+                    # receive from the appliance it pinned. Reconfigure is
+                    # where a changed certificate is accepted.
                 },
             )
         self._legacy_token = token
@@ -1793,6 +1806,15 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                 else {}
                             ),
                             **({CONF_MAC: info["mac"]} if info["mac"] is not None else {}),
+                            # An 8888 entry is re-pinned to the certificate
+                            # that answered this probe: Reconfigure is the
+                            # user-confirmed way to accept a replaced or
+                            # reset appliance's new certificate.
+                            **(
+                                {CONF_LEGACY_CERT_SHA256: info.get("legacy_cert_sha256")}
+                                if entry.data.get(CONF_TRANSPORT) == TRANSPORT_LEGACY_HTTP
+                                else {}
+                            ),
                         },
                     )
 

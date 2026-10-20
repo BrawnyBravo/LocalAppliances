@@ -28,6 +28,7 @@ from .const import (
     CONF_HOST,
     CONF_LEAF_CERT_PEM,
     CONF_LEAF_KEY_PEM,
+    CONF_LEGACY_CERT_SHA256,
     CONF_LEGACY_FAMILY,
     CONF_PORT,
     CONF_TRANSPORT,
@@ -310,6 +311,7 @@ def create_transport(
             key_pem=data[CONF_LEAF_KEY_PEM],
             token=data[CONF_DEVICE_TOKEN],
             family=data.get(CONF_LEGACY_FAMILY),
+            cert_fingerprint=data.get(CONF_LEGACY_CERT_SHA256),
         )
     host, port = entry_endpoint(data)
     return DtlsTransport(

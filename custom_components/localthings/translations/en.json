@@ -2217,6 +2217,10 @@
     "device_identity_mismatch": {
       "title": "A different appliance is answering for {device_name}",
       "description": "The appliance at {host} accepted this entry's credential but identified itself as a different appliance, so LocalThings has stopped using it. This usually means the appliance moved to a new address and another one now has the old address. Open this entry in Settings > Devices & Services and use Reconfigure to point it at the right address. This notice clears on its own once the right appliance answers."
+    },
+    "appliance_certificate_changed": {
+      "title": "{device_name} presented a different security certificate",
+      "description": "Whatever answered at {host} presented a different security certificate than the appliance did when it was set up, so LocalThings has stopped talking to it and has not sent it the appliance's access token. Another device may have taken the appliance's address. If the appliance moved to a new address, use Reconfigure on this entry (Settings > Devices & Services) to point it there. If it is the same appliance and its certificate changed (for example after a repair or a reset), Reconfigure also accepts the new certificate. This notice clears on its own once the original appliance answers."
     }
   },
   "exceptions": {
