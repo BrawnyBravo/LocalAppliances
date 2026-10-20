@@ -807,6 +807,12 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     @callback
     def _persist_learned(self) -> None:
+        # Scheduled from the applying thread, so it can run after
+        # async_close: the entry may be mid-reload or already removed, and
+        # updating it then either rewrites a reloading entry's data or
+        # raises UnknownEntry. Same guard as _schedule_mode_spec_save.
+        if self._closed:
+            return
         persist(self.hass, self._entry, self._learned.snapshot())
 
     # ------------------------------------------------------------------
@@ -842,6 +848,8 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     @callback
     def _persist_cloud_courses(self) -> None:
+        if self._closed:  # see _persist_learned
+            return
         cloud_persist(self.hass, self._entry, self._cloud.snapshot())
         self._on_cloud_courses_changed()
 
