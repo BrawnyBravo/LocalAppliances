@@ -1445,11 +1445,30 @@
       "paired_hood_fan_speed": {
         "name": "Otáčky ventilátoru spárovaného odsavače"
       },
+      "paired_hood_fan_setting": {
+        "name": "Nastavení ventilátoru spárovaného odsavače",
+        "state": {
+          "off": "Vypnuto",
+          "low": "Nízké",
+          "medium": "Střední",
+          "high": "Vysoké",
+          "boost": "Turbo"
+        }
+      },
       "paired_hood_firmware": {
         "name": "Firmware spárovaného odsavače"
       },
       "paired_hood_model": {
         "name": "Model spárovaného odsavače"
+      },
+      "paired_hood_shutoff_timer_state": {
+        "name": "Stav časovače vypnutí spárovaného odsavače"
+      },
+      "paired_hood_shutoff_timer_set": {
+        "name": "Nastavený časovač vypnutí spárovaného odsavače"
+      },
+      "paired_hood_shutoff_timer_remaining": {
+        "name": "Zbývající čas časovače vypnutí spárovaného odsavače"
       },
       "power_energy_kwh": {
         "name": "Spotřeba energie"

@@ -95,8 +95,16 @@ An NZ30K7570RS with a paired NK9300KM hood (issue #676) later showed the
 populated slot: DeviceType_NK9300KM, Bluetooth_On, FanSpeed_1 and Lamp_Off,
 with no BTState option. Its fan speed, light, Bluetooth link and model now
 read as paired-hood sensors, and the burner and timer entities no longer bind
-on that slot. That capture is idle, so the shutoff timer stays unbound and no
-hood control is exposed.
+on that slot. A second capture with the hood running showed power On,
+FanSpeed_2, Lamp_On, ShutOffTimerSet_10, ShutOffTimerCurrent_9 and
+ShutOffTimerState_Run. Three more captures over the next seven minutes
+showed the timer counting down in minutes (9 to 4 over five minutes) and the
+fan at speeds 1 to 3. Once the hood turned off, power read Off while
+FanSpeed_3 and Lamp_On held, so the slot's power reads as the paired hood's
+power. The reporter confirmed the light runs on its own and the fan offers
+Low, Med, High and Boost, with FanSpeed_2 as Med. The fan reads as a named
+setting, with Boost taken as 4 since no capture shows it. No hood control is
+exposed.
 
 The fixture legacy_cooktop_observations.json contains only the relevant
 options arrays extracted from the user's diagnostics. Its state reflects

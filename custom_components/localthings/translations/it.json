@@ -1445,11 +1445,30 @@
       "paired_hood_fan_speed": {
         "name": "Velocità ventola cappa abbinata"
       },
+      "paired_hood_fan_setting": {
+        "name": "Impostazione ventola cappa abbinata",
+        "state": {
+          "off": "Spenta",
+          "low": "Bassa",
+          "medium": "Media",
+          "high": "Alta",
+          "boost": "Turbo"
+        }
+      },
       "paired_hood_firmware": {
         "name": "Firmware cappa abbinata"
       },
       "paired_hood_model": {
         "name": "Modello cappa abbinata"
+      },
+      "paired_hood_shutoff_timer_state": {
+        "name": "Stato timer di spegnimento cappa abbinata"
+      },
+      "paired_hood_shutoff_timer_set": {
+        "name": "Timer di spegnimento impostato cappa abbinata"
+      },
+      "paired_hood_shutoff_timer_remaining": {
+        "name": "Tempo rimanente timer di spegnimento cappa abbinata"
       },
       "power_energy_kwh": {
         "name": "Energia"

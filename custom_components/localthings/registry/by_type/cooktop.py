@@ -29,7 +29,9 @@ def _burner_list_board(rep, resources):
 
 _OPTIONS_POWER = dataclasses.replace(
     cooktop.COOKTOP_POWER,
-    match_fn=lambda rep, resources: not _burner_list_board(rep, resources),
+    match_fn=lambda rep, resources: (
+        not _burner_list_board(rep, resources) and not cooktop.is_legacy_hood_slot(resources)
+    ),
 )
 _OPTIONS_MODE = dataclasses.replace(
     cooktop.COOKTOP_MODE,
@@ -81,6 +83,7 @@ REGISTRY = DeviceRegistry(
                     # /mode/vs/0 options-array boards.
                     _OPTIONS_MODE,
                     cooktop.LEGACY_RADIANT_MODE,
+                    cooktop.LEGACY_HOOD_POWER,
                     cooktop.LEGACY_HOOD_MODE,
                     cooktop.DIAGNOSIS,
                     cooktop.COOKTOP_CONNECTED,

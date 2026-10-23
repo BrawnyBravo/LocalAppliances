@@ -377,10 +377,34 @@ PAIRED_HOOD_STATUS = Capability(
 
 # The NZ30K7570RS's paired NK9300KM hood (issue #676) reports its state as
 # options on its own /mode/vs/0, unlike the burnerList boards'
-# /bluetooth/hood/status/vs/0 above, so it reuses those entity names. Read
-# from one idle capture: Bluetooth_On is read as the link to the cooktop
-# because the unpaired slot reports Off, and the shutoff timer stays unbound
-# until a capture shows its unit.
+# /bluetooth/hood/status/vs/0 above, so it reuses those entity names where
+# the meaning matches. Read from captures taken idle, running and after
+# shutoff: Bluetooth_On is read as the link to the cooktop because the
+# unpaired slot reports Off, the lamp reported Lamp_On
+# when lit, and the shutoff timer counts in minutes (9 to 4 over five
+# minutes). FanSpeed and Lamp keep their values after the hood turns off; the
+# light runs on its own, but whether the fan is running comes from the slot's
+# /power/vs/0, so FanSpeed reads as the fan's setting.
+#
+# The hood offers Low, Med, High and Boost; 1 to 3 were captured, with 2
+# confirmed as Med, and Boost is read as 4 because it comes next. 0 is the
+# unpaired NZ36K7570R slot's value.
+_HOOD_FAN_SETTINGS = {"0": "off", "1": "low", "2": "medium", "3": "high", "4": "boost"}
+
+LEGACY_HOOD_POWER = Capability(
+    href="/power/vs/0",
+    poll_tier="hot",
+    match_fn=lambda rep, resources: is_legacy_hood_slot(resources),
+    entities=(
+        BinarySensorDesc(
+            key="paired_hood_power",
+            field="x.com.samsung.da.power",
+            device_class="running",
+            value_fn=lambda value: str(value).lower() == "on",
+        ),
+    ),
+)
+
 LEGACY_HOOD_MODE = Capability(
     href="/mode/vs/0",
     poll_tier="hot",
@@ -394,10 +418,12 @@ LEGACY_HOOD_MODE = Capability(
             exists_fn=_option_present("Bluetooth"),
         ),
         SensorDesc(
-            key="paired_hood_fan_speed",
+            key="paired_hood_fan_setting",
             field="x.com.samsung.da.options",
             icon="mdi:fan",
-            value_fn=lambda options: _int_or_none(_option_value(options, "FanSpeed")),
+            device_class="enum",
+            options=tuple(_HOOD_FAN_SETTINGS.values()),
+            value_fn=lambda options: _HOOD_FAN_SETTINGS.get(_option_value(options, "FanSpeed")),
             exists_fn=_option_present("FanSpeed"),
         ),
         BinarySensorDesc(
@@ -415,6 +441,32 @@ LEGACY_HOOD_MODE = Capability(
             enabled_default=False,
             value_fn=lambda options: _option_value(options, "DeviceType"),
             exists_fn=_option_present("DeviceType"),
+        ),
+        SensorDesc(
+            key="paired_hood_shutoff_timer_state",
+            field="x.com.samsung.da.options",
+            icon="mdi:timer-outline",
+            value_fn=lambda options: _option_value(options, "ShutOffTimerState"),
+            exists_fn=_option_present("ShutOffTimerState"),
+        ),
+        SensorDesc(
+            key="paired_hood_shutoff_timer_set",
+            field="x.com.samsung.da.options",
+            icon="mdi:timer-cog-outline",
+            unit="min",
+            device_class="duration",
+            enabled_default=False,
+            value_fn=lambda options: _int_or_none(_option_value(options, "ShutOffTimerSet")),
+            exists_fn=_option_present("ShutOffTimerSet"),
+        ),
+        SensorDesc(
+            key="paired_hood_shutoff_timer_remaining",
+            field="x.com.samsung.da.options",
+            icon="mdi:timer-sand",
+            unit="min",
+            device_class="duration",
+            value_fn=lambda options: _int_or_none(_option_value(options, "ShutOffTimerCurrent")),
+            exists_fn=_option_present("ShutOffTimerCurrent"),
         ),
     ),
 )
