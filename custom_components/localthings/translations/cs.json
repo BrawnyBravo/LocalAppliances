@@ -264,6 +264,9 @@
     "light": {
       "lamp": {
         "name": "Lampa"
+      },
+      "paired_hood_light": {
+        "name": "Světlo spárovaného odsavače"
       }
     },
     "number": {

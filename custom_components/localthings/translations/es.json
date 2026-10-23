@@ -633,6 +633,9 @@
     "light": {
       "lamp": {
         "name": "Lámpara"
+      },
+      "paired_hood_light": {
+        "name": "Luz de la campana emparejada"
       }
     },
     "number": {

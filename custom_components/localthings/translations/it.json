@@ -264,6 +264,9 @@
     "light": {
       "lamp": {
         "name": "Lampada"
+      },
+      "paired_hood_light": {
+        "name": "Luce cappa abbinata"
       }
     },
     "number": {

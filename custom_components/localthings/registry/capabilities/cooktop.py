@@ -1,4 +1,4 @@
-"""Read-only capabilities for Samsung cooktops.
+"""Capabilities for Samsung cooktops.
 
 The first verified device is an NA9300K-class five-burner gas cooktop; the
 NV9300K and NV8000T induction cooktops share its surface, as does the
@@ -6,7 +6,8 @@ NZ36K7570R radiant cooktop over the 8888 interface.  All of them report
 burner state as strings embedded in the ``x.com.samsung.da.options`` array on
 ``/mode/vs/0``.  Heat-producing controls are intentionally not exposed: the
 local write contract is unverified and a cooktop must not be remotely ignited
-by an automation.
+by an automation. The one exception is the NZ30K7570RS's paired hood, whose
+fan and light writes were verified on hardware (issue #676).
 """
 
 import dataclasses
@@ -14,7 +15,7 @@ import re
 
 from ..batch import is_stub_rep
 from ..capability import Capability
-from ..entities import BinarySensorDesc, SensorDesc
+from ..entities import BinarySensorDesc, FanDesc, LightDesc, SensorDesc
 from . import dishwasher
 
 # NotSupported marks a slot the board advertises but has no burner for:
@@ -389,17 +390,36 @@ PAIRED_HOOD_STATUS = Capability(
 # The hood offers Low, Med, High and Boost, captured as 1 to 4, with 2
 # confirmed as Med and 4 as Boost. 0 is the unpaired NZ36K7570R slot's value.
 _HOOD_FAN_SETTINGS = {"0": "off", "1": "low", "2": "medium", "3": "high", "4": "boost"}
+HOOD_FAN_SPEEDS = ("1", "2", "3", "4")
+PAIRED_HOOD_FAN_KEY = "paired_hood_fan"
+
+
+# Both writes go to the hood's own slot as one-token aggregate PUTs, verified
+# on the reporter's hood: power On starts the fan on Low whatever FanSpeed
+# held, and a FanSpeed write lands only while the fan runs (fan.py sends it
+# after power On). The light switches with the fan on or off.
+def _hood_fan_write(payload, rep, href=None):
+    kind, value = payload
+    if kind == "power":
+        return ["power", "vs", "0"], {"x.com.samsung.da.power": "On" if value else "Off"}
+    if kind == "speed" and value in HOOD_FAN_SPEEDS:
+        return ["mode", "vs", "0"], {"x.com.samsung.da.options": [f"FanSpeed_{value}"]}
+    return None
+
+
+def _hood_light_write(on, rep, href=None):
+    return ["mode", "vs", "0"], {"x.com.samsung.da.options": ["Lamp_On" if on else "Lamp_Off"]}
+
 
 LEGACY_HOOD_POWER = Capability(
     href="/power/vs/0",
     poll_tier="hot",
     match_fn=lambda rep, resources: is_legacy_hood_slot(resources),
     entities=(
-        BinarySensorDesc(
-            key="paired_hood_power",
+        FanDesc(
+            key=PAIRED_HOOD_FAN_KEY,
             field="x.com.samsung.da.power",
-            device_class="running",
-            value_fn=lambda value: str(value).lower() == "on",
+            write_fn=_hood_fan_write,
         ),
     ),
 )
@@ -425,11 +445,12 @@ LEGACY_HOOD_MODE = Capability(
             value_fn=lambda options: _HOOD_FAN_SETTINGS.get(_option_value(options, "FanSpeed")),
             exists_fn=_option_present("FanSpeed"),
         ),
-        BinarySensorDesc(
+        LightDesc(
             key="paired_hood_light",
             field="x.com.samsung.da.options",
-            device_class="light",
+            icon="mdi:light-recessed",
             value_fn=lambda options: _option_on(options, "Lamp"),
+            write_fn=_hood_light_write,
             exists_fn=_option_present("Lamp"),
         ),
         SensorDesc(

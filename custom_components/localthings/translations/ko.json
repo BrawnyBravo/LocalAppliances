@@ -264,6 +264,9 @@
     "light": {
       "lamp": {
         "name": "램프"
+      },
+      "paired_hood_light": {
+        "name": "연동 후드 조명"
       }
     },
     "number": {

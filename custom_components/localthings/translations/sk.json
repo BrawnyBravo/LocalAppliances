@@ -264,6 +264,9 @@
     "light": {
       "lamp": {
         "name": "Svetlo"
+      },
+      "paired_hood_light": {
+        "name": "Svetlo spárovaného digestora"
       }
     },
     "number": {

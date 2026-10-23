@@ -264,6 +264,9 @@
     "light": {
       "lamp": {
         "name": "Oświetlenie"
+      },
+      "paired_hood_light": {
+        "name": "Oświetlenie sparowanego okapu"
       }
     },
     "number": {

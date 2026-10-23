@@ -264,6 +264,9 @@
     "light": {
       "lamp": {
         "name": "Lampe"
+      },
+      "paired_hood_light": {
+        "name": "Licht der gekoppelten Dunstabzugshaube"
       }
     },
     "number": {

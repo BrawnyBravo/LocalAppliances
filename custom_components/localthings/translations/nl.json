@@ -264,6 +264,9 @@
     "light": {
       "lamp": {
         "name": "Lamp"
+      },
+      "paired_hood_light": {
+        "name": "Verlichting gekoppelde afzuigkap"
       }
     },
     "number": {
