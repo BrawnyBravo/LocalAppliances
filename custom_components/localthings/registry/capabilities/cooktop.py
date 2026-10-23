@@ -233,14 +233,21 @@ def is_legacy_radiant_cooktop(rep, resources):
     return board == "TP6X_CT_16K" and model == "NV9300K-/AA2"
 
 
-def is_empty_legacy_hood_slot(resources):
-    """Recognize the NZ36K7570R's captured, unpaired hood placeholder."""
+def is_legacy_hood_slot(resources):
+    """The TP6X cooktop's /device/1, which holds its Bluetooth hood, paired or not."""
     information = resources.get("/information/vs/0") or {}
     board = str(information.get("x.com.samsung.da.modelNum", "")).split("|", 1)[0]
-    options = (resources.get("/mode/vs/0") or {}).get("x.com.samsung.da.options")
     return (
         board == "TP6X_CT_16K"
         and information.get("x.com.samsung.da.description") == "TP6X_CT_16K_HOOD"
+    )
+
+
+def is_empty_legacy_hood_slot(resources):
+    """Recognize the NZ36K7570R's captured, unpaired hood placeholder."""
+    options = (resources.get("/mode/vs/0") or {}).get("x.com.samsung.da.options")
+    return (
+        is_legacy_hood_slot(resources)
         and (resources.get("/power/vs/0") or {}).get("x.com.samsung.da.power") == "Off"
         and all(
             _option_value(options, key) == value
@@ -363,6 +370,51 @@ PAIRED_HOOD_STATUS = Capability(
             icon="mdi:chip",
             entity_category="diagnostic",
             enabled_default=False,
+        ),
+    ),
+)
+
+
+# The NZ30K7570RS's paired NK9300KM hood (issue #676) reports its state as
+# options on its own /mode/vs/0, unlike the burnerList boards'
+# /bluetooth/hood/status/vs/0 above, so it reuses those entity names. Read
+# from one idle capture: Bluetooth_On is read as the link to the cooktop
+# because the unpaired slot reports Off, and the shutoff timer stays unbound
+# until a capture shows its unit.
+LEGACY_HOOD_MODE = Capability(
+    href="/mode/vs/0",
+    poll_tier="hot",
+    match_fn=lambda rep, resources: is_legacy_hood_slot(resources),
+    entities=(
+        BinarySensorDesc(
+            key="paired_hood_connected",
+            field="x.com.samsung.da.options",
+            device_class="connectivity",
+            value_fn=lambda options: _option_on(options, "Bluetooth"),
+            exists_fn=_option_present("Bluetooth"),
+        ),
+        SensorDesc(
+            key="paired_hood_fan_speed",
+            field="x.com.samsung.da.options",
+            icon="mdi:fan",
+            value_fn=lambda options: _int_or_none(_option_value(options, "FanSpeed")),
+            exists_fn=_option_present("FanSpeed"),
+        ),
+        BinarySensorDesc(
+            key="paired_hood_light",
+            field="x.com.samsung.da.options",
+            device_class="light",
+            value_fn=lambda options: _option_on(options, "Lamp"),
+            exists_fn=_option_present("Lamp"),
+        ),
+        SensorDesc(
+            key="paired_hood_model",
+            field="x.com.samsung.da.options",
+            icon="mdi:information-outline",
+            entity_category="diagnostic",
+            enabled_default=False,
+            value_fn=lambda options: _option_value(options, "DeviceType"),
+            exists_fn=_option_present("DeviceType"),
         ),
     ),
 )

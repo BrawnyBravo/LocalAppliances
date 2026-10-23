@@ -91,6 +91,13 @@ No new hood mapping or control is included: no compatible hood is available
 for hardware verification. The existing upstream hood resources for other
 appliances are unchanged.
 
+An NZ30K7570RS with a paired NK9300KM hood (issue #676) later showed the
+populated slot: DeviceType_NK9300KM, Bluetooth_On, FanSpeed_1 and Lamp_Off,
+with no BTState option. Its fan speed, light, Bluetooth link and model now
+read as paired-hood sensors, and the burner and timer entities no longer bind
+on that slot. That capture is idle, so the shutoff timer stays unbound and no
+hood control is exposed.
+
 The fixture legacy_cooktop_observations.json contains only the relevant
 options arrays extracted from the user's diagnostics. Its state reflects
 the coordinator resource snapshot; the transport's discovery cache can be
