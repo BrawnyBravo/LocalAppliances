@@ -386,9 +386,8 @@ PAIRED_HOOD_STATUS = Capability(
 # light runs on its own, but whether the fan is running comes from the slot's
 # /power/vs/0, so FanSpeed reads as the fan's setting.
 #
-# The hood offers Low, Med, High and Boost; 1 to 3 were captured, with 2
-# confirmed as Med, and Boost is read as 4 because it comes next. 0 is the
-# unpaired NZ36K7570R slot's value.
+# The hood offers Low, Med, High and Boost, captured as 1 to 4, with 2
+# confirmed as Med and 4 as Boost. 0 is the unpaired NZ36K7570R slot's value.
 _HOOD_FAN_SETTINGS = {"0": "off", "1": "low", "2": "medium", "3": "high", "4": "boost"}
 
 LEGACY_HOOD_POWER = Capability(

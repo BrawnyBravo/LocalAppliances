@@ -1436,9 +1436,6 @@
       "power_level": {
         "name": "Leistungsstufe"
       },
-      "paired_hood_fan_speed": {
-        "name": "Lüfterstufe der gekoppelten Dunstabzugshaube"
-      },
       "paired_hood_fan_setting": {
         "name": "Lüftereinstellung der gekoppelten Dunstabzugshaube",
         "state": {
@@ -1449,20 +1446,23 @@
           "boost": "Boost"
         }
       },
+      "paired_hood_fan_speed": {
+        "name": "Lüfterstufe der gekoppelten Dunstabzugshaube"
+      },
       "paired_hood_firmware": {
         "name": "Firmware der gekoppelten Dunstabzugshaube"
       },
       "paired_hood_model": {
         "name": "Modell der gekoppelten Dunstabzugshaube"
       },
-      "paired_hood_shutoff_timer_state": {
-        "name": "Abschalttimer-Status der gekoppelten Dunstabzugshaube"
+      "paired_hood_shutoff_timer_remaining": {
+        "name": "Restzeit des Abschalttimers der gekoppelten Dunstabzugshaube"
       },
       "paired_hood_shutoff_timer_set": {
         "name": "Eingestellter Abschalttimer der gekoppelten Dunstabzugshaube"
       },
-      "paired_hood_shutoff_timer_remaining": {
-        "name": "Restzeit des Abschalttimers der gekoppelten Dunstabzugshaube"
+      "paired_hood_shutoff_timer_state": {
+        "name": "Abschalttimer-Status der gekoppelten Dunstabzugshaube"
       },
       "power_energy_kwh": {
         "name": "Energieverbrauch"

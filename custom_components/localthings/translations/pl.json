@@ -1442,9 +1442,6 @@
       "power_level": {
         "name": "Poziom mocy"
       },
-      "paired_hood_fan_speed": {
-        "name": "Prędkość wentylatora sparowanego okapu"
-      },
       "paired_hood_fan_setting": {
         "name": "Ustawienie wentylatora sparowanego okapu",
         "state": {
@@ -1455,20 +1452,23 @@
           "boost": "Boost"
         }
       },
+      "paired_hood_fan_speed": {
+        "name": "Prędkość wentylatora sparowanego okapu"
+      },
       "paired_hood_firmware": {
         "name": "Oprogramowanie sparowanego okapu"
       },
       "paired_hood_model": {
         "name": "Model sparowanego okapu"
       },
-      "paired_hood_shutoff_timer_state": {
-        "name": "Stan timera wyłączenia sparowanego okapu"
+      "paired_hood_shutoff_timer_remaining": {
+        "name": "Pozostały czas timera wyłączenia sparowanego okapu"
       },
       "paired_hood_shutoff_timer_set": {
         "name": "Ustawiony timer wyłączenia sparowanego okapu"
       },
-      "paired_hood_shutoff_timer_remaining": {
-        "name": "Pozostały czas timera wyłączenia sparowanego okapu"
+      "paired_hood_shutoff_timer_state": {
+        "name": "Stan timera wyłączenia sparowanego okapu"
       },
       "power_energy_kwh": {
         "name": "Pobór energii"

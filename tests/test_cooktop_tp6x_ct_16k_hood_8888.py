@@ -122,6 +122,28 @@ def test_the_hood_after_shutoff_keeps_its_fan_setting_and_light():
     assert hood["paired_hood_shutoff_timer_remaining"] == 0
 
 
+# The reporter's dump with the fan on Boost and no shutoff timer running.
+_BOOST_OPTIONS = [
+    "DeviceType_NK9300KM",
+    "Bluetooth_On",
+    "FanSpeed_4",
+    "Lamp_Off",
+    "ShutOffTimerSet_10",
+    "ShutOffTimerCurrent_0",
+    "ShutOffTimerState_Ready",
+]
+
+
+def test_the_hood_reads_boost():
+    (power,) = LEGACY_HOOD_POWER.entities
+    hood = {desc.key: desc.value_fn(_BOOST_OPTIONS) for desc in LEGACY_HOOD_MODE.entities}
+
+    assert power.value_fn("On") is True
+    assert hood["paired_hood_fan_setting"] == "boost"
+    assert hood["paired_hood_light"] is False
+    assert hood["paired_hood_shutoff_timer_state"] == "Ready"
+
+
 def test_the_cooktop_keeps_its_burners():
     bound, _materialized, _state = _discover()
     main_keys = {b.desc.key for b in bound if b.subdevice.key != "1"}

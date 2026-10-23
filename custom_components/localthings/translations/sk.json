@@ -1442,9 +1442,6 @@
       "power_level": {
         "name": "Úroveň výkonu"
       },
-      "paired_hood_fan_speed": {
-        "name": "Rýchlosť ventilátora spárovaného digestora"
-      },
       "paired_hood_fan_setting": {
         "name": "Nastavenie ventilátora spárovaného digestora",
         "state": {
@@ -1455,20 +1452,23 @@
           "boost": "Zvýšený výkon"
         }
       },
+      "paired_hood_fan_speed": {
+        "name": "Rýchlosť ventilátora spárovaného digestora"
+      },
       "paired_hood_firmware": {
         "name": "Firmvér spárovaného digestora"
       },
       "paired_hood_model": {
         "name": "Model spárovaného digestora"
       },
-      "paired_hood_shutoff_timer_state": {
-        "name": "Stav časovača vypnutia spárovaného digestora"
+      "paired_hood_shutoff_timer_remaining": {
+        "name": "Zostávajúci čas časovača vypnutia spárovaného digestora"
       },
       "paired_hood_shutoff_timer_set": {
         "name": "Nastavený časovač vypnutia spárovaného digestora"
       },
-      "paired_hood_shutoff_timer_remaining": {
-        "name": "Zostávajúci čas časovača vypnutia spárovaného digestora"
+      "paired_hood_shutoff_timer_state": {
+        "name": "Stav časovača vypnutia spárovaného digestora"
       },
       "power_energy_kwh": {
         "name": "Elektrická energia"

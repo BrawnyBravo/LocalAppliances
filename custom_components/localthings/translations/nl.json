@@ -1442,9 +1442,6 @@
       "power_level": {
         "name": "Vermogensniveau"
       },
-      "paired_hood_fan_speed": {
-        "name": "Ventilatorsnelheid gekoppelde afzuigkap"
-      },
       "paired_hood_fan_setting": {
         "name": "Ventilatorstand gekoppelde afzuigkap",
         "state": {
@@ -1455,20 +1452,23 @@
           "boost": "Boost"
         }
       },
+      "paired_hood_fan_speed": {
+        "name": "Ventilatorsnelheid gekoppelde afzuigkap"
+      },
       "paired_hood_firmware": {
         "name": "Firmware gekoppelde afzuigkap"
       },
       "paired_hood_model": {
         "name": "Model gekoppelde afzuigkap"
       },
-      "paired_hood_shutoff_timer_state": {
-        "name": "Status uitschakeltimer gekoppelde afzuigkap"
+      "paired_hood_shutoff_timer_remaining": {
+        "name": "Resterende tijd uitschakeltimer gekoppelde afzuigkap"
       },
       "paired_hood_shutoff_timer_set": {
         "name": "Ingestelde uitschakeltimer gekoppelde afzuigkap"
       },
-      "paired_hood_shutoff_timer_remaining": {
-        "name": "Resterende tijd uitschakeltimer gekoppelde afzuigkap"
+      "paired_hood_shutoff_timer_state": {
+        "name": "Status uitschakeltimer gekoppelde afzuigkap"
       },
       "power_energy_kwh": {
         "name": "Energieverbruik"

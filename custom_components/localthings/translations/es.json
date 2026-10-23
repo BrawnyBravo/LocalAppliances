@@ -1808,9 +1808,6 @@
       "power_level": {
         "name": "Nivel de potencia"
       },
-      "paired_hood_fan_speed": {
-        "name": "Velocidad del ventilador de la campana emparejada"
-      },
       "paired_hood_fan_setting": {
         "name": "Ajuste del ventilador de la campana emparejada",
         "state": {
@@ -1821,20 +1818,23 @@
           "boost": "Turbo"
         }
       },
+      "paired_hood_fan_speed": {
+        "name": "Velocidad del ventilador de la campana emparejada"
+      },
       "paired_hood_firmware": {
         "name": "Firmware de la campana emparejada"
       },
       "paired_hood_model": {
         "name": "Modelo de la campana emparejada"
       },
-      "paired_hood_shutoff_timer_state": {
-        "name": "Estado del temporizador de apagado de la campana emparejada"
+      "paired_hood_shutoff_timer_remaining": {
+        "name": "Tiempo restante del temporizador de apagado de la campana emparejada"
       },
       "paired_hood_shutoff_timer_set": {
         "name": "Temporizador de apagado configurado de la campana emparejada"
       },
-      "paired_hood_shutoff_timer_remaining": {
-        "name": "Tiempo restante del temporizador de apagado de la campana emparejada"
+      "paired_hood_shutoff_timer_state": {
+        "name": "Estado del temporizador de apagado de la campana emparejada"
       },
       "power_energy_kwh": {
         "name": "Energía"

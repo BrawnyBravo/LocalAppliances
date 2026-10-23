@@ -102,9 +102,10 @@ showed the timer counting down in minutes (9 to 4 over five minutes) and the
 fan at speeds 1 to 3. Once the hood turned off, power read Off while
 FanSpeed_3 and Lamp_On held, so the slot's power reads as the paired hood's
 power. The reporter confirmed the light runs on its own and the fan offers
-Low, Med, High and Boost, with FanSpeed_2 as Med. The fan reads as a named
-setting, with Boost taken as 4 since no capture shows it. No hood control is
-exposed.
+Low, Med, High and Boost, with FanSpeed_2 as Med. A later capture with the
+fan on Boost showed power On and FanSpeed_4, with the shutoff timer at Ready
+and the last set value of 10 retained. The fan reads as a named setting. No
+hood control is exposed.
 
 The fixture legacy_cooktop_observations.json contains only the relevant
 options arrays extracted from the user's diagnostics. Its state reflects
