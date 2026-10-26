@@ -288,6 +288,9 @@
       "oven_setpoint": {
         "name": "Setpoint"
       },
+      "paired_hood_shutoff_timer": {
+        "name": "Paired hood shutoff timer"
+      },
       "sensing_interval": {
         "name": "AI Purify interval"
       },
@@ -1463,9 +1466,6 @@
       },
       "paired_hood_model": {
         "name": "Paired hood model"
-      },
-      "paired_hood_shutoff_timer_remaining": {
-        "name": "Paired hood shutoff timer remaining"
       },
       "paired_hood_shutoff_timer_set": {
         "name": "Paired hood shutoff timer set"

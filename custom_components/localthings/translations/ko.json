@@ -288,6 +288,9 @@
       "oven_setpoint": {
         "name": "설정 온도"
       },
+      "paired_hood_shutoff_timer": {
+        "name": "연동 후드 자동 꺼짐 타이머"
+      },
       "sensing_interval": {
         "name": "AI Purify 간격"
       },
@@ -1463,9 +1466,6 @@
       },
       "paired_hood_model": {
         "name": "연동 후드 모델"
-      },
-      "paired_hood_shutoff_timer_remaining": {
-        "name": "연동 후드 자동 꺼짐 타이머 남은 시간"
       },
       "paired_hood_shutoff_timer_set": {
         "name": "연동 후드 자동 꺼짐 타이머 설정"

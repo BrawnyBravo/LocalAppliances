@@ -37,7 +37,7 @@
     "subdevice1_paired_hood_fan_setting",
     "subdevice1_paired_hood_light",
     "subdevice1_paired_hood_model",
-    "subdevice1_paired_hood_shutoff_timer_remaining",
+    "subdevice1_paired_hood_shutoff_timer",
     "subdevice1_paired_hood_shutoff_timer_set",
     "subdevice1_paired_hood_shutoff_timer_state",
     "subdevice1_remote_control"

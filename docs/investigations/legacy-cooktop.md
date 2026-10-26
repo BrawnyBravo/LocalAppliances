@@ -120,8 +120,37 @@ one-token aggregate `PUT /devices/1`, accepted with 204:
 | power On, then FanSpeed_3 0.4 s later | Started, then High |
 
 The hood is therefore exposed as a fan whose speed is written after power
-On, and a light. The shutoff timer stays read-only: no timer write was
-tried.
+On, and a light.
+
+A second NZ30K7570RS (TP6X_CT_16K, NA9300K-/AA1) paired to an NK9300KM
+confirmed those fan and light writes, and tested the shutoff timer (PR #677).
+`ShutOffTimerSet_N`, as an aggregate or `PUT /devices/1/mode`, sets N minutes
+while the fan runs:
+
+| Write | What the hood did |
+| --- | --- |
+| ShutOffTimerSet_1, 5, 10, 20, 35, 99 | Panel showed the minutes; read back Set_N, Current_N, Run |
+| ShutOffTimerSet_0 | Timer cancelled, fan kept running; read back Set_0, Current_0, Ready |
+| ShutOffTimerSet_100 to 255 | Counted down, but the two-digit panel showed only the last two digits |
+| ShutOffTimerSet_256, 999 | Wrapped to one byte: 0 (cancelled) and 231 |
+| ShutOffTimerState_Ready | Read back Ready, but the countdown continued |
+| power Off | Cleared a running timer |
+
+On issue #676's own hood on 2026-10-26, power On then ShutOffTimerSet_5
+from off started the fan on Low with 5 on the panel, and the 20 and 0 writes
+behaved as above. ShutOffTimerSet_0 with the fan off left it off. A timer of
+1 turned the hood off about 30 seconds later, reading back Set_1, Current_0
+and Ready, so Current counts whole minutes rounded up.
+
+The timer is therefore exposed as a number from 0 to 99 minutes, 0
+cancelling, that turns the fan on first when it is off. It reads
+ShutOffTimerCurrent, because ShutOffTimerSet keeps its last value after the
+timer ends.
+
+A 204 and a changed read-back don't prove the hood acted. A few minutes after
+the cooktop was power-cycled, a Lamp_Off/Lamp_On pair did both without the
+light moving, and the same writes worked later. The Bluetooth link to the hood
+may not have been back yet.
 
 The fixture legacy_cooktop_observations.json contains only the relevant
 options arrays extracted from the user's diagnostics. Its state reflects

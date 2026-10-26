@@ -288,6 +288,9 @@
       "oven_setpoint": {
         "name": "Instelpunt"
       },
+      "paired_hood_shutoff_timer": {
+        "name": "Uitschakeltimer gekoppelde afzuigkap"
+      },
       "sensing_interval": {
         "name": "AI Purify-interval"
       },
@@ -1463,9 +1466,6 @@
       },
       "paired_hood_model": {
         "name": "Model gekoppelde afzuigkap"
-      },
-      "paired_hood_shutoff_timer_remaining": {
-        "name": "Resterende tijd uitschakeltimer gekoppelde afzuigkap"
       },
       "paired_hood_shutoff_timer_set": {
         "name": "Ingestelde uitschakeltimer gekoppelde afzuigkap"

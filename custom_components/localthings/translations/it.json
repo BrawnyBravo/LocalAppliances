@@ -288,6 +288,9 @@
       "oven_setpoint": {
         "name": "Valore impostato"
       },
+      "paired_hood_shutoff_timer": {
+        "name": "Timer di spegnimento cappa abbinata"
+      },
       "sensing_interval": {
         "name": "Intervallo AI Purify"
       },
@@ -1463,9 +1466,6 @@
       },
       "paired_hood_model": {
         "name": "Modello cappa abbinata"
-      },
-      "paired_hood_shutoff_timer_remaining": {
-        "name": "Tempo rimanente timer di spegnimento cappa abbinata"
       },
       "paired_hood_shutoff_timer_set": {
         "name": "Timer di spegnimento impostato cappa abbinata"

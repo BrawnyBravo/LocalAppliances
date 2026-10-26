@@ -657,6 +657,9 @@
       "oven_setpoint": {
         "name": "Punto de ajuste"
       },
+      "paired_hood_shutoff_timer": {
+        "name": "Temporizador de apagado de la campana emparejada"
+      },
       "sensing_interval": {
         "name": "Intervalo de AI Purify"
       },
@@ -1829,9 +1832,6 @@
       },
       "paired_hood_model": {
         "name": "Modelo de la campana emparejada"
-      },
-      "paired_hood_shutoff_timer_remaining": {
-        "name": "Tiempo restante del temporizador de apagado de la campana emparejada"
       },
       "paired_hood_shutoff_timer_set": {
         "name": "Temporizador de apagado configurado de la campana emparejada"

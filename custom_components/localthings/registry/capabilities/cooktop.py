@@ -15,7 +15,7 @@ import re
 
 from ..batch import is_stub_rep
 from ..capability import Capability
-from ..entities import BinarySensorDesc, FanDesc, LightDesc, SensorDesc
+from ..entities import BinarySensorDesc, FanDesc, LightDesc, NumberDesc, SensorDesc
 from . import dishwasher
 
 # NotSupported marks a slot the board advertises but has no burner for:
@@ -392,6 +392,10 @@ PAIRED_HOOD_STATUS = Capability(
 _HOOD_FAN_SETTINGS = {"0": "off", "1": "low", "2": "medium", "3": "high", "4": "boost"}
 HOOD_FAN_SPEEDS = ("1", "2", "3", "4")
 PAIRED_HOOD_FAN_KEY = "paired_hood_fan"
+PAIRED_HOOD_TIMER_KEY = "paired_hood_shutoff_timer"
+# The hood keeps the minutes in one byte (256 wraps to 0, which cancels) and
+# its two-digit panel misreads 100 to 255, so 99 is the panel's own top step.
+HOOD_TIMER_MAX_MINUTES = 99
 
 
 # Both writes go to the hood's own slot as one-token aggregate PUTs, verified
@@ -409,6 +413,19 @@ def _hood_fan_write(payload, rep, href=None):
 
 def _hood_light_write(on, rep, href=None):
     return ["mode", "vs", "0"], {"x.com.samsung.da.options": ["Lamp_On" if on else "Lamp_Off"]}
+
+
+# ShutOffTimerSet_N sets N minutes and 0 cancels, leaving the fan running,
+# verified on a second NK9300KM (PR #677). It only lands while the fan runs,
+# so number.py sends power On first. Writing ShutOffTimerState_Ready reads
+# back Ready but doesn't stop the countdown, so it isn't used to cancel.
+def _hood_timer_write(payload, rep, href=None):
+    kind, value = payload
+    if kind == "power":
+        return _hood_fan_write(payload, rep)
+    if kind == "minutes" and value == int(value) and 0 <= value <= HOOD_TIMER_MAX_MINUTES:
+        return ["mode", "vs", "0"], {"x.com.samsung.da.options": [f"ShutOffTimerSet_{int(value)}"]}
+    return None
 
 
 LEGACY_HOOD_POWER = Capability(
@@ -479,13 +496,19 @@ LEGACY_HOOD_MODE = Capability(
             value_fn=lambda options: _int_or_none(_option_value(options, "ShutOffTimerSet")),
             exists_fn=_option_present("ShutOffTimerSet"),
         ),
-        SensorDesc(
-            key="paired_hood_shutoff_timer_remaining",
+        # Reads the minutes left, which is 0 with no timer running; Set
+        # keeps its last value after the timer ends.
+        NumberDesc(
+            key=PAIRED_HOOD_TIMER_KEY,
             field="x.com.samsung.da.options",
             icon="mdi:timer-sand",
             unit="min",
             device_class="duration",
+            native_min=0,
+            native_max=HOOD_TIMER_MAX_MINUTES,
+            step=1,
             value_fn=lambda options: _int_or_none(_option_value(options, "ShutOffTimerCurrent")),
+            write_fn=_hood_timer_write,
             exists_fn=_option_present("ShutOffTimerCurrent"),
         ),
     ),

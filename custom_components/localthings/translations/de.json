@@ -285,6 +285,9 @@
       "oven_setpoint": {
         "name": "Sollwert"
       },
+      "paired_hood_shutoff_timer": {
+        "name": "Abschalttimer der gekoppelten Dunstabzugshaube"
+      },
       "sensing_interval": {
         "name": "KI-Reinigungsintervall"
       },
@@ -1457,9 +1460,6 @@
       },
       "paired_hood_model": {
         "name": "Modell der gekoppelten Dunstabzugshaube"
-      },
-      "paired_hood_shutoff_timer_remaining": {
-        "name": "Restzeit des Abschalttimers der gekoppelten Dunstabzugshaube"
       },
       "paired_hood_shutoff_timer_set": {
         "name": "Eingestellter Abschalttimer der gekoppelten Dunstabzugshaube"

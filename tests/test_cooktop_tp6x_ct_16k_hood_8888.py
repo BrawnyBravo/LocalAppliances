@@ -12,12 +12,13 @@ from custom_components.localthings.coordinator import LocalThingsCoordinator
 from custom_components.localthings.fan import LocalThingsPairedHoodFan
 from custom_components.localthings.legacy_http import TP6X_CT, to_resources
 from custom_components.localthings.legacy_http_transport import LegacyHttpTransport
+from custom_components.localthings.number import LocalThingsPairedHoodTimer
 from custom_components.localthings.registry.adapter import _key, flatten
 from custom_components.localthings.registry.capabilities.cooktop import (
     LEGACY_HOOD_MODE,
     LEGACY_HOOD_POWER,
 )
-from custom_components.localthings.registry.entities import FanDesc, LightDesc
+from custom_components.localthings.registry.entities import FanDesc, LightDesc, NumberDesc
 from custom_components.localthings.registry.subdevices import Subdevice
 from tests.conftest import _discover_full, _load_device_full
 
@@ -56,7 +57,7 @@ def test_the_hood_is_subdevice_1_with_hood_entities_only():
         "paired_hood_model",
         "paired_hood_shutoff_timer_state",
         "paired_hood_shutoff_timer_set",
-        "paired_hood_shutoff_timer_remaining",
+        "paired_hood_shutoff_timer",
     } <= hood_keys
     assert not any(k.startswith(("burner_", "main_timer")) for k in hood_keys)
     assert "any_burner_active" not in hood_keys
@@ -74,7 +75,7 @@ def test_the_hood_reads_its_options():
     assert hood["paired_hood_fan"] == "Off"
     assert hood["paired_hood_shutoff_timer_state"] == "Ready"
     assert hood["paired_hood_shutoff_timer_set"] == 0
-    assert hood["paired_hood_shutoff_timer_remaining"] == 0
+    assert hood["paired_hood_shutoff_timer"] == 0
 
 
 # /devices/1's Mode options from the reporter's second dump, taken with the
@@ -97,7 +98,7 @@ def test_the_running_hood_reads_its_options():
     assert hood["paired_hood_light"] is True
     assert hood["paired_hood_shutoff_timer_state"] == "Run"
     assert hood["paired_hood_shutoff_timer_set"] == 10
-    assert hood["paired_hood_shutoff_timer_remaining"] == 9
+    assert hood["paired_hood_shutoff_timer"] == 9
 
 
 # The reporter's last dump, taken once the hood had turned off: power reads
@@ -121,7 +122,7 @@ def test_the_hood_after_shutoff_keeps_its_fan_setting_and_light():
     assert hood["paired_hood_light"] is True
     assert hood["paired_hood_shutoff_timer_state"] == "Ready"
     assert hood["paired_hood_shutoff_timer_set"] == 10
-    assert hood["paired_hood_shutoff_timer_remaining"] == 0
+    assert hood["paired_hood_shutoff_timer"] == 0
 
 
 # The reporter's dump with the fan on Boost and no shutoff timer running.
@@ -184,6 +185,31 @@ def test_the_fan_and_light_write_one_token_each():
     )
 
 
+# Timer writes, as verified on a second NK9300KM (PR #677): the same
+# one-token PUT, 0 cancelling. The hood wraps above 255, so nothing past the
+# panel's 99 is sent.
+def test_the_shutoff_timer_writes_one_token():
+    timer = next(d for d in LEGACY_HOOD_MODE.entities if d.key == "paired_hood_shutoff_timer")
+    assert isinstance(timer, NumberDesc) and timer.write_fn is not None
+    assert (timer.native_min, timer.native_max, timer.step) == (0, 99, 1)
+
+    assert timer.write_fn(("minutes", 35.0), {}) == (
+        ["mode", "vs", "0"],
+        {"x.com.samsung.da.options": ["ShutOffTimerSet_35"]},
+    )
+    assert timer.write_fn(("minutes", 0), {}) == (
+        ["mode", "vs", "0"],
+        {"x.com.samsung.da.options": ["ShutOffTimerSet_0"]},
+    )
+    assert timer.write_fn(("power", True), {}) == (
+        ["power", "vs", "0"],
+        {"x.com.samsung.da.power": "On"},
+    )
+    assert timer.write_fn(("minutes", 100), {}) is None
+    assert timer.write_fn(("minutes", -1), {}) is None
+    assert timer.write_fn(("minutes", 2.5), {}) is None
+
+
 class _FakeCoordinator:
     device_key = "TEST-COOKTOP"
     data: ClassVar[dict] = {}
@@ -217,6 +243,15 @@ def _fan(power, options):
     coordinator = _FakeCoordinator(power, options)
     return LocalThingsPairedHoodFan(
         cast(LocalThingsCoordinator, coordinator), fan_bound
+    ), coordinator
+
+
+def _timer(power, options):
+    bound, _materialized, _state = _discover()
+    timer_bound = next(b for b in bound if b.desc.key == "paired_hood_shutoff_timer")
+    coordinator = _FakeCoordinator(power, options)
+    return LocalThingsPairedHoodTimer(
+        cast(LocalThingsCoordinator, coordinator), timer_bound
     ), coordinator
 
 
@@ -260,6 +295,31 @@ async def test_a_running_fan_changes_speed_alone_and_turns_off_by_power():
     assert coordinator.commands == [("speed", "4"), ("power", False), ("power", True)]
 
 
+async def test_a_timer_from_off_sends_power_then_the_minutes():
+    timer, coordinator = _timer("Off", _SHUTOFF_OPTIONS)
+
+    await timer.async_set_native_value(20)
+
+    assert coordinator.commands == [("power", True), ("minutes", 20)]
+
+
+async def test_a_running_fan_sets_and_cancels_the_timer_alone():
+    timer, coordinator = _timer("On", _RUNNING_OPTIONS)
+
+    await timer.async_set_native_value(99)
+    await timer.async_set_native_value(0)
+
+    assert coordinator.commands == [("minutes", 99), ("minutes", 0)]
+
+
+async def test_cancelling_never_turns_the_fan_on():
+    timer, coordinator = _timer("Off", _SHUTOFF_OPTIONS)
+
+    await timer.async_set_native_value(0)
+
+    assert coordinator.commands == [("minutes", 0)]
+
+
 def test_the_transport_sends_hood_writes_to_its_slot(monkeypatch):
     monkeypatch.setattr("custom_components.localthings.legacy_http_transport._STATE", {})
     transport = LegacyHttpTransport(
@@ -276,9 +336,13 @@ def test_the_transport_sends_hood_writes_to_its_slot(monkeypatch):
     transport.write(["power", "vs", "1"], {"x.com.samsung.da.power": "On"}, timeout=10.0)
     transport.write(["mode", "vs", "1"], {"x.com.samsung.da.options": ["FanSpeed_2"]}, timeout=10.0)
     transport.write(["mode", "vs", "1"], {"x.com.samsung.da.options": ["Lamp_On"]}, timeout=10.0)
+    transport.write(
+        ["mode", "vs", "1"], {"x.com.samsung.da.options": ["ShutOffTimerSet_20"]}, timeout=10.0
+    )
 
     assert sent == [
         ("PUT", "/devices/1", {"Device": {"Operation": {"power": "On"}}}),
         ("PUT", "/devices/1", {"Device": {"Mode": {"options": ["FanSpeed_2"]}}}),
         ("PUT", "/devices/1", {"Device": {"Mode": {"options": ["Lamp_On"]}}}),
+        ("PUT", "/devices/1", {"Device": {"Mode": {"options": ["ShutOffTimerSet_20"]}}}),
     ]

@@ -288,6 +288,9 @@
       "oven_setpoint": {
         "name": "Consigne"
       },
+      "paired_hood_shutoff_timer": {
+        "name": "Minuterie d'arrêt de la hotte associée"
+      },
       "sensing_interval": {
         "name": "Intervalle AI Purify"
       },
@@ -1463,9 +1466,6 @@
       },
       "paired_hood_model": {
         "name": "Modèle de la hotte associée"
-      },
-      "paired_hood_shutoff_timer_remaining": {
-        "name": "Temps restant de la minuterie d'arrêt de la hotte associée"
       },
       "paired_hood_shutoff_timer_set": {
         "name": "Minuterie d'arrêt réglée de la hotte associée"
