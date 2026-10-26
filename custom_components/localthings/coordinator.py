@@ -68,7 +68,7 @@ from .registry import CAPABILITIES
 from .registry.adapter import _key, flatten
 from .registry.batch import parse_device0_batch
 from .registry.by_type import resolve as resolve_registry
-from .registry.capabilities import cook
+from .registry.capabilities import cook, cooktop
 from .registry.capabilities.common import (
     REMOTE_CONTROL_HREFS,
     merge_items_field,
@@ -983,6 +983,10 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # and the two are indistinguishable in HA. The cavity says which
             # is which, and the device is the one saying it.
             label = cavity
+        elif hood_model := cooktop.paired_hood_model(resources):
+            # The TP6X cooktop's hood slot reports the cooktop's board as its
+            # modelNum (issue #676); the hood names its own model in options.
+            label, model = "Range Hood", hood_model
         elif model:
             label = model.replace("_", " ").title()
         else:

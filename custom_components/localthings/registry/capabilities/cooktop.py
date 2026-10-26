@@ -244,6 +244,16 @@ def is_legacy_hood_slot(resources):
     )
 
 
+def paired_hood_model(resources):
+    """The hood's own model, such as NK9300KM, when the TP6X slot holds one.
+    The unpaired NZ36K7570R slot reports DeviceType_NULL (#642)."""
+    if not is_legacy_hood_slot(resources):
+        return None
+    options = (resources.get("/mode/vs/0") or {}).get("x.com.samsung.da.options")
+    model = _option_value(options, "DeviceType")
+    return model if model and model != "NULL" else None
+
+
 def is_empty_legacy_hood_slot(resources):
     """Recognize the NZ36K7570R's captured, unpaired hood placeholder."""
     options = (resources.get("/mode/vs/0") or {}).get("x.com.samsung.da.options")

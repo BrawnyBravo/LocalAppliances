@@ -14,6 +14,7 @@ from custom_components.localthings.legacy_http import TP6X_CT, to_resources
 from custom_components.localthings.legacy_http_transport import LegacyHttpTransport
 from custom_components.localthings.number import LocalThingsPairedHoodTimer
 from custom_components.localthings.registry.adapter import _key, flatten
+from custom_components.localthings.registry.capabilities import cooktop
 from custom_components.localthings.registry.capabilities.cooktop import (
     LEGACY_HOOD_MODE,
     LEGACY_HOOD_POWER,
@@ -21,6 +22,7 @@ from custom_components.localthings.registry.capabilities.cooktop import (
 from custom_components.localthings.registry.entities import FanDesc, LightDesc, NumberDesc
 from custom_components.localthings.registry.subdevices import Subdevice
 from tests.conftest import _discover_full, _load_device_full
+from tests.test_coordinator_cook_start import bare_coordinator  # noqa: F401
 
 NAME = "cooktop_tp6x_ct_16k_hood_8888"
 FIXTURE = json.loads(
@@ -35,6 +37,13 @@ def test_the_fixture_is_the_translation_of_its_bodies():
     seed = {hood.to_canonical(e["href"]): e["rep"] for e in FIXTURE["seeds"]["/device/1"]}
     seed.pop("/connected/vs/0")
     assert seed == to_resources(FIXTURE["device_bodies"]["1"], TP6X_CT)
+
+
+HOOD = Subdevice(kind="indexed", key="1", seed_path=("device", "1"))
+
+
+def _hood_view():
+    return {HOOD.to_canonical(e["href"]): e["rep"] for e in FIXTURE["seeds"]["/device/1"]}
 
 
 def _discover():
@@ -346,3 +355,28 @@ def test_the_transport_sends_hood_writes_to_its_slot(monkeypatch):
         ("PUT", "/devices/1", {"Device": {"Mode": {"options": ["Lamp_On"]}}}),
         ("PUT", "/devices/1", {"Device": {"Mode": {"options": ["ShutOffTimerSet_20"]}}}),
     ]
+
+
+# The slot's modelNum is the cooktop's board, so it used to be named
+# "<cooktop> Tp6X Ct 16K"; the hood's DeviceType option names it instead.
+async def test_the_hood_device_is_named_by_its_own_model(bare_coordinator, monkeypatch):  # noqa: F811
+    view = _hood_view()
+    monkeypatch.setattr(bare_coordinator, "canonical_resources", lambda subdevice: view)
+
+    info = bare_coordinator.device_info_for(HOOD)
+
+    assert info["name"].endswith(" Range Hood")
+    assert info["model"] == "NK9300KM"
+
+
+def test_an_unpaired_slot_has_no_hood_model():
+    view = _hood_view()
+    assert cooktop.paired_hood_model(view) == "NK9300KM"
+
+    options = view["/mode/vs/0"]["x.com.samsung.da.options"]
+    view["/mode/vs/0"] = {
+        "x.com.samsung.da.options": [
+            "DeviceType_NULL" if o.startswith("DeviceType_") else o for o in options
+        ]
+    }
+    assert cooktop.paired_hood_model(view) is None
