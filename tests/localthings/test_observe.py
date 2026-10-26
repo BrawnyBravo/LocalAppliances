@@ -6,6 +6,7 @@ import threading
 import time
 
 import cbor2
+import pytest
 from smartthings_local.ocf.state_cache import StateCache
 
 from custom_components.localthings.observe import (
@@ -790,7 +791,7 @@ def test_on_notification_applies_rep_when_rt_matches_or_is_absent():
     assert (mgr.cache.get("/mode/vs/0") or {}).get("x.com.samsung.da.modes") == ["Dry"]
 
 
-def test_settle_check_and_cache_write_are_atomic():
+def test_settle_check_and_cache_write_are_atomic(monkeypatch: pytest.MonkeyPatch):
     """A notify thread that passes the settle check must not be able to
     write its stale rep after the event loop has armed the window and
     applied the optimistic value. The check and the write happen under one
@@ -810,7 +811,7 @@ def test_settle_check_and_cache_write_are_atomic():
             go.wait(2)
         return result
 
-    mgr._is_settling = _paused_check  # type: ignore[method-assign]
+    monkeypatch.setattr(mgr, "_is_settling", _paused_check)
 
     notify = threading.Thread(
         target=mgr.apply, args=(href, {"v": "stale"}, "observe"), name="notify"

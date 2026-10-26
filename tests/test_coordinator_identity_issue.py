@@ -28,21 +28,21 @@ ENTRY_DATA = {
 
 
 @pytest.fixture
-def coordinator(hass: HomeAssistant) -> LocalThingsCoordinator:
+def coordinator(hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch) -> LocalThingsCoordinator:
     entry = MockConfigEntry(domain=DOMAIN, data=ENTRY_DATA, unique_id="localthings_IDENTITY-TEST")
     entry.add_to_hass(hass)
     coord = LocalThingsCoordinator(hass, entry)
-    coord._close_session = lambda: None
+    monkeypatch.setattr(coord, "_close_session", lambda: None)
     return coord
 
 
 async def test_identity_mismatch_raises_and_clears_a_repair(
-    hass: HomeAssistant, coordinator: LocalThingsCoordinator
+    hass: HomeAssistant, coordinator: LocalThingsCoordinator, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     def _poll():
         raise DeviceIdentityMismatch("192.0.2.10 authenticated as a different OCF device")
 
-    coordinator._poll_once = _poll
+    monkeypatch.setattr(coordinator, "_poll_once", _poll)
     with pytest.raises(UpdateFailed):
         await coordinator._async_update_data()
 
@@ -57,7 +57,7 @@ async def test_identity_mismatch_raises_and_clears_a_repair(
 
 
 async def test_identity_mismatch_is_not_retried_as_a_dead_session(
-    hass: HomeAssistant, coordinator: LocalThingsCoordinator
+    hass: HomeAssistant, coordinator: LocalThingsCoordinator, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Reconnecting only reaches the same wrong appliance again."""
     calls: list[int] = []
@@ -66,7 +66,7 @@ async def test_identity_mismatch_is_not_retried_as_a_dead_session(
         calls.append(1)
         raise DeviceIdentityMismatch("wrong appliance")
 
-    coordinator._poll_once = _poll
+    monkeypatch.setattr(coordinator, "_poll_once", _poll)
     with pytest.raises(UpdateFailed):
         await coordinator._async_update_data()
     assert len(calls) == 1

@@ -259,7 +259,7 @@ async def test_single_burner_write_keeps_the_other_burners_cached(coordinator) -
     """A cooktop write naming one burner must not blank the others in the
     optimistic cache: burnerList is merged by burnerNumber (like options[]
     by prefix and items[] by id)."""
-    from types import SimpleNamespace
+    from custom_components.localthings.registry.entities import NumberDesc
 
     href = "/cooktop/status/vs/0"
     coordinator._observe.apply(
@@ -272,14 +272,13 @@ async def test_single_burner_write_keeps_the_other_burners_cached(coordinator) -
         },
         source="poll",
     )
-    desc = SimpleNamespace(
+    desc = NumberDesc(
+        key="burner_1_power_level",
         write_fn=lambda payload, rep, href=None, resources=None: (
             ["cooktop", "status", "vs", "0"],
             {"burnerList": [{"burnerNumber": 1, "powerLevel": payload}]},
         ),
         needs_remote_control=False,
-        write_only=False,
-        validate_fn=None,
     )
     bound = BoundEntity(href=href, capability=Capability(), desc=desc)
 

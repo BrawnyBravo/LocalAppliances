@@ -9,7 +9,7 @@ with the same token cannot fix, so it starts reauthentication.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -28,7 +28,7 @@ from custom_components.localthings.coordinator import LocalThingsCoordinator
 from custom_components.localthings.registry.capabilities import laundry
 from custom_components.localthings.registry.capability import Capability
 from custom_components.localthings.registry.discovery import BoundEntity
-from custom_components.localthings.transport import AuthRejected
+from custom_components.localthings.transport import AuthRejected, Transport
 
 ENTRY_DATA = {
     CONF_HOST: "192.0.2.10",
@@ -66,23 +66,30 @@ def coordinator(hass: HomeAssistant) -> LocalThingsCoordinator:
     return coord
 
 
-def _wire(coord: LocalThingsCoordinator, session: _Session) -> None:
+def _wire(
+    coord: LocalThingsCoordinator, session: _Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Closing drops the session; reconnecting brings the same fake back."""
-    coord._session = session
+    # _Session only scripts the write path the retry logic touches, not the
+    # whole Transport protocol.
+    transport = cast(Transport, session)
+    coord._session = transport
 
     def _close() -> None:
         coord._session = None
 
     def _connect() -> None:
-        coord._session = session
+        coord._session = transport
 
-    coord._close_session = _close
-    coord._connect_session = _connect
+    monkeypatch.setattr(coord, "_close_session", _close)
+    monkeypatch.setattr(coord, "_connect_session", _connect)
 
 
-async def test_a_timed_out_non_idempotent_write_is_not_re_sent(coordinator) -> None:
+async def test_a_timed_out_non_idempotent_write_is_not_re_sent(
+    coordinator, monkeypatch: pytest.MonkeyPatch
+) -> None:
     session = _Session([TimeoutError("no ACK"), 0x44])
-    _wire(coordinator, session)
+    _wire(coordinator, session, monkeypatch)
 
     with pytest.raises(HomeAssistantError) as err:
         await coordinator._async_put(
@@ -93,19 +100,23 @@ async def test_a_timed_out_non_idempotent_write_is_not_re_sent(coordinator) -> N
     assert len(session.writes) == 1
 
 
-async def test_a_timed_out_setpoint_is_still_retried(coordinator) -> None:
+async def test_a_timed_out_setpoint_is_still_retried(
+    coordinator, monkeypatch: pytest.MonkeyPatch
+) -> None:
     session = _Session([TimeoutError("no ACK"), 0x44])
-    _wire(coordinator, session)
+    _wire(coordinator, session, monkeypatch)
 
     await coordinator._async_put(["course", "vs", "0"], {"a": 1}, "/course/vs/0")
 
     assert len(session.writes) == 2
 
 
-async def test_a_non_idempotent_write_on_a_dead_session_is_retried(coordinator) -> None:
+async def test_a_non_idempotent_write_on_a_dead_session_is_retried(
+    coordinator, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """A dead session is known before the request goes out: nothing ran."""
     session = _Session([ConnectionError("session closed"), 0x44])
-    _wire(coordinator, session)
+    _wire(coordinator, session, monkeypatch)
 
     await coordinator._async_put(["course", "vs", "0"], {"a": 1}, "/course/vs/0", idempotent=False)
 
@@ -113,10 +124,10 @@ async def test_a_non_idempotent_write_on_a_dead_session_is_retried(coordinator) 
 
 
 async def test_a_refused_device_token_starts_reauth_instead_of_retrying(
-    hass: HomeAssistant, coordinator
+    hass: HomeAssistant, coordinator, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     session = _Session([AuthRejected("401"), 0x44])
-    _wire(coordinator, session)
+    _wire(coordinator, session, monkeypatch)
     start_reauth = Mock()
     coordinator._entry.async_start_reauth = start_reauth
 
@@ -139,4 +150,5 @@ async def test_a_readable_setting_write_is_treated_as_idempotent(coordinator) ->
         BoundEntity(href=href, capability=Capability(), desc=desc), "1D"
     )
 
+    assert put.await_args is not None
     assert put.await_args.kwargs["idempotent"] is True

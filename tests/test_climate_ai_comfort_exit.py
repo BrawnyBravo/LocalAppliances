@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import cast
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -34,7 +35,9 @@ def _climate(hass: HomeAssistant, name: str, overrides: dict | None = None) -> L
 
 
 def _sent(climate: LocalThingsClimate) -> list:
-    return [call.args[1] for call in climate.coordinator.async_send_command.call_args_list]
+    # _climate replaced the coordinator's async_send_command with an AsyncMock.
+    send = cast(AsyncMock, climate.coordinator.async_send_command)
+    return [call.args[1] for call in send.call_args_list]
 
 
 # ---------------------------------------------------------------------------

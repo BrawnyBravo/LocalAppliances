@@ -608,8 +608,10 @@ async def test_reconfigure_asks_before_trusting_a_changed_certificate(
         )
         assert result["type"] == FlowResultType.FORM
         assert result["step_id"] == "reconfigure_certificate"
-        assert result["description_placeholders"]["old_fingerprint"].startswith("AB:AB")
-        assert result["description_placeholders"]["new_fingerprint"].startswith("CD:CD")
+        placeholders = result["description_placeholders"]
+        assert placeholders is not None
+        assert placeholders["old_fingerprint"].startswith("AB:AB")
+        assert placeholders["new_fingerprint"].startswith("CD:CD")
         assert probe.called is False
         assert entry.data[CONF_LEGACY_CERT_SHA256] == _PIN
 
