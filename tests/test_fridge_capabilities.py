@@ -1,7 +1,7 @@
 """Tests for fridge-specific capabilities."""
 
 from collections.abc import Callable
-from typing import ClassVar, cast
+from typing import Any, ClassVar, cast
 
 from custom_components.localthings.coordinator import LocalThingsCoordinator
 from custom_components.localthings.registry.capabilities import fridge
@@ -69,6 +69,91 @@ class TestTempSetpointGeneric:
         desc = next(e for e in fridge.TEMP_SETPOINT.entities if isinstance(e, NumberDesc))
         assert desc.unit_fn is not None
         assert desc.unit_fn({"temperature": -19.0, "units": "C"}) == "°C"
+
+
+class TestTempSetpointWrite:
+    """The setpoint write goes through the vendor /temperatures/vs/0 items[]
+    when a board reports it, so it has to name the right item id. The id is
+    taken from the board's own items[] (matched on description), not a fixed
+    cooler/freezer table: the wine cellar's compartments are ids 2 and 3."""
+
+    @staticmethod
+    def _write(fixture, href, value):
+        from tests.conftest import _load_device
+
+        resources = _load_device(fixture)
+        desc = next(e for e in fridge.TEMP_SETPOINT.entities if isinstance(e, NumberDesc))
+        assert desc.write_fn is not None
+        write = cast(Callable[..., Any], desc.write_fn)
+        return write(value, resources.get(href, {}), href, resources)
+
+    @staticmethod
+    def _item(result):
+        assert result is not None
+        path, body = result
+        assert path == ["temperatures", "vs", "0"]
+        (item,) = body["x.com.samsung.da.items"]
+        return item["x.com.samsung.da.id"], item["x.com.samsung.da.desired"]
+
+    def test_winecellar_top_writes_item_2(self):
+        result = self._write(
+            "refrigerator_winecellar", "/temperature/desired/winecellar/top/vs/0", 12
+        )
+        assert self._item(result) == ("2", "12")
+
+    def test_winecellar_bottom_writes_item_3(self):
+        result = self._write(
+            "refrigerator_winecellar", "/temperature/desired/winecellar/bottom/vs/0", 8.4
+        )
+        assert self._item(result) == ("3", "8")
+
+    def test_cooler_writes_item_1(self):
+        result = self._write("refrigerator", "/temperature/desired/cooler/0", 36)
+        assert self._item(result) == ("1", "36")
+
+    def test_freezer_writes_item_0(self):
+        result = self._write("refrigerator", "/temperature/desired/freezer/0", -2)
+        assert self._item(result) == ("0", "-2")
+
+    def test_no_vendor_resource_writes_the_compartment_directly(self):
+        desc = next(e for e in fridge.TEMP_SETPOINT.entities if isinstance(e, NumberDesc))
+        assert desc.write_fn is not None
+        write = cast(Callable[..., Any], desc.write_fn)
+        href = "/temperature/desired/cooler/0"
+        assert write(3.6, {}, href, {href: {}}) == (
+            ["temperature", "desired", "cooler", "0"],
+            {"temperature": 4},
+        )
+
+    def test_unmatched_compartment_falls_back_to_its_own_href(self):
+        """A compartment the vendor items[] doesn't name is written on its
+        own OCF href rather than dropped."""
+        desc = next(e for e in fridge.TEMP_SETPOINT.entities if isinstance(e, NumberDesc))
+        assert desc.write_fn is not None
+        href = "/temperature/desired/flexzone/0"
+        resources = {
+            href: {},
+            "/temperatures/vs/0": {
+                "x.com.samsung.da.items": [
+                    {"x.com.samsung.da.id": "0", "x.com.samsung.da.description": "Freezer"}
+                ]
+            },
+        }
+        write = cast(Callable[..., Any], desc.write_fn)
+        assert write(2, {}, href, resources) == (
+            ["temperature", "desired", "flexzone", "0"],
+            {"temperature": 2},
+        )
+
+    def test_stub_vendor_resource_keeps_the_cooler_freezer_ids(self):
+        """Before /temperatures/vs/0 has been read (a stub rep) there is no
+        items[] to match against; the long-standing ids still apply."""
+        desc = next(e for e in fridge.TEMP_SETPOINT.entities if isinstance(e, NumberDesc))
+        assert desc.write_fn is not None
+        href = "/temperature/desired/cooler/0"
+        resources = {href: {}, "/temperatures/vs/0": {"href": "/temperatures/vs/0"}}
+        write = cast(Callable[..., Any], desc.write_fn)
+        assert self._item(write(3, {}, href, resources)) == ("1", "3")
 
 
 class TestTemperaturesFallback:
@@ -475,6 +560,9 @@ class TestKimchiZone:
                 self.last_resources = resources
                 self.data = data
                 self.commands = []
+
+            def resource(self, href):
+                return self.last_resources.get(href)
 
             async def async_send_command(self, bound, value):
                 self.commands.append(value)

@@ -1190,6 +1190,20 @@
           "poll": "Dotazování"
         }
       },
+      "last_response": {
+        "name": "Poslední odpověď"
+      },
+      "filter_activity": {
+        "name": "Činnost filtru",
+        "state": {
+          "none": "Nečinný",
+          "filtering": "Filtrace",
+          "bypassing": "Obtok",
+          "waiting": "Čekání",
+          "stopping": "Zastavování",
+          "sensing": "Snímání"
+        }
+      },
       "cooktop_running_state": {
         "name": "Provozní stav varné desky"
       },
@@ -1632,6 +1646,21 @@
       },
       "burner_pan_size": {
         "name": "Velikost nádoby zóny {number}"
+      },
+      "cooktop_timer_remaining": {
+        "name": "Zbývající čas časovače"
+      },
+      "cooktop_timer_status": {
+        "name": "Stav časovače"
+      },
+      "cooktop_ring_size": {
+        "name": "Velikost zóny {number}",
+        "state": {
+          "idle": "Nečinná",
+          "single": "Jednoduchá",
+          "dual": "Dvojitá",
+          "triple": "Trojitá"
+        }
       }
     },
     "switch": {
@@ -2039,6 +2068,10 @@
         "data": {
           "device_token": "Token zařízení (nechte prázdné a vyžádá se nový)"
         }
+      },
+      "reconfigure_certificate": {
+        "title": "Přijmout nový certifikát spotřebiče?",
+        "description": "Spotřebič na adrese {host} předložil jiný bezpečnostní certifikát než ten, se kterým byla tato položka nastavena. Zatím mu nebylo nic odesláno.\n\nUložený certifikát:\n{old_fingerprint}\n\nNyní předložený certifikát:\n{new_fingerprint}\n\nPokračujte jen tehdy, pokud víte, že jde o váš spotřebič (například po opravě, resetu nebo výměně desky). Odesláním nový certifikát přijmete a pošlete mu přístupový token této položky; zavřením dialogu ponecháte položku beze změny."
       }
     },
     "error": {
@@ -2066,7 +2099,8 @@
       "invalid_token": "Spotřebič tento token zařízení odmítl. Nechte pole prázdné a vyžádejte si nový.",
       "callback_port_in_use": "Port 8889 je v Home Assistant už obsazený, obvykle ještě čekající žádostí o token. Zkuste to znovu za minutu a půl.",
       "callback_cert_rejected": "Spotřebič se ozval zpět na portu 8889, ale odmítl certifikát Home Assistant podepsaný sám sebou. Vložte certifikát a klíč CA AC14K_M, aby LocalThings podepsal certifikát, který přijme; žádost o token se pak spustí znovu.",
-      "callback_ca_rejected": "Spotřebič se ozval zpět na portu 8889, ale odmítl i certifikát podepsaný AC14K_M. Vložte token získaný jiným způsobem; chybu handshaku najdete v protokolu Home Assistant."
+      "callback_ca_rejected": "Spotřebič se ozval zpět na portu 8889, ale odmítl i certifikát podepsaný AC14K_M. Vložte token získaný jiným způsobem; chybu handshaku najdete v protokolu Home Assistant.",
+      "certificate_changed": "Spotřebič na této adrese předložil jiný bezpečnostní certifikát než ten, se kterým byla tato položka nastavena, proto mu nebylo nic odesláno. Pokud jde o tentýž spotřebič po opravě nebo resetu, použijte Překonfigurovat, které vám nový certifikát zobrazí k potvrzení."
     },
     "abort": {
       "already_configured": "Zařízení je již nakonfigurováno",
@@ -2166,7 +2200,8 @@
       "empty_payload": "Zadejte alespoň jedno pole k zápisu.",
       "write_failed": "Zápis se nezdařil. Podrobnosti najdete v protokolech Home Assistant.",
       "cloud_course_name_duplicate": "Dva cykly mají stejný název. Názvy musí být jedinečné.",
-      "cloud_course_unknown_course": "Tento program zařízení nenabízí. Vyberte jej ze seznamu."
+      "cloud_course_unknown_course": "Tento program zařízení nenabízí. Vyberte jej ze seznamu.",
+      "security_resource": "Bezpečnostní prostředky OCF (/oic/sec/...) zde nelze zapisovat: zápis do nich může narušit místní ovládání způsobem, který Home Assistant nedokáže vrátit."
     },
     "abort": {
       "not_loaded": "Toto zařízení ještě není připojeno. Zkuste to znovu, až se načte."
@@ -2183,6 +2218,14 @@
     "cloud_courses_undiscovered": {
       "title": "Stažené cykly nejsou nastaveny pro {device_name}",
       "description": "{device_name} má {pending} z {total} stažených cyklů, které Home Assistant zatím nemůže nabídnout. Stažený cyklus lze použít až poté, co byl na zařízení zjištěn načtený -- na obrazovce „Stažené cykly“ v aplikaci SmartThings, ne na obrazovce „Cyklus“ -- a co jste mu dali název.\n\nChcete-li je nastavit, přejděte do Nastavení > Zařízení a služby > LocalAppliances > {device_name} > Konfigurovat > Stažené cykly a postupujte podle pokynů.\n\nStažené cykly nepoužíváte? Přejděte místo toho do Konfigurovat > Nastavení zařízení a vypněte „Nabízet stažené cykly“, čímž toto připomenutí natrvalo umlčíte."
+    },
+    "device_identity_mismatch": {
+      "title": "Za {device_name} odpovídá jiný spotřebič",
+      "description": "Spotřebič na adrese {host} přijal přihlašovací údaje této položky, ale identifikoval se jako jiný spotřebič, takže jej LocalThings přestal používat. Obvykle to znamená, že se spotřebič přesunul na novou adresu a starou adresu má nyní jiný. Otevřete tuto položku v Nastavení > Zařízení a služby a pomocí Překonfigurovat ji nasměrujte na správnou adresu. Toto upozornění samo zmizí, jakmile odpoví správný spotřebič."
+    },
+    "appliance_certificate_changed": {
+      "title": "{device_name} předložil jiný bezpečnostní certifikát",
+      "description": "Zařízení na adrese {host} předložilo jiný bezpečnostní certifikát než spotřebič při nastavení, proto s ním LocalThings přestal komunikovat a neposlal mu přístupový token spotřebiče. Adresu spotřebiče mohlo převzít jiné zařízení. Pokud se spotřebič přesunul na novou adresu, nasměrujte tuto položku pomocí Překonfigurovat (Nastavení > Zařízení a služby). Pokud jde o tentýž spotřebič a jeho certifikát se změnil (například po opravě nebo resetu), Překonfigurovat přijme i nový certifikát. Toto upozornění samo zmizí, jakmile odpoví původní spotřebič."
     }
   },
   "exceptions": {
@@ -2296,6 +2339,18 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Extra máchání není u vybraného cyklu k dispozici."
+    },
+    "security_resource_write_refused": {
+      "message": "Zápis do {href} je odmítnut. Bezpečnostní prostředky OCF (/oic/sec/...) uchovávají zřízení a přihlašovací údaje spotřebiče; zápis do nich může narušit místní ovládání způsobem, který Home Assistant nedokáže vrátit."
+    },
+    "command_unconfirmed": {
+      "message": "Spotřebič na příkaz pro {href} neodpověděl včas. Příkaz nebyl odeslán znovu, protože už mohl proběhnout a druhé odeslání by ho mohlo spustit dvakrát. Před dalším pokusem zkontrolujte spotřebič."
+    },
+    "command_auth_rejected": {
+      "message": "Spotřebič odmítl token zařízení této položky. Ověřte položku znovu v Nastavení > Zařízení a služby a získejte nový."
+    },
+    "security_credential_read_refused": {
+      "message": "Čtení {href} je odmítnuto: obsahuje přihlašovací údaje spotřebiče, které by nikdy neměly opustit Home Assistant."
     }
   },
   "selector": {

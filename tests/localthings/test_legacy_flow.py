@@ -74,6 +74,9 @@ def legacy_bridge():
             "custom_components.localthings.config_flow._probe_legacy",
             return_value=LEGACY_DEVICE,
         ) as probe,
+        # The handshake-only certificate check: no certificate to report
+        # unless a test says otherwise.
+        patch("custom_components.localthings.config_flow._legacy_fingerprint", return_value=None),
     ):
         yield token, probe, mint
 
@@ -239,6 +242,8 @@ def test_probe_reads_an_unmapped_family_for_identity_only(monkeypatch) -> None:
     families: list[str | None] = []
 
     class _Transport:
+        learned_cert_fingerprint = None
+
         def __init__(self, *args, family=None, **kwargs):
             families.append(family)
 
@@ -269,6 +274,8 @@ def test_probe_reads_a_mapped_family_through_its_table(monkeypatch) -> None:
     families: list[str | None] = []
 
     class _Transport:
+        learned_cert_fingerprint = None
+
         def __init__(self, *args, family=None, **kwargs):
             families.append(family)
 
@@ -400,7 +407,7 @@ async def test_reconfigure_moves_a_legacy_entry_with_its_own_token(
 
     assert result["type"] == FlowResultType.ABORT
     assert result["reason"] == "reconfigure_successful"
-    assert probe.call_args.args == ("10.0.0.99", "FULLCHAIN", "LEAFKEY", "old-token")
+    assert probe.call_args.args == ("10.0.0.99", "FULLCHAIN", "LEAFKEY", "old-token", None)
     assert entry.data[CONF_HOST] == "10.0.0.99"
     assert entry.data[CONF_PORT] == 8888
 
@@ -459,7 +466,7 @@ async def test_the_ca_signed_leaf_reruns_the_exchange_and_is_stored(
 
     assert mint_ca.call_args.args == ("CA-CERT", "CA-KEY")
     assert token.call_args.args[2:] == ("CA-FULLCHAIN", "CA-LEAFKEY")
-    assert probe.call_args.args == (MOCK_HOST, "CA-FULLCHAIN", "CA-LEAFKEY", "tok-from-ca")
+    assert probe.call_args.args == (MOCK_HOST, "CA-FULLCHAIN", "CA-LEAFKEY", "tok-from-ca", None)
     assert result["type"] == FlowResultType.CREATE_ENTRY
     data = result["data"]
     assert data[CONF_DEVICE_TOKEN] == "tok-from-ca"
@@ -539,3 +546,152 @@ async def test_reauth_stores_the_ca_signed_leaf_it_needed(
     assert entry.data[CONF_LEAF_CERT_PEM] == "CA-FULLCHAIN"
     assert entry.data[CONF_LEAF_KEY_PEM] == "CA-LEAFKEY"
     assert entry.data[CONF_CA_CERT_PEM] == "CA-CERT"
+
+
+_PIN = "ab" * 32
+_NEW = "cd" * 32
+_FINGERPRINT = "custom_components.localthings.config_flow._legacy_fingerprint"
+
+
+async def test_the_entry_pins_the_certificate_that_answered(
+    hass: HomeAssistant, legacy_bridge
+) -> None:
+    """Trust on first use: the appliance certificate seen at setup is stored,
+    so a later connection to anything else is refused before the device
+    token is sent."""
+    from custom_components.localthings.const import CONF_LEGACY_CERT_SHA256
+
+    _, probe, _mint = legacy_bridge
+    probe.return_value = {**LEGACY_DEVICE, "legacy_cert_sha256": _PIN}
+    result = await _start(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_DEVICE_TOKEN: ""}
+    )
+
+    assert result["data"][CONF_LEGACY_CERT_SHA256] == _PIN
+
+
+async def test_reconfigure_keeps_using_a_matching_pin(hass: HomeAssistant, legacy_bridge) -> None:
+    from custom_components.localthings.const import CONF_LEGACY_CERT_SHA256
+
+    _, probe, _mint = legacy_bridge
+    probe.return_value = {**LEGACY_DEVICE, "legacy_cert_sha256": _PIN}
+    entry = _legacy_entry(hass, **{CONF_LEGACY_CERT_SHA256: _PIN})
+
+    with patch(_FINGERPRINT, return_value=_PIN):
+        result = await entry.start_reconfigure_flow(hass)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_HOST: MOCK_HOST}
+        )
+
+    assert result["reason"] == "reconfigure_successful"
+    assert probe.call_args.args[-1] == _PIN  # the token only goes to the pinned peer
+    assert entry.data[CONF_LEGACY_CERT_SHA256] == _PIN
+
+
+async def test_reconfigure_asks_before_trusting_a_changed_certificate(
+    hass: HomeAssistant, legacy_bridge
+) -> None:
+    """A changed certificate is found by a handshake that sends nothing; the
+    entry's token is only sent after the user accepts the new certificate,
+    and then only to exactly that certificate."""
+    from custom_components.localthings.const import CONF_LEGACY_CERT_SHA256
+
+    _, probe, _mint = legacy_bridge
+    probe.return_value = {**LEGACY_DEVICE, "legacy_cert_sha256": _NEW}
+    entry = _legacy_entry(hass, **{CONF_LEGACY_CERT_SHA256: _PIN})
+
+    with patch(_FINGERPRINT, return_value=_NEW):
+        result = await entry.start_reconfigure_flow(hass)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_HOST: MOCK_HOST}
+        )
+        assert result["type"] == FlowResultType.FORM
+        assert result["step_id"] == "reconfigure_certificate"
+        placeholders = result["description_placeholders"]
+        assert placeholders is not None
+        assert placeholders["old_fingerprint"].startswith("AB:AB")
+        assert placeholders["new_fingerprint"].startswith("CD:CD")
+        assert probe.called is False
+        assert entry.data[CONF_LEGACY_CERT_SHA256] == _PIN
+
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+
+    assert result["reason"] == "reconfigure_successful"
+    assert probe.call_args.args[-1] == _NEW
+    assert entry.data[CONF_LEGACY_CERT_SHA256] == _NEW
+
+
+async def test_reconfigure_refuses_a_pinned_peer_without_a_certificate(
+    hass: HomeAssistant, legacy_bridge
+) -> None:
+    from custom_components.localthings.const import CONF_LEGACY_CERT_SHA256
+
+    _, probe, _mint = legacy_bridge
+    entry = _legacy_entry(hass, **{CONF_LEGACY_CERT_SHA256: _PIN})
+
+    with patch(_FINGERPRINT, return_value=None):
+        result = await entry.start_reconfigure_flow(hass)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_HOST: MOCK_HOST}
+        )
+
+    assert result["errors"] == {"base": "certificate_changed"}
+    assert probe.called is False
+
+
+async def test_reauth_probes_the_new_token_against_the_stored_pin(
+    hass: HomeAssistant, legacy_bridge
+) -> None:
+    from custom_components.localthings.const import CONF_LEGACY_CERT_SHA256
+    from custom_components.localthings.credentials import ApplianceCertificateMismatch
+
+    _, probe, _mint = legacy_bridge
+    probe.side_effect = ApplianceCertificateMismatch("different certificate")
+    entry = _legacy_entry(hass, **{CONF_LEGACY_CERT_SHA256: _PIN})
+
+    result = await entry.start_reauth_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_DEVICE_TOKEN: "new-token"}
+    )
+
+    assert probe.call_args.args[-1] == _PIN
+    assert result["errors"] == {"base": "certificate_changed"}
+    assert entry.data[CONF_DEVICE_TOKEN] == "old-token"
+    assert entry.data[CONF_LEGACY_CERT_SHA256] == _PIN
+
+
+async def test_reauth_does_not_ask_an_unpinned_peer_for_a_token(
+    hass: HomeAssistant, legacy_bridge
+) -> None:
+    from custom_components.localthings.const import CONF_LEGACY_CERT_SHA256
+
+    token, probe, _mint = legacy_bridge
+    entry = _legacy_entry(hass, **{CONF_LEGACY_CERT_SHA256: _PIN})
+
+    with patch(_FINGERPRINT, return_value=_NEW):
+        result = await entry.start_reauth_flow(hass)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_DEVICE_TOKEN: ""}
+        )
+
+    assert token.called is False
+    assert probe.called is False
+    assert result["errors"] == {"base": "certificate_changed"}
+
+
+async def test_reauth_keeps_the_certificate_pin(hass: HomeAssistant, legacy_bridge) -> None:
+    from custom_components.localthings.const import CONF_LEGACY_CERT_SHA256
+
+    _, probe, _mint = legacy_bridge
+    probe.return_value = {**LEGACY_DEVICE, "legacy_cert_sha256": _PIN}
+    entry = _legacy_entry(hass, **{CONF_LEGACY_CERT_SHA256: _PIN})
+
+    result = await entry.start_reauth_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_DEVICE_TOKEN: "new-token"}
+    )
+
+    assert result["reason"] == "reauth_successful"
+    assert entry.data[CONF_DEVICE_TOKEN] == "new-token"
+    assert entry.data[CONF_LEGACY_CERT_SHA256] == _PIN

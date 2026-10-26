@@ -23,13 +23,8 @@
 
 LocalAppliances is a modified version of [LocalThings](https://github.com/mbillow/localthings) by Marc Billow, used under the MIT licence. It tracks LocalThings and adds these fixes on top:
 
-- FAC_BORA air conditioners' 65278 W standby power reading shows as unknown instead of 65 kW.
-- Pushed updates no longer postpone the regular 30-second check, and a cancelled in-between read no longer overlaps it.
-- Reloading or removing an appliance no longer reconnects in the background or logs it as the appliance going dark.
 - "Enable debug logging" also raises the `smartthings_local` connection library's logs.
-- On older TCP 8888 appliances, a linked resource that doesn't answer is skipped instead of failing the whole update.
 - The raw read, write and observe resource actions are admin-only, and the read snapshot is redacted.
-- The oven's cook stage sensor shows translated states. Its state values are now lowercase (`ready`, `preheat`, `cooking`, `finish`), so an automation that compares it with `Ready` needs updating.
 
 The integration's internal domain stays `localthings`, so LocalAppliances is a drop-in replacement: appliances you already set up with LocalThings keep working. Install one or the other, never both at once.
 

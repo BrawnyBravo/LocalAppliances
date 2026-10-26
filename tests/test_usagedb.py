@@ -274,3 +274,57 @@ def test_a_repeated_reading_is_accepted():
     parsed = usagedb.records(_rep(_synthetic([(100, 0), (100, 0), (110, 0)])))
     assert parsed is not None
     assert [r[1] for r in parsed] == [100, 100, 110]
+
+
+# ---------------------------------------------------------------------------
+# A plain-Wh head whose runtime is still tiny (review M1)
+#
+# Under 1.2 h a multi-split head's runtime field reads 0, 5 or 10 tenths --
+# the same shapes as a washer's zeros or a fridge's month label -- so the
+# third-field classifier alone would accept the head's Wh counter as tenths of
+# a kWh and publish it ~100x high. Hand-built, like the PRAC helpers above.
+# ---------------------------------------------------------------------------
+
+
+def _new_head(runtime_tenths: int, days: int = 6) -> bytes:
+    """The shared outdoor unit's cumulative Wh (#329's 5,118,585 scale),
+    climbing about 1.2 kWh a day, beside a flat low runtime."""
+    return _synthetic([(5_118_585 + i * 1200, runtime_tenths) for i in range(days)])
+
+
+@pytest.mark.parametrize("runtime_tenths", [0, 5, 10])
+def test_energy_is_refused_on_a_new_head_with_a_flat_low_runtime(runtime_tenths):
+    rep = _rep(_new_head(runtime_tenths))
+    assert usagedb.records(rep) is not None
+    assert usagedb.cumulative_energy_kwh(rep) is None
+
+
+def test_a_new_head_whose_runtime_starts_moving_never_publishes_energy():
+    """0 -> 5 -> 10 -> 10: every prefix of a new head's life is refused, so the
+    sensor never gets a 100x value to store in long-term statistics."""
+    series = [(5_118_585 + i * 1500, rt) for i, rt in enumerate([0, 0, 5, 10, 10])]
+    for n in range(1, len(series) + 1):
+        assert usagedb.cumulative_energy_kwh(_rep(_synthetic(series[:n]))) is None, n
+
+
+def test_the_rate_check_keeps_a_busy_tenths_family():
+    """60 kWh a day is the ceiling: a hard-working dryer or a fridge's normal
+    ~2 kWh a day stays well under it, and the real fridge capture still
+    decodes (see test_a_real_capture_decodes_to_its_recorded_totals)."""
+    blob = _synthetic([(1000, 0), (1000 + 300, 0), (1000 + 900, 0)])
+    assert usagedb.cumulative_energy_kwh(_rep(blob)) == 190.0
+
+
+def test_a_single_record_with_a_wh_scale_total_is_refused():
+    """One record has no rate to judge, so the lifetime ceiling does it: a
+    shared outdoor unit's 5,118,585 Wh is no household appliance's tenths of
+    a kWh. The real single-record dishwasher capture (163.1 kWh) still
+    decodes."""
+    assert usagedb.cumulative_energy_kwh(_rep(_synthetic([(5_118_585, 0)]))) is None
+    assert usagedb.cumulative_energy_kwh(_rep(_synthetic([(1631, 0)]))) == 163.1
+
+
+def test_the_rate_is_taken_over_at_least_a_day():
+    """Two records an hour apart are not a 24x rate."""
+    blob = _synthetic([(1000, 0), (1100, 0)], step=3600)
+    assert usagedb.cumulative_energy_kwh(_rep(blob)) == 110.0

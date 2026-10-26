@@ -2,10 +2,10 @@
 
 Four FanDesc-bound hrefs exist, dispatched by href in async_setup_entry
 below since each needs different HA fan semantics: the range hood's fan
-speed and the older ARTIK051_TVTL air-purifier family's Auto/Sleep/Low/
-Medium/High (issue #56) are both an ordered set of numeric levels
-(SET_SPEED), confirmed monotonic in capabilities/air_purifier.py's module
-docstring, with no named-mode list since this board never self-reports one.
+speed and the older ARTIK051_TVTL air-purifier family's Low/Medium/High
+(issue #56) are both an ordered set of numeric levels (SET_SPEED); that
+family's Auto and Sleep share the same field but are modes, not speeds, so
+they are fixed presets (the board never self-reports a mode list).
 The TP1X air-purifier family's modes (Smart/Max/Mid/WindFree/Sleep, issue
 #130) and the A-VTWW-TP2-21 family's /wind/strength/vs/0 modes (issue #151)
 are both named behaviors with no linear order (PRESET_MODE) --
@@ -28,7 +28,7 @@ from homeassistant.util.percentage import (
 
 from .const import DOMAIN
 from .coordinator import LocalThingsCoordinator
-from .entity import LocalThingsEntity, _is_included
+from .entity import LocalThingsEntity, _is_included, async_migrate_subdevice_case
 from .registry.capabilities.air_purifier import HREF_AIRFLOW
 from .registry.capabilities.air_purifier import HREF_MODE as AIR_PURIFIER_FAN_HREF
 from .registry.capabilities.air_purifier import (
@@ -45,6 +45,9 @@ _SUPPORTED_FAN_SPEED_FIELD = "x.com.samsung.da.hood.supportedFanSpeed"
 _MIN_FAN_SPEED_FIELD = "x.com.samsung.da.hood.settableMinFanSpeed"
 _MAX_FAN_SPEED_FIELD = "x.com.samsung.da.hood.settableMaxFanSpeed"
 _OFF_SPEED_CODE = "0"
+# A fan-speed rep with any of these says how the hood turns off; one with
+# none of them (empty, or a not-yet-fetched stub) says nothing.
+_SPEED_SHAPE_FIELDS = (_SUPPORTED_FAN_SPEED_FIELD, _MIN_FAN_SPEED_FIELD, _MAX_FAN_SPEED_FIELD)
 
 _MODES_FIELD = "x.com.samsung.da.modes"
 _SUPPORTED_MODES_FIELD = "x.com.samsung.da.supportedModes"
@@ -57,6 +60,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: LocalThingsCoordinator = hass.data[DOMAIN][entry.entry_id]
+    async_migrate_subdevice_case(hass, entry, coordinator)
     entities = []
     for bound in coordinator.bound:
         if not (isinstance(bound.desc, FanDesc) and _is_included(bound, coordinator)):
@@ -83,6 +87,11 @@ class LocalThingsRangeHoodFan(LocalThingsEntity, FanEntity):
     only proves some power resource exists on the device -- on a combi
     appliance that resource can belong to the cavity, not the vent fan,
     and toggling it from here would turn off the whole appliance.
+
+    The answer is remembered from the last fan-speed rep that actually
+    carried the speed fields, so a momentarily empty or stub rep cannot flip
+    a vent fan onto the power path. Until one has been seen the hood refuses
+    to write at all rather than guess.
     """
 
     _enable_turn_on_off_backwards_compatibility = False
@@ -97,6 +106,9 @@ class LocalThingsRangeHoodFan(LocalThingsEntity, FanEntity):
     def __init__(self, coordinator: LocalThingsCoordinator, bound) -> None:
         super().__init__(coordinator, bound)
         self._attr_name = None
+        # See the class docstring; None until a fan-speed rep says.
+        self._zero_is_off: bool | None = None
+        self._speed_zero_is_off()
 
     def _rep(self, href: str) -> dict:
         return self.coordinator.resource(href) or {}
@@ -108,12 +120,31 @@ class LocalThingsRangeHoodFan(LocalThingsEntity, FanEntity):
         """Whether fan speed '0' is itself this hood's off step, with no
         separate power resource to toggle -- settableMinFanSpeed '0', or
         '0' inside supportedFanSpeed. False for the standalone hood, whose
-        codes start at 14 and which carries a real /power resource."""
+        codes start at 14 and which carries a real /power resource.
+
+        Recomputed only from a rep that carries the speed fields; otherwise
+        the last answer stands (see the class docstring)."""
         rep = self._rep(self._bound.href)
-        return (
-            str(rep.get(_MIN_FAN_SPEED_FIELD, "")) == _OFF_SPEED_CODE
-            or _OFF_SPEED_CODE in self._all_speed_codes()
-        )
+        if any(f in rep for f in _SPEED_SHAPE_FIELDS):
+            self._zero_is_off = (
+                str(rep.get(_MIN_FAN_SPEED_FIELD, "")) == _OFF_SPEED_CODE
+                or _OFF_SPEED_CODE in self._all_speed_codes()
+            )
+        return bool(self._zero_is_off)
+
+    def _speed_shape_known(self) -> bool:
+        """Whether a fan-speed rep has ever said how this hood turns off.
+        Every write path checks it first: guessing wrong on a combi
+        appliance would switch off the cavity, not the fan."""
+        self._speed_zero_is_off()
+        if self._zero_is_off is None:
+            _LOGGER.warning(
+                "%s: fan speed not read yet, so it is not known whether this "
+                "hood turns off by speed or by power; command skipped",
+                self.entity_id or self.unique_id,
+            )
+            return False
+        return True
 
     def _all_speed_codes(self) -> list[str]:
         rep = self._rep(self._bound.href)
@@ -175,6 +206,8 @@ class LocalThingsRangeHoodFan(LocalThingsEntity, FanEntity):
         preset_mode: str | None = None,
         **kwargs,
     ) -> None:
+        if not self._speed_shape_known():
+            return
         if self._speed_zero_is_off():
             if percentage is not None:
                 await self.async_set_percentage(percentage)
@@ -195,6 +228,8 @@ class LocalThingsRangeHoodFan(LocalThingsEntity, FanEntity):
             await self.async_set_percentage(percentage)
 
     async def async_turn_off(self, **kwargs) -> None:
+        if not self._speed_shape_known():
+            return
         if self._speed_zero_is_off():
             await self.coordinator.async_send_command(self._bound, ("speed", _OFF_SPEED_CODE))
             return
@@ -204,6 +239,8 @@ class LocalThingsRangeHoodFan(LocalThingsEntity, FanEntity):
         )
 
     async def async_set_percentage(self, percentage: int) -> None:
+        if not self._speed_shape_known():
+            return
         if percentage <= 0:
             await self.async_turn_off()
             return
@@ -314,24 +351,31 @@ class LocalThingsAirPurifierFan(LocalThingsEntity, FanEntity):
 
 
 _AIRFLOW_SPEED_FIELD = "speed"
-# Raw `speed` codes, low-to-high -- confirmed monotonic (Auto=0, Sleep=1,
-# Low=2, Medium=3, High=4) via air_purifier.py's module docstring. Treated
-# as plain ordered strings, same as the range hood's numeric levels.
-_AIRFLOW_SPEED_CODES = ["0", "1", "2", "3", "4"]
+# Raw `speed` codes 0-4 are Auto, Sleep, Low, Medium, High (air_purifier.py's
+# module docstring). Only the last three are fan speeds: Auto and Sleep are
+# modes the unit runs on its own, so they are offered as presets rather than
+# as the two lowest percentages -- 20% used to mean "Auto".
+_AIRFLOW_SPEED_CODES = ["2", "3", "4"]
+_AIRFLOW_PRESET_CODES = {"auto": "0", "sleep": "1"}
 
 
 class LocalThingsAirflowFan(LocalThingsEntity, FanEntity):
     """ARTIK051_TVTL-class air purifier fan (issue #56): an ordered numeric
-    speed range, same SET_SPEED shape as LocalThingsRangeHoodFan above."""
+    speed range, same SET_SPEED shape as LocalThingsRangeHoodFan above, plus
+    the Auto and Sleep presets that share its speed field."""
 
     _enable_turn_on_off_backwards_compatibility = False
     _attr_supported_features = (
-        FanEntityFeature.SET_SPEED | FanEntityFeature.TURN_ON | FanEntityFeature.TURN_OFF
+        FanEntityFeature.SET_SPEED
+        | FanEntityFeature.PRESET_MODE
+        | FanEntityFeature.TURN_ON
+        | FanEntityFeature.TURN_OFF
     )
 
     def __init__(self, coordinator: LocalThingsCoordinator, bound) -> None:
         super().__init__(coordinator, bound)
         self._attr_name = None
+        self._attr_preset_modes = list(_AIRFLOW_PRESET_CODES)
 
     def _rep(self, href: str) -> dict:
         return self.coordinator.resource(href) or {}
@@ -348,6 +392,9 @@ class LocalThingsAirflowFan(LocalThingsEntity, FanEntity):
         target = POWER_HREF if POWER_HREF in resources else POWER_VS_HREF
         return "power", enabled, target
 
+    def _current_code(self) -> str:
+        return str(self._rep(self._bound.href).get(_AIRFLOW_SPEED_FIELD, ""))
+
     @property
     def is_on(self) -> bool:
         power = self._rep(POWER_HREF)
@@ -363,10 +410,19 @@ class LocalThingsAirflowFan(LocalThingsEntity, FanEntity):
     def percentage(self) -> int | None:
         if not self.is_on:
             return 0
-        current = str(self._rep(self._bound.href).get(_AIRFLOW_SPEED_FIELD, ""))
+        current = self._current_code()
         if current not in _AIRFLOW_SPEED_CODES:
+            # Auto, Sleep or unreadable: no speed to report.
             return None
         return ordered_list_item_to_percentage(_AIRFLOW_SPEED_CODES, current)
+
+    @property
+    def preset_mode(self) -> str | None:
+        current = self._current_code()
+        return next(
+            (name for name, code in _AIRFLOW_PRESET_CODES.items() if code == current),
+            None,
+        )
 
     async def async_turn_on(
         self,
@@ -375,7 +431,9 @@ class LocalThingsAirflowFan(LocalThingsEntity, FanEntity):
         **kwargs,
     ) -> None:
         await self.coordinator.async_send_command(self._bound, self._power_payload(True))
-        if percentage is not None:
+        if preset_mode is not None:
+            await self.async_set_preset_mode(preset_mode)
+        elif percentage is not None:
             await self.async_set_percentage(percentage)
 
     async def async_turn_off(self, **kwargs) -> None:
@@ -388,4 +446,18 @@ class LocalThingsAirflowFan(LocalThingsEntity, FanEntity):
         if not self.is_on:
             await self.coordinator.async_send_command(self._bound, self._power_payload(True))
         code = percentage_to_ordered_list_item(_AIRFLOW_SPEED_CODES, percentage)
+        await self.coordinator.async_send_command(self._bound, ("speed", int(code)))
+
+    async def async_set_preset_mode(self, preset_mode: str) -> None:
+        code = _AIRFLOW_PRESET_CODES.get(preset_mode)
+        if code is None:
+            _LOGGER.warning(
+                "%s: %r is not a valid preset mode (supported: %s)",
+                self.entity_id,
+                preset_mode,
+                list(_AIRFLOW_PRESET_CODES),
+            )
+            return
+        if not self.is_on:
+            await self.coordinator.async_send_command(self._bound, self._power_payload(True))
         await self.coordinator.async_send_command(self._bound, ("speed", int(code)))

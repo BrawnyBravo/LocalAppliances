@@ -230,3 +230,74 @@ async def test_indexed_subdevice_climate_write_quantizes_with_its_own_temperatur
     posted_path, posted_body = coordinator._session.post_calls[0]
     assert posted_path == ["temperature", "desired", "1"]
     assert posted_body == {"temperature": 24.5}
+
+
+async def test_settle_window_is_armed_before_the_optimistic_apply(coordinator) -> None:
+    """The settle guard must already be armed when the optimistic value
+    lands; otherwise a stale notify can slip in between and be held."""
+    href = "/course/vs/0"
+    coordinator._observe.apply(href, {"x.com.samsung.da.options": ["Course_16"]}, source="poll")
+    observe = coordinator._observe
+    original_apply = observe.apply
+    armed_at_apply: list[float | None] = []
+
+    def _spy(h, rep, source):
+        if source == "optimistic":
+            armed_at_apply.append(observe.settle_deadline(h))
+        return original_apply(h, rep, source)
+
+    observe.apply = _spy
+
+    desc = laundry.cycle_select(translation_key="dryer_cycle", icon="x")
+    bound = BoundEntity(href=href, capability=Capability(), desc=desc)
+    await coordinator.async_send_command(bound, "1D")
+
+    assert armed_at_apply and armed_at_apply[0] is not None
+
+
+async def test_single_burner_write_keeps_the_other_burners_cached(coordinator) -> None:
+    """A cooktop write naming one burner must not blank the others in the
+    optimistic cache: burnerList is merged by burnerNumber (like options[]
+    by prefix and items[] by id)."""
+    from custom_components.localthings.registry.entities import NumberDesc
+
+    href = "/cooktop/status/vs/0"
+    coordinator._observe.apply(
+        href,
+        {
+            "burnerList": [
+                {"burnerNumber": 0, "powerLevel": "3", "panDetection": True},
+                {"burnerNumber": 1, "powerLevel": "0", "panDetection": False},
+            ]
+        },
+        source="poll",
+    )
+    desc = NumberDesc(
+        key="burner_1_power_level",
+        write_fn=lambda payload, rep, href=None, resources=None: (
+            ["cooktop", "status", "vs", "0"],
+            {"burnerList": [{"burnerNumber": 1, "powerLevel": payload}]},
+        ),
+        needs_remote_control=False,
+    )
+    bound = BoundEntity(href=href, capability=Capability(), desc=desc)
+
+    await coordinator.async_send_command(bound, "7")
+
+    _posted_path, posted_body = coordinator._session.post_calls[0]
+    assert posted_body == {"burnerList": [{"burnerNumber": 1, "powerLevel": "7"}]}
+    assert coordinator._cache.get(href)["burnerList"] == [
+        {"burnerNumber": 0, "powerLevel": "3", "panDetection": True},
+        {"burnerNumber": 1, "powerLevel": "7", "panDetection": False},
+    ]
+
+
+def test_burner_list_merge_appends_an_uncached_burner() -> None:
+    from custom_components.localthings.coordinator import _merge_burner_list
+
+    assert _merge_burner_list(None, [{"burnerNumber": 2, "powerLevel": "1"}]) == [
+        {"burnerNumber": 2, "powerLevel": "1"}
+    ]
+    assert _merge_burner_list(
+        [{"burnerNumber": 0, "powerLevel": "1"}], [{"burnerNumber": 2, "powerLevel": "4"}]
+    ) == [{"burnerNumber": 0, "powerLevel": "1"}, {"burnerNumber": 2, "powerLevel": "4"}]

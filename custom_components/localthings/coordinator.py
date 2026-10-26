@@ -10,8 +10,8 @@ import threading
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import asdict
-from datetime import timedelta
-from typing import Any, cast
+from datetime import datetime, timedelta
+from typing import Any, NoReturn, cast
 from urllib.parse import unquote, urlsplit
 
 from homeassistant.config_entries import ConfigEntry
@@ -25,6 +25,7 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, DeviceInfo
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 from smartthings_local.errors import EndpointError, PeerInitiatedHandshakeError
 from smartthings_local.ocf.state_cache import StateCache
 
@@ -40,6 +41,7 @@ from .const import (
     CONF_HOST,
     CONF_LEARN_MODES,
     CONF_LEARNED_MODES,
+    CONF_LEGACY_CERT_SHA256,
     CONF_MAC,
     CONF_MANUFACTURER,
     CONF_MODEL,
@@ -189,6 +191,28 @@ def _href_to_path_segs(href: str) -> list[str]:
     return [s for s in str(href).strip("/").split("/") if s]
 
 
+def is_security_href(href: str) -> bool:
+    """Whether `href` names an OCF security resource (/oic/sec/...).
+
+    These hold the appliance's provisioning state, ownership and
+    credentials (pstat, doxm, cred, acl2). A write there can reset
+    provisioning or drop the credential this integration connects with,
+    which nothing in Home Assistant can undo -- so the raw write paths
+    refuse them outright. Public because the options-flow debug panel
+    checks it before offering the payload form."""
+    segs = [s.lower() for s in _href_to_path_segs(href)]
+    return segs[:2] == ["oic", "sec"]
+
+
+def _refuse_security_href(href: str) -> None:
+    if is_security_href(href):
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="security_resource_write_refused",
+            translation_placeholders={"href": normalize_href(href)},
+        )
+
+
 def normalize_href(href: str) -> str:
     """A user-typed href in one canonical spelling. Public because
     services.py must normalize before `Subdevice.to_actual`, which rewrites
@@ -248,6 +272,7 @@ def _validate_debug_batch_payload(payload: list) -> None:
                 translation_domain=DOMAIN,
                 translation_key="debug_batch_element_invalid",
             )
+        _refuse_security_href(element["href"])
 
 
 def _batch_element_reps(payload: list) -> dict[str, dict]:
@@ -315,6 +340,27 @@ def _payload_present_in(payload: dict | list, readback: dict) -> bool:
     )
 
 
+def _merge_burner_list(cached: Any, written: list) -> list:
+    """`written` burnerList entries merged onto `cached` by burnerNumber:
+    each written burner's fields replace that burner's, other burners keep
+    theirs, and a burner not cached yet is appended."""
+    if not isinstance(cached, list):
+        return list(written)
+    merged = [dict(b) if isinstance(b, dict) else b for b in cached]
+    index = {
+        b.get("burnerNumber"): i
+        for i, b in enumerate(merged)
+        if isinstance(b, dict) and "burnerNumber" in b
+    }
+    for entry in written:
+        number = entry.get("burnerNumber") if isinstance(entry, dict) else None
+        if number is not None and number in index:
+            merged[index[number]] = {**merged[index[number]], **entry}
+        else:
+            merged.append(entry)
+    return merged
+
+
 def _validate_debug_write_item(item: dict) -> tuple[list[str], str, dict | list, float, bool]:
     """The checks `async_raw_write` has always applied to a single write
     (issue #54), reused per-item by `async_raw_write_sequence` (issue
@@ -342,6 +388,7 @@ def _validate_debug_write_item(item: dict) -> tuple[list[str], str, dict | list,
             translation_domain=DOMAIN,
             translation_key="resource_href_required",
         )
+    _refuse_security_href(item.get("href", ""))
     settle = item.get("settle") or 0.0
     if not 0 <= settle <= _DEBUG_MAX_SETTLE_S:
         raise ServiceValidationError(
@@ -478,6 +525,13 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # climate.py's frequent per-property reads don't rebuild it from
         # scratch each time.
         self._canonical_cache: dict[tuple[str, str], dict] = {}
+        # Bumped on every invalidation, so a view built across one is not
+        # stored (see canonical_resources).
+        self._canonical_generation = 0
+        # Whether the "a different appliance answered" Repair is up; see
+        # _raise_identity_issue.
+        self._identity_issue_raised = False
+        self._canonical_lock = threading.Lock()
         # Localized {instance_name} labels keyed by instance-name id, loaded
         # at setup by entity.async_load_instance_names (issue #533).
         self.instance_names: dict[str, str] = {}
@@ -540,6 +594,10 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Consecutive cycles that ended with no data from the device, so an
         # outage is reported once rather than once per poll (issue #269).
         self._failed_cycles = 0
+        # When a poll last got through. Entities keep their last values while
+        # the device is dark (issue #295), so this is what tells them apart
+        # from live ones (issue #648).
+        self.last_response: datetime | None = None
         self._unbound_hrefs: list[str] = []
         self._reconnect_times: list[float] = []
         # See _maybe_retry_observe_mode: last_mode_change_ts alone doesn't
@@ -646,9 +704,22 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         cached = self._canonical_cache.get(view_key)
         if cached is not None:
             return cached
+        generation = self._canonical_generation
         view = canonical_view(subdevice, self.entity_resources(), self.subdevices)
-        self._canonical_cache[view_key] = view
+        # A notify or poll on another thread may have changed the cache
+        # while this view was being built; storing it then would pin the
+        # stale view until the next unrelated change. Store only if no
+        # invalidation happened in between.
+        with self._canonical_lock:
+            if self._canonical_generation == generation:
+                self._canonical_cache[view_key] = view
         return view
+
+    def _invalidate_canonical(self) -> None:
+        """Drop every memoized canonical view. Safe from any thread."""
+        with self._canonical_lock:
+            self._canonical_generation += 1
+            self._canonical_cache.clear()
 
     @property
     def rehydrated(self) -> bool:
@@ -761,6 +832,12 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     @callback
     def _persist_learned(self) -> None:
+        # Scheduled from the applying thread, so it can run after
+        # async_close: the entry may be mid-reload or already removed, and
+        # updating it then either rewrites a reloading entry's data or
+        # raises UnknownEntry. Same guard as _schedule_mode_spec_save.
+        if self._closed:
+            return
         persist(self.hass, self._entry, self._learned.snapshot())
 
     # ------------------------------------------------------------------
@@ -796,6 +873,8 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     @callback
     def _persist_cloud_courses(self) -> None:
+        if self._closed:  # see _persist_learned
+            return
         cloud_persist(self.hass, self._entry, self._cloud.snapshot())
         self._on_cloud_courses_changed()
 
@@ -821,7 +900,7 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         called this same method since before this option existed -- would
         sit stale until whatever poll or observe happened to run next.
         """
-        self._canonical_cache.clear()
+        self._invalidate_canonical()
         self._refresh_cloud_course_issue()
         self._push_cache_snapshot()
 
@@ -1082,6 +1161,18 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._entry, data={**self._entry.data, CONF_PORT: port}
         )
 
+    def _persist_learned_cert_pin(self) -> None:
+        """Record the 8888 appliance's certificate fingerprint the first
+        time a poll succeeds on an entry that has none (entries made before
+        pinning existed, or a Reconfigure that cleared it). From then on a
+        different certificate is refused before the device token is sent."""
+        learned = getattr(self._session, "learned_cert_fingerprint", None)
+        if learned is None or self._entry.data.get(CONF_LEGACY_CERT_SHA256):
+            return
+        self.hass.config_entries.async_update_entry(
+            self._entry, data={**self._entry.data, CONF_LEGACY_CERT_SHA256: learned}
+        )
+
     def _open_session(self, port: int) -> None:
         host = self._entry.data[CONF_HOST]
 
@@ -1184,9 +1275,12 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         HA push must be scheduled thread-safely. A sweep/poll cycle can
         call apply_rep for dozens of hrefs in a tight loop; coalesce those
         into a single push instead of one hass.add_job per href."""
+        if source == "observe":
+            # A notification is the device answering too (issue #648).
+            self.last_response = dt_util.utcnow()
         if not changed:
             return
-        self._canonical_cache.clear()
+        self._invalidate_canonical()
         with self._push_pending_lock:
             if self._push_pending:
                 return
@@ -1254,6 +1348,12 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 raise RuntimeError(f"poll timed out and the session no longer answers: {e}") from e
             raise
         except AuthRejected:
+            raise
+        except DeviceIdentityMismatch:
+            # The wrong appliance answered: not a session to keep, and not a
+            # generic failure to wrap -- _async_update_data reports it as
+            # its own Repair.
+            self._close_session()
             raise
         except DecodeError as e:
             # The device answered; its answer is what could not be read.
@@ -1372,13 +1472,18 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         `stop`, once set, skips the hrefs not yet read.
         """
-        if self._session is None:
+        session = self._session
+        if session is None:
             return {}
         results = {}
         first = True
         deadline = time.monotonic() + budget if budget is not None else None
         for href in hrefs:
             if stop is not None and stop.is_set():
+                break
+            # async_close cancels the sub-poll without waiting for this
+            # thread, then drops the session; reading on would hit None.
+            if self._session is not session:
                 break
             if deadline is not None:
                 remaining = deadline - time.monotonic()
@@ -1387,11 +1492,11 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     continue
                 timeout = min(timeout, remaining)
             if not first:
-                self._session.pace()
+                session.pace()
             first = False
             try:
                 path = href.strip("/").split("/")
-                code, rep = self._session.read(path, timeout=timeout)
+                code, rep = session.read(path, timeout=timeout)
                 if code == 0x45 and isinstance(rep, dict):
                     if apply:
                         self._observe.apply(href, rep, source="poll")
@@ -2198,9 +2303,38 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._reconnect_times.append(now)
         return len(self._reconnect_times) >= self._RECONNECT_WARN_THRESHOLD
 
+    def _identity_issue_id(self) -> str:
+        return f"device_identity_mismatch_{self._entry.entry_id}"
+
+    def _raise_identity_issue(self, err: DeviceIdentityMismatch) -> None:
+        """Tell the user, in Repairs, that a different appliance answered.
+
+        A log line alone left an entry unavailable indefinitely with
+        nothing in the UI saying why. Not fixable from the Repair itself:
+        the remedy is the entry's Reconfigure, which the text points to.
+        """
+        self._identity_issue_raised = True
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            self._identity_issue_id(),
+            is_fixable=False,
+            severity=ir.IssueSeverity.ERROR,
+            translation_key=getattr(err, "issue_key", "device_identity_mismatch"),
+            translation_placeholders={
+                "device_name": self._entry.title,
+                "host": str(self._entry.data.get(CONF_HOST, "")),
+            },
+        )
+
     def _mark_device_answered(self) -> None:
         """Clear the bookkeeping a poll getting through invalidates."""
+        if self._identity_issue_raised:
+            self._identity_issue_raised = False
+            ir.async_delete_issue(self.hass, DOMAIN, self._identity_issue_id())
+        self.last_response = dt_util.utcnow()
         self._persist_moved_port()
+        self._persist_learned_cert_pin()
         self._consecutive_poll_timeouts = 0
         if self._failed_cycles:
             self._log.info("device answered again after %d failed cycles", self._failed_cycles)
@@ -2252,6 +2386,13 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             except AuthRejected as e:
                 await self.hass.async_add_executor_job(self._close_session)
                 raise ConfigEntryAuthFailed(str(e)) from e
+            except DeviceIdentityMismatch as e:
+                # Reconnecting or rediscovering the port would only reach
+                # the same wrong appliance at the same address; what fixes
+                # it is the user pointing the entry at the right one.
+                await self.hass.async_add_executor_job(self._close_session)
+                self._raise_identity_issue(e)
+                return self._device_unreachable("device identity mismatch", e)
             except Exception as e:
                 if self._closed:
                     # async_close closed the session under this read: nothing
@@ -2297,6 +2438,8 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 try:
                     resources = await self.hass.async_add_executor_job(self._poll_once)
                 except Exception as e2:
+                    if isinstance(e2, DeviceIdentityMismatch):
+                        self._raise_identity_issue(e2)
                     return self._device_unreachable("poll failed after reconnect", e2)
                 else:
                     self._mark_device_answered()
@@ -2527,12 +2670,15 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         write_href = bound_entity.subdevice.to_actual("/" + "/".join(path_segs))
         path_segs = [s for s in write_href.strip("/").split("/") if s]
 
-        # Apply readable writes optimistically before starting the settle
-        # guard -- guard and apply share the same gate (mark_write_pending),
-        # so reversing the order would drop the very update it exists to
-        # protect (issue #27). A write-only button has no readable field to
-        # protect: merging its command body would manufacture state the
-        # appliance can never confirm, so it skips both operations.
+        # Arm the settle guard first, then apply the optimistic value. The
+        # optimistic apply always passes the guard (observe.apply lets
+        # source="optimistic" through), so arming first cannot drop it
+        # (issue #27) -- and arming second left a gap in which a stale
+        # notify or sub-poll from another thread could land on top of the
+        # optimistic value and then be held there by the guard. A
+        # write-only button has no readable field to protect: merging its
+        # command body would manufacture state the appliance can never
+        # confirm, so it skips both operations.
         #
         # settle_s must outlast the PUT plus the confirming refresh, not
         # DEFAULT_SETTLE_S's fixed few seconds: the refresh is a full
@@ -2573,10 +2719,20 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     **optimistic_body,
                     "x.com.samsung.da.items": merge_items_field(cached_items, new_items),
                 }
-            self._observe.apply(write_href, optimistic_body, source="optimistic")
+            # Same fact, burnerList[] shape: a cooktop write names only the
+            # burner it changes, so the other burners would read unknown
+            # until the next poll if the list were replaced wholesale.
+            new_burners = body.get("burnerList")
+            if isinstance(new_burners, list):
+                cached_burners = (self._cache.get(write_href) or {}).get("burnerList")
+                optimistic_body = {
+                    **optimistic_body,
+                    "burnerList": _merge_burner_list(cached_burners, new_burners),
+                }
             armed_settle = self._observe.mark_write_pending(
                 write_href, settle_s=self._POST_TIMEOUT_S + self._POLL_TIMEOUT_S
             )
+            self._observe.apply(write_href, optimistic_body, source="optimistic")
 
         def _rearm() -> None:
             nonlocal armed_settle
@@ -2591,7 +2747,9 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 )
 
         try:
-            await self._async_put(path_segs, body, write_href, on_retry=_rearm)
+            await self._async_put(
+                path_segs, body, write_href, on_retry=_rearm, idempotent=not write_only
+            )
             if (
                 remote_control_off
                 and not write_only
@@ -2644,16 +2802,33 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         body: dict | list,
         write_href: str,
         on_retry: Callable[[], None] | None = None,
+        *,
+        idempotent: bool = True,
     ) -> None:
         """PUT `body`, reconnecting and retrying once on a dead session.
-        Raises HomeAssistantError if the retry fails too."""
+        Raises HomeAssistantError if the retry fails too.
+
+        `idempotent=False` is for writes that do something each time they
+        land -- a start, a drum clean, a cook-start batch. A timeout waiting
+        for the answer to one of those does not mean it was not carried
+        out: the request went out and only the acknowledgement is missing.
+        Re-sending it could run the command twice, so after a response
+        timeout such a write is reported instead of retried. A failure
+        before the request was sent (no session, a failed reconnect) is
+        still retried; so is any failure of an idempotent setpoint, which
+        is harmless to repeat.
+        """
+        sent = False
 
         def _do_put():
+            nonlocal sent
+            sent = False
             if self._session is None:
                 self._connect_session()
             sess = self._session
             if sess is None:
                 raise RuntimeError("no session")
+            sent = True
             code, response = sess.write(path_segs, body, timeout=self._POST_TIMEOUT_S)
             self._log.info("PUT %s → code %#04x", write_href, code)
             return code, response
@@ -2664,8 +2839,18 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         async with self._session_lock:
             try:
                 code, response = await self.hass.async_add_executor_job(_do_put)
+            except AuthRejected as e:
+                await self._async_auth_rejected(e)
             except Exception as e:
-                self._log.warning("command failed for %s, reconnecting: %s", write_href, e)
+                unconfirmed = sent and not idempotent and isinstance(e, TimeoutError)
+                if unconfirmed:
+                    self._log.warning(
+                        "no answer to %s; not re-sending it, since it may already have run: %s",
+                        write_href,
+                        e,
+                    )
+                else:
+                    self._log.warning("command failed for %s, reconnecting: %s", write_href, e)
                 await self.hass.async_add_executor_job(self._close_session)
                 # The session is dead the moment it's closed, so any OBSERVE
                 # subscriptions on it are too -- downgrade here, before the
@@ -2676,9 +2861,17 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 if self._observe.mode == MODE_OBSERVE:
                     self._observe.downgrade_to_poll()
                     self._resubscribe_due = True
+                if unconfirmed:
+                    raise HomeAssistantError(
+                        translation_domain=DOMAIN,
+                        translation_key="command_unconfirmed",
+                        translation_placeholders={"href": write_href},
+                    ) from e
                 await asyncio.sleep(self._RECONNECT_PAUSE_S)
                 try:
                     code, response = await self.hass.async_add_executor_job(_do_put)
+                except AuthRejected as e2:
+                    await self._async_auth_rejected(e2)
                 except Exception as e2:
                     self._log.error("command failed for %s after reconnect: %s", write_href, e2)
                     raise HomeAssistantError(
@@ -2696,6 +2889,18 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 translation_key="command_refused",
                 translation_placeholders={"href": write_href, "error": _refusal(code, response)},
             )
+
+    async def _async_auth_rejected(self, err: AuthRejected) -> NoReturn:
+        """A write the 8888 bridge refused with a 401: the device token is
+        no longer accepted. Retrying with the same token cannot help, so
+        start reauthentication -- what a poll's 401 already does -- and
+        say so."""
+        await self.hass.async_add_executor_job(self._close_session)
+        self._entry.async_start_reauth(self.hass)
+        raise ConfigEntryAuthFailed(
+            translation_domain=DOMAIN,
+            translation_key="command_auth_rejected",
+        ) from err
 
     # ------------------------------------------------------------------
     # Oven and microwave cook start (issue #473). See cook.py.
@@ -2819,7 +3024,7 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 translation_placeholders=err.placeholders,
             ) from err
         self._log.info("holding %s=%r until the cook starts", param, value)
-        self._canonical_cache.clear()
+        self._invalidate_canonical()
         self._publish_data()
 
     async def async_start_cooking(
@@ -2873,9 +3078,9 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # No readback after the write: smartthings-local found the
         # fetch-back itself is what reverts some boards, and neither
         # measured start had one.
-        await self._async_put(path, body, "/" + "/".join(path))
+        await self._async_put(path, body, "/" + "/".join(path), idempotent=False)
         held.clear()
-        self._canonical_cache.clear()
+        self._invalidate_canonical()
         await self.async_request_refresh()
 
     # ------------------------------------------------------------------

@@ -1190,6 +1190,20 @@
           "poll": "Polling"
         }
       },
+      "last_response": {
+        "name": "Last response"
+      },
+      "filter_activity": {
+        "name": "Filter activity",
+        "state": {
+          "none": "Idle",
+          "filtering": "Filtering",
+          "bypassing": "Bypassing",
+          "waiting": "Waiting",
+          "stopping": "Stopping",
+          "sensing": "Sensing"
+        }
+      },
       "cooktop_running_state": {
         "name": "Cooktop running state"
       },
@@ -1632,6 +1646,21 @@
       },
       "burner_pan_size": {
         "name": "Burner {number} pan size"
+      },
+      "cooktop_timer_remaining": {
+        "name": "Timer Remaining"
+      },
+      "cooktop_timer_status": {
+        "name": "Timer Status"
+      },
+      "cooktop_ring_size": {
+        "name": "Burner {number} Ring Size",
+        "state": {
+          "idle": "Idle",
+          "single": "Single",
+          "dual": "Dual",
+          "triple": "Triple"
+        }
       }
     },
     "switch": {
@@ -2039,6 +2068,10 @@
         "data": {
           "device_token": "Device token (leave empty to request one)"
         }
+      },
+      "reconfigure_certificate": {
+        "title": "Accept a new appliance certificate?",
+        "description": "The appliance at {host} presented a different security certificate than the one this entry was set up with. Nothing has been sent to it yet.\n\nRecorded certificate:\n{old_fingerprint}\n\nCertificate presented now:\n{new_fingerprint}\n\nOnly continue if you know this is your appliance (for example after a repair, a reset or a board replacement). Submit to accept the new certificate and send this entry's access token to it; close this dialog to leave the entry unchanged."
       }
     },
     "error": {
@@ -2066,7 +2099,8 @@
       "invalid_token": "The appliance rejected that device token. Leave the field empty to request a new one.",
       "callback_port_in_use": "Port 8889 is already in use on Home Assistant, usually by a token request still waiting. Try again in a minute and a half.",
       "callback_cert_rejected": "The appliance called back on port 8889 but refused Home Assistant's self-signed certificate. Paste the AC14K_M CA certificate and key so LocalThings can sign one it accepts; the token request then runs again.",
-      "callback_ca_rejected": "The appliance called back on port 8889 but refused the AC14K_M-signed certificate too. Paste a token you obtained another way, and see the Home Assistant log for the handshake error."
+      "callback_ca_rejected": "The appliance called back on port 8889 but refused the AC14K_M-signed certificate too. Paste a token you obtained another way, and see the Home Assistant log for the handshake error.",
+      "certificate_changed": "The appliance at this address presented a different security certificate than the one this entry was set up with, so nothing was sent to it. If it is the same appliance after a repair or reset, use Reconfigure, which shows the new certificate for you to accept."
     },
     "abort": {
       "already_configured": "Device is already configured",
@@ -2166,7 +2200,8 @@
       "empty_payload": "Enter at least one field to write.",
       "write_failed": "The write failed. Check the Home Assistant logs for details.",
       "cloud_course_name_duplicate": "Two cycles have the same name. Names must be unique.",
-      "cloud_course_unknown_course": "That course isn't one this appliance offers. Pick one from the list."
+      "cloud_course_unknown_course": "That course isn't one this appliance offers. Pick one from the list.",
+      "security_resource": "OCF security resources (/oic/sec/...) can't be written from here: a write there can break local control in a way Home Assistant cannot undo."
     },
     "abort": {
       "not_loaded": "This device isn't connected yet. Try again once it has loaded."
@@ -2183,6 +2218,14 @@
     "cloud_courses_undiscovered": {
       "title": "Downloaded cycles not set up for {device_name}",
       "description": "{device_name} has {pending} of {total} downloaded cycle(s) that Home Assistant can't offer yet. A downloaded cycle can only be used once the appliance has been seen with it loaded -- in the SmartThings app's \"Download cycles\" screen, not the \"Cycle\" one -- and you've given it a name.\n\nTo set them up, go to Settings > Devices & Services > LocalAppliances > {device_name} > Configure > Download cycles and follow the instructions there.\n\nDon't use downloaded cycles? Go to Configure > Device settings instead and turn off \"Offer downloaded cycles\" to silence this reminder for good."
+    },
+    "device_identity_mismatch": {
+      "title": "A different appliance is answering for {device_name}",
+      "description": "The appliance at {host} accepted this entry's credential but identified itself as a different appliance, so LocalThings has stopped using it. This usually means the appliance moved to a new address and another one now has the old address. Open this entry in Settings > Devices & Services and use Reconfigure to point it at the right address. This notice clears on its own once the right appliance answers."
+    },
+    "appliance_certificate_changed": {
+      "title": "{device_name} presented a different security certificate",
+      "description": "Whatever answered at {host} presented a different security certificate than the appliance did when it was set up, so LocalThings has stopped talking to it and has not sent it the appliance's access token. Another device may have taken the appliance's address. If the appliance moved to a new address, use Reconfigure on this entry (Settings > Devices & Services) to point it there. If it is the same appliance and its certificate changed (for example after a repair or a reset), Reconfigure also accepts the new certificate. This notice clears on its own once the original appliance answers."
     }
   },
   "exceptions": {
@@ -2296,6 +2339,18 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Extra Rinse isn't available on the selected cycle."
+    },
+    "security_resource_write_refused": {
+      "message": "Writing to {href} is refused. OCF security resources (/oic/sec/...) hold the appliance's provisioning and credentials; a write there can break local control in a way Home Assistant cannot undo."
+    },
+    "command_unconfirmed": {
+      "message": "The appliance did not answer the command to {href} in time. It was not sent again, because it may already have run and sending it twice could run it twice. Check the appliance before trying again."
+    },
+    "command_auth_rejected": {
+      "message": "The appliance refused this entry's device token. Re-authenticate the entry from Settings > Devices & Services to get a new one."
+    },
+    "security_credential_read_refused": {
+      "message": "Reading {href} is refused: it holds the appliance's credentials, which should never leave Home Assistant."
     }
   },
   "selector": {

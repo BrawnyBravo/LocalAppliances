@@ -40,6 +40,14 @@ def test_kids_lock_vs_value_fn():
     assert desc.value_fn("Ready") is True
 
 
+def test_kids_lock_with_no_reading_is_unknown():
+    """An empty kids-lock rep (issue #626's filter reports /kidslock/0 as {})
+    reads unknown, not unlocked on the OCF href or locked on the vendor one."""
+    assert common.KIDS_LOCK_GENERIC.entities[0].value_fn(None) is None
+    assert common.KIDS_LOCK_VS_FALLBACK.entities[0].value_fn(None) is None
+    assert common.KIDS_LOCK_GENERIC.entities[0].value_fn(False) is True
+
+
 def test_common_caps_discover_on_dishwasher(dishwasher_resources):
     bound = discover(dishwasher_resources, _reg())
     keys = {b.desc.key for b in bound}
@@ -825,3 +833,51 @@ def test_filter_reset_survives_the_resources_aware_write_call(capability, key, h
         [s for s in href.strip("/").split("/") if s],
         {"x.com.samsung.da.filterReset": "On"},
     )
+
+
+def test_percent_or_none_drops_negative_sentinels():
+    from custom_components.localthings.registry.capabilities import common
+
+    assert common.percent_or_none("-1") is None
+    assert common.percent_or_none(-1) is None
+    assert common.percent_or_none("0") == 0
+    assert common.percent_or_none("100") == 100
+    assert common.percent_or_none(None) is None
+    assert common.percent_or_none("bogus") is None
+    assert common.filter_usage_percent({"x.com.samsung.da.filterUsage": "-1"}) is None
+
+
+def test_every_filter_usage_sensor_reads_a_negative_as_unknown():
+    """Every percent filter-usage sensor maps the "-1" sentinel to unknown,
+    not a -1 % reading in long-term statistics."""
+    from custom_components.localthings.registry.capabilities import (
+        air_purifier,
+        airconditioner,
+        common,
+        fridge,
+        range_hood,
+    )
+
+    rep = {"x.com.samsung.da.filterUsage": "-1", "x.com.samsung.da.filterCapacity": "500"}
+    caps = (
+        common.WATER_FILTER,
+        fridge.AIR_FILTER,
+        fridge.DEODOR_FILTER,
+        range_hood.HOOD_FILTER,
+        airconditioner.AIR_FILTER,
+        airconditioner.AIR_FILTER_PM1,
+        air_purifier.HEPA_FILTER,
+    )
+    checked = 0
+    for cap in caps:
+        for desc in cap.entities:
+            if getattr(desc, "unit", None) != "%" or not desc.key.endswith("usage"):
+                continue
+            if desc.rep_fn is not None:
+                value = desc.rep_fn(rep)
+            else:
+                assert desc.field == "x.com.samsung.da.filterUsage", desc.key
+                value = desc.value_fn(rep[desc.field])
+            assert value is None, desc.key
+            checked += 1
+    assert checked >= len(caps)

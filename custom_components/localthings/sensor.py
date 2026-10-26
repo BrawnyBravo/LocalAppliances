@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import cast
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
+from homeassistant.components.sensor import (
+    RestoreSensor,
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
@@ -20,7 +25,7 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import LocalThingsCoordinator
-from .entity import LocalThingsEntity, _is_included
+from .entity import LocalThingsEntity, _is_included, async_migrate_subdevice_case
 from .observe import MODE_OBSERVE, MODE_POLL
 from .registry.entities import SensorDesc
 
@@ -31,12 +36,14 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: LocalThingsCoordinator = hass.data[DOMAIN][entry.entry_id]
+    async_migrate_subdevice_case(hass, entry, coordinator)
     entities: list[SensorEntity] = [
         LocalThingsSensor(coordinator, b)
         for b in coordinator.bound
         if isinstance(b.desc, SensorDesc) and _is_included(b, coordinator)
     ]
     entities.append(LocalThingsConnectionModeSensor(coordinator))
+    entities.append(LocalThingsLastResponseSensor(coordinator))
     async_add_entities(entities)
 
 
@@ -205,3 +212,42 @@ class LocalThingsConnectionModeSensor(CoordinatorEntity[LocalThingsCoordinator],
     @property
     def native_value(self) -> str:
         return self.coordinator.observe_mode
+
+
+class LocalThingsLastResponseSensor(CoordinatorEntity[LocalThingsCoordinator], RestoreSensor):
+    """When the appliance last answered a poll or sent a notification (issue
+    #648). Entities keep their last values while it is unreachable (issue
+    #295), so this is how an automation tells stale values from live ones.
+    Stays available, and is restored across a restart, for the same reason;
+    disabled by default like the connection-mode sensor."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "last_response"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def __init__(self, coordinator: LocalThingsCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{DOMAIN}_{coordinator.device_key}_last_response"
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        # A restart while the appliance is dark would otherwise read unknown
+        # next to entities rehydrated with stale values.
+        if self.coordinator.last_response is None:
+            last = await self.async_get_last_sensor_data()
+            if last is not None and isinstance(last.native_value, datetime):
+                self.coordinator.last_response = last.native_value
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return self.coordinator.device_info
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    @property
+    def native_value(self) -> datetime | None:
+        return self.coordinator.last_response

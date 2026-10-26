@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import datetime
+import functools
 import http.client
 import ipaddress
 import json
@@ -12,9 +13,11 @@ import logging
 import re
 import socket
 import ssl
+import threading
 import time
 from collections.abc import Callable, Mapping
 from typing import Any
+from uuid import UUID
 
 import voluptuous as vol
 from homeassistant import config_entries
@@ -57,6 +60,7 @@ from .const import (
     CONF_LEAF_CERT_PEM,
     CONF_LEAF_KEY_PEM,
     CONF_LEARN_MODES,
+    CONF_LEGACY_CERT_SHA256,
     CONF_LEGACY_FAMILY,
     CONF_MAC,
     CONF_MANUFACTURER,
@@ -82,6 +86,7 @@ from .const import (
     TRANSPORT_LEGACY_HTTP,
 )
 from .credentials import (
+    ApplianceCertificateMismatch,
     DeviceBinding,
     InvalidCredentialConfig,
     PskIdentityZeroByte,
@@ -264,10 +269,29 @@ class LegacyHttpFamily(Exception):
     """
 
 
+def _uuid_in_subject_value(value: str) -> str | None:
+    """The `uuid:<...>` in a certificate subject value, only if it is a
+    well-formed UUID; anything else is treated as not found rather than
+    minted into a leaf the appliance would just reject."""
+    for m in re.finditer(r"uuid:([0-9a-f-]+)", value, re.IGNORECASE):
+        try:
+            UUID(m.group(1))
+        except ValueError:
+            continue
+        return m.group(1)
+    return None
+
+
 def _fetch_samsung_uuid() -> str:
     """Connect to Samsung's cloud gateway and extract the UUID from its TLS
     cert. Verification is disabled: Samsung's chain has a self-signed cert,
-    and we only need to read the UUID from the subject, not verify trust."""
+    and we only need to read the UUID from the subject, not verify trust.
+
+    Trust assumption: this reads from an unauthenticated peer, so something
+    on the network path could hand back a different UUID. The worst it can
+    do is make first-time setup fail -- a leaf minted for the wrong UUID is
+    refused by the appliance like any other wrong certificate -- and the
+    value is at least checked to be a well-formed UUID before use."""
     from cryptography import x509 as _x509
 
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -283,9 +307,9 @@ def _fetch_samsung_uuid() -> str:
     cert = _x509.load_der_x509_certificate(der)
     for attr in cert.subject:
         if attr.oid == _x509.oid.NameOID.ORGANIZATIONAL_UNIT_NAME and isinstance(attr.value, str):
-            m = re.search(r"uuid:([0-9a-f-]+)", attr.value, re.IGNORECASE)
-            if m:
-                return m.group(1)
+            found = _uuid_in_subject_value(attr.value)
+            if found:
+                return found
     raise RuntimeError(f"UUID not found in {_SAMSUNG_CLOUD_HOST} certificate subject")
 
 
@@ -429,8 +453,25 @@ def _mint_self_signed(uuid: str) -> tuple[str, str]:
     return fullchain_pem, leaf_key_pem
 
 
-def _probe_legacy(host: str, cert_pem: str, key_pem: str, token: str) -> dict:
+def _legacy_fingerprint(host: str, cert_pem: str, key_pem: str) -> str | None:
+    """The 8888 appliance's certificate fingerprint, from a handshake that
+    sends nothing -- in particular no device token."""
+    from .legacy_http_transport import fetch_peer_fingerprint
+
+    try:
+        return fetch_peer_fingerprint(host, LEGACY_HTTP_PORT, cert_pem, key_pem)
+    except (OSError, http.client.HTTPException) as err:
+        raise CannotConnect(f"{host}:{LEGACY_HTTP_PORT} did not answer: {err}") from err
+
+
+def _probe_legacy(
+    host: str, cert_pem: str, key_pem: str, token: str, pinned: str | None = None
+) -> dict:
     """Read identity over the 8888 bridge, in the shape _create_entry wants.
+
+    `pinned` is the certificate fingerprint the peer must present before the
+    token is sent (ApplianceCertificateMismatch otherwise); None trusts the
+    first certificate that answers, which the result reports.
 
     Two passes, because the family that picks the envelope table is itself
     read from the appliance: identity first, then the device through its
@@ -442,15 +483,24 @@ def _probe_legacy(host: str, cert_pem: str, key_pem: str, token: str) -> dict:
 
     def _read(family: str | None) -> dict:
         transport = LegacyHttpTransport(
-            host, LEGACY_HTTP_PORT, cert_pem=cert_pem, key_pem=key_pem, token=token, family=family
+            host,
+            LEGACY_HTTP_PORT,
+            cert_pem=cert_pem,
+            key_pem=key_pem,
+            token=token,
+            family=family,
+            cert_fingerprint=pinned,
         )
         transport.connect()
         try:
-            return _read_device(transport, host, LEGACY_HTTP_PORT)
+            info = _read_device(transport, host, LEGACY_HTTP_PORT)
         except (OSError, http.client.HTTPException) as err:
             raise CannotConnect(f"{host}:{LEGACY_HTTP_PORT} did not answer: {err}") from err
         finally:
             transport.close()
+        # The certificate that just answered with this token: pinned on the
+        # entry so later connections refuse any other (trust on first use).
+        return {**info, "legacy_cert_sha256": pinned or transport.learned_cert_fingerprint}
 
     info = _read(None)
     family = info.get("description", "")
@@ -1038,6 +1088,15 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._legacy_step: str = "legacy_token"
         self._legacy_cert_rejected = False
         self._token_task: asyncio.Task[str | None] | None = None
+        # 8888 certificate pinning: the pin a reauth must match, and on
+        # Reconfigure the (host, fingerprint) of a changed certificate --
+        # pending until the user confirms it, then accepted.
+        self._legacy_pin: str | None = None
+        # Set when the flow is closed, to end a running token exchange and
+        # free its callback port (see async_remove).
+        self._token_stop = threading.Event()
+        self._pending_cert: tuple[str, str | None] | None = None
+        self._accepted_cert: tuple[str, str | None] | None = None
         # Set only on the PSK branch: the imported credential as it is
         # stored, and what plaintext doxm hinted before the menu.
         self._psk: dict[str, str] | None = None
@@ -1108,6 +1167,11 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_TRANSPORT: TRANSPORT_LEGACY_HTTP,
                         CONF_DEVICE_TOKEN: self._legacy_token,
                         CONF_LEGACY_FAMILY: info.get("description", ""),
+                        **(
+                            {CONF_LEGACY_CERT_SHA256: info["legacy_cert_sha256"]}
+                            if info.get("legacy_cert_sha256")
+                            else {}
+                        ),
                     }
                     if self._legacy_token
                     else {}
@@ -1502,6 +1566,7 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._legacy_leaf = (entry_data[CONF_LEAF_CERT_PEM], entry_data[CONF_LEAF_KEY_PEM])
         self._ca_cert_pem = entry_data.get(CONF_CA_CERT_PEM, "")
         self._ca_key_pem = entry_data.get(CONF_CA_KEY_PEM, "")
+        self._legacy_pin = entry_data.get(CONF_LEGACY_CERT_SHA256)
         self._legacy_step = "reauth_confirm"
         return await self.async_step_reauth_confirm()
 
@@ -1534,9 +1599,36 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_progress_done(next_step_id="legacy_token_received")
 
     async def _request_token(self, cert_pem: str, key_pem: str) -> str | None:
+        if self._legacy_pin is not None:
+            # A reauth of a pinned entry: talk to nothing but the pinned
+            # appliance, not even to ask it for a token.
+            seen = await self.hass.async_add_executor_job(
+                _legacy_fingerprint, self._host, cert_pem, key_pem
+            )
+            if seen != self._legacy_pin:
+                raise ApplianceCertificateMismatch(
+                    f"{self._host} presented a different certificate than this entry pinned"
+                )
         return await self.hass.async_add_executor_job(
-            obtain_device_token, self._host, LEGACY_HTTP_PORT, cert_pem, key_pem
+            functools.partial(
+                obtain_device_token,
+                self._host,
+                LEGACY_HTTP_PORT,
+                cert_pem,
+                key_pem,
+                stop=self._token_stop,
+            )
         )
+
+    @callback
+    def async_remove(self) -> None:
+        """The dialog was closed or the flow aborted: stop a token exchange
+        still waiting on its callback, so port 8889 is released now rather
+        than after its 90 s timeout -- an immediate retry would otherwise
+        fail with callback_port_in_use."""
+        self._token_stop.set()
+        if self._token_task is not None and not self._token_task.done():
+            self._token_task.cancel()
 
     async def async_step_legacy_token_received(
         self, user_input: dict[str, Any] | None = None
@@ -1544,6 +1636,12 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         task, self._token_task = self._token_task, None
         try:
             token = task.result() if task is not None else None
+        except ApplianceCertificateMismatch as err:
+            _LOGGER.warning("Token request to %s refused: %s", self._host, err)
+            return self._legacy_token_form({"base": "certificate_changed"})
+        except CannotConnect as err:
+            _LOGGER.warning("Token request to %s failed: %s", self._host, err)
+            return self._legacy_token_form({"base": "cannot_connect"})
         except CallbackPortUnavailable as err:
             _LOGGER.warning("Token callback port for %s unavailable: %s", self._host, err)
             return self._legacy_token_form({"base": "callback_port_in_use"})
@@ -1572,9 +1670,14 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         assert self._legacy_leaf is not None
         cert_pem, key_pem = self._legacy_leaf
         try:
+            # A reauth checks the entry's pin before the new token is sent;
+            # a new entry has none and trusts its first answer.
             info = await self.hass.async_add_executor_job(
-                _probe_legacy, self._host, cert_pem, key_pem, token
+                _probe_legacy, self._host, cert_pem, key_pem, token, self._legacy_pin
             )
+        except ApplianceCertificateMismatch as exc:
+            _LOGGER.warning("Refusing to send a token to %s: %s", self._host, exc)
+            return self._legacy_token_form({"base": "certificate_changed"})
         except AuthRejected:
             return self._legacy_token_form({"base": "invalid_token"})
         except (CannotConnect, InvalidCA) as exc:
@@ -1588,7 +1691,7 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not _identity_matches(entry, info, self._host):
                 return self._legacy_token_form({"base": "wrong_device"})
             # The leaf too: fallback_ca may have replaced it with a CA-signed one.
-            return self.async_update_reload_and_abort(
+            return self._update_reload_and_abort(
                 entry,
                 data_updates={
                     CONF_DEVICE_TOKEN: token,
@@ -1596,11 +1699,34 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_LEAF_KEY_PEM: key_pem,
                     CONF_CA_CERT_PEM: self._ca_cert_pem,
                     CONF_CA_KEY_PEM: self._ca_key_pem,
+                    # The certificate pin is deliberately kept: a reauth is
+                    # only started by a 401, which a pinned entry can only
+                    # receive from the appliance it pinned. Reconfigure is
+                    # where a changed certificate is accepted.
                 },
             )
         self._legacy_token = token
         info = {**info, "leaf_cert_pem": cert_pem, "leaf_key_pem": key_pem}
         return await self._finish_probe(info, self.hass.config_entries.async_entries(DOMAIN))
+
+    @callback
+    def _update_reload_and_abort(
+        self,
+        entry: config_entries.ConfigEntry,
+        *,
+        data_updates: dict[str, Any],
+        title: str | UndefinedType = UNDEFINED,
+    ) -> ConfigFlowResult:
+        """async_update_reload_and_abort without its reload, which Core
+        2026.12 stops making for an entry with an update listener (issue
+        #647); ours refreshes cloud courses on an options change."""
+        self.hass.config_entries.async_update_entry(
+            entry, title=title, data={**entry.data, **data_updates}
+        )
+        self.hass.config_entries.async_schedule_reload(entry.entry_id)
+        if self.source == config_entries.SOURCE_RECONFIGURE:
+            return self.async_abort(reason="reconfigure_successful")
+        return self.async_abort(reason="reauth_successful")
 
     def _legacy_token_form(self, errors: dict[str, str] | None = None) -> ConfigFlowResult:
         return self.async_show_form(
@@ -1655,16 +1781,22 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         await self.async_set_unique_id(entry.unique_id)
         # The address the title names moves with the entry; one the user has
-        # made their own stays as it is (see _followed_title). Separate from
-        # the update below because `updates` writes entry data only.
-        if (title := _followed_title(entry, discovery_info.ip)) is not UNDEFINED:
-            self.hass.config_entries.async_update_entry(entry, title=title)
-        # Writes the new host and schedules a reload when the address moved.
-        # When it hasn't, the sighting still reloads an entry sitting in
-        # SETUP_RETRY -- Home Assistant's own handling for a discovery
-        # source, and the "this appliance is back on the network" signal a
-        # poll of an unreachable device can't produce (issue #295).
-        self._abort_if_unique_id_configured(updates={CONF_HOST: discovery_info.ip})
+        # made their own stays as it is (see _followed_title).
+        moved = self.hass.config_entries.async_update_entry(
+            entry,
+            title=_followed_title(entry, discovery_info.ip),
+            data={**entry.data, CONF_HOST: discovery_info.ip},
+        )
+        # Reloaded here rather than through `updates=`, which Core 2026.12
+        # stops honouring for an entry with an update listener (issue #647).
+        # A retrying entry reloads even when the address didn't move: the
+        # sighting is the "back on the network" signal a poll can't produce
+        # (issue #295).
+        state = entry.state
+        if state is config_entries.ConfigEntryState.SETUP_RETRY or (
+            moved and state is config_entries.ConfigEntryState.LOADED
+        ):
+            self.hass.config_entries.async_schedule_reload(entry.entry_id)
         return self.async_abort(reason="already_configured")
 
     async def async_step_reconfigure(
@@ -1699,8 +1831,31 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         self._setup_source_port(host),
                     )
                 elif entry.data.get(CONF_TRANSPORT) == TRANSPORT_LEGACY_HTTP:
+                    # The entry's token goes only to the certificate it
+                    # pinned. A different one is shown to the user first,
+                    # from a handshake that sends nothing, and is only used
+                    # once they confirm it.
+                    stored_pin = entry.data.get(CONF_LEGACY_CERT_SHA256)
+                    seen = await self.hass.async_add_executor_job(
+                        _legacy_fingerprint, host, leaf_cert, leaf_key
+                    )
+                    if seen is None and stored_pin is not None:
+                        # Nothing to show the user or pin to: refuse.
+                        raise ApplianceCertificateMismatch(f"{host} presented no certificate")
+                    if (
+                        stored_pin is not None
+                        and seen != stored_pin
+                        and self._accepted_cert != (host, seen)
+                    ):
+                        self._pending_cert = (host, seen)
+                        return await self.async_step_reconfigure_certificate()
                     info = await self.hass.async_add_executor_job(
-                        _probe_legacy, host, leaf_cert, leaf_key, entry.data[CONF_DEVICE_TOKEN]
+                        _probe_legacy,
+                        host,
+                        leaf_cert,
+                        leaf_key,
+                        entry.data[CONF_DEVICE_TOKEN],
+                        seen if seen is not None else stored_pin,
                     )
                     info = {
                         **info,
@@ -1717,6 +1872,10 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         (leaf_cert, leaf_key) if leaf_cert and leaf_key else None,
                         self._setup_source_port(host),
                     )
+            except ApplianceCertificateMismatch:
+                # The certificate changed between the handshake-only check
+                # and the probe: nothing was sent; let the user try again.
+                errors["base"] = "certificate_changed"
             except (LegacyHttpFamily, AuthRejected):
                 # An 8888 appliance where a DTLS one was, or one that refuses
                 # this entry's token: either way not this entry's appliance
@@ -1749,7 +1908,7 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     )
                     errors["base"] = "wrong_device"
                 else:
-                    return self.async_update_reload_and_abort(
+                    return self._update_reload_and_abort(
                         entry,
                         title=_followed_title(entry, host),
                         data_updates={
@@ -1768,6 +1927,15 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                 else {}
                             ),
                             **({CONF_MAC: info["mac"]} if info["mac"] is not None else {}),
+                            # An 8888 entry is re-pinned to the certificate
+                            # that answered this probe: Reconfigure is the
+                            # user-confirmed way to accept a replaced or
+                            # reset appliance's new certificate.
+                            **(
+                                {CONF_LEGACY_CERT_SHA256: info.get("legacy_cert_sha256")}
+                                if entry.data.get(CONF_TRANSPORT) == TRANSPORT_LEGACY_HTTP
+                                else {}
+                            ),
                         },
                     )
 
@@ -1786,6 +1954,41 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 **self._error_placeholders,
             },
         )
+
+    async def async_step_reconfigure_certificate(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Confirm a changed 8888 appliance certificate before trusting it.
+
+        Reached only when the handshake-only check in async_step_reconfigure
+        saw a certificate other than the pinned one; nothing, and in
+        particular not the device token, has been sent to that peer yet.
+        Confirming re-runs the probe pinned to exactly the certificate
+        shown, so a peer that changes again in between is still refused.
+        """
+        entry = self._get_reconfigure_entry()
+        assert self._pending_cert is not None
+        host, seen = self._pending_cert
+        if user_input is not None:
+            self._accepted_cert = self._pending_cert
+            self._pending_cert = None
+            return await self.async_step_reconfigure({CONF_HOST: host})
+        return self.async_show_form(
+            step_id="reconfigure_certificate",
+            data_schema=vol.Schema({}),
+            description_placeholders={
+                "host": host,
+                "old_fingerprint": _fingerprint_text(entry.data.get(CONF_LEGACY_CERT_SHA256)),
+                "new_fingerprint": _fingerprint_text(seen),
+            },
+        )
+
+
+def _fingerprint_text(fingerprint: str | None) -> str:
+    """A SHA-256 fingerprint the way certificate viewers print it."""
+    if not fingerprint:
+        return "(none)"
+    return ":".join(fingerprint[i : i + 2] for i in range(0, len(fingerprint), 2)).upper()
 
 
 def _host_keyed(entry: config_entries.ConfigEntry) -> bool:
@@ -2357,13 +2560,22 @@ class LocalThingsOptionsFlow(config_entries.OptionsFlow):
         if coord is None:
             return self.async_abort(reason="not_loaded")
 
-        if user_input is not None:
-            self._debug_href = user_input["href"]
-            return await self.async_step_debug_edit()
+        from .coordinator import is_security_href
 
-        hrefs = sorted(coord.last_resources.keys())
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if is_security_href(user_input["href"]):
+                # Refused here as well as in the write service, so the panel
+                # says why instead of reporting a generic failed write.
+                errors["href"] = "security_resource"
+            else:
+                self._debug_href = user_input["href"]
+                return await self.async_step_debug_edit()
+
+        hrefs = sorted(h for h in coord.last_resources if not is_security_href(h))
         return self.async_show_form(
             step_id="debug_write",
+            errors=errors,
             data_schema=vol.Schema(
                 {
                     vol.Required("href"): SelectSelector(

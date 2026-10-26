@@ -219,6 +219,7 @@ def obtain_device_token(
     *,
     timeout: float = 90.0,
     listen_address: str | None = None,
+    stop: threading.Event | None = None,
 ) -> str | None:
     """Run the exchange; returns the token, or None if none arrived.
 
@@ -229,7 +230,13 @@ def obtain_device_token(
 
     Raises CallbackCertRejected when the appliance called back but refused
     the handshake: asking again with the same certificate cannot help.
+
+    Setting `stop` ends the exchange early (returning None) and releases the
+    callback port, for a setup dialog that was closed: cancelling the task
+    that awaits this does not stop the thread running it, and the port
+    would otherwise stay bound until the timeout.
     """
+    stop = stop or threading.Event()
     listener = TokenListener(cert_pem, key_pem, peer=socket.gethostbyname(host))
     listener.start()
     try:
@@ -237,7 +244,7 @@ def obtain_device_token(
         context = client_context(cert_pem, key_pem)
         deadline = time.monotonic() + timeout
         while listener.token is None and time.monotonic() < deadline:
-            if listener.handshake_failed:
+            if listener.handshake_failed or stop.is_set():
                 break
             try:
                 status = request_token(host, port, address, context)
@@ -250,9 +257,8 @@ def obtain_device_token(
                 and not listener.handshake_failed
                 and waited < _RETRY_INTERVAL_S
             ):
-                if time.monotonic() >= deadline:
+                if time.monotonic() >= deadline or stop.wait(_ACCEPT_POLL_S):
                     break
-                time.sleep(_ACCEPT_POLL_S)
                 waited += _ACCEPT_POLL_S
         if listener.token is None and listener.handshake_failed:
             raise CallbackCertRejected(f"{host} refused the TLS handshake on its token callback")

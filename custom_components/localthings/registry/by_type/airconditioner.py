@@ -14,18 +14,42 @@ every other AC family, so this registry needs two mutually-exclusive variants
 of that one capability instead of the single shared one every other registry
 uses unconditionally.
 
+common.FILE_TRANSFER is likewise swapped for a copy without its energy
+entity. Every air-conditioner usage file measured so far (ARTIK051_PRAC_20K,
+TP2X_RAC_20K) stores plain Wh in the field the other families store in tenths
+of a kWh, and nothing in the bytes says which. The usage-file decoder tells
+them apart by the third field, but on a new or barely-used head the runtime
+counter there (0, 5, 10 tenths of an hour) looks exactly like a washer's zeros
+or a fridge's month label, and the energy would then read ~100x high into a
+`total_increasing` sensor. Air conditioners report energy through their own
+meter (ENERGY_METER_GENERIC/LEGACY), so dropping the file's copy loses
+nothing; the per-head runtime sensor is kept.
+
 Reuses dishwasher.DIAGNOSIS for /diagnosis/vs/0.
 """
 
+from dataclasses import replace
+
 from ..capabilities import air_purifier, airconditioner, common, dishwasher, ehs, ignored
 from ._base import DeviceRegistry, _build
+
+# The usage file without its energy entity -- see the module docstring.
+FILE_TRANSFER_RUNTIME_ONLY = replace(
+    common.FILE_TRANSFER,
+    entities=tuple(e for e in common.FILE_TRANSFER.entities if e.key != "energy_kwh"),
+)
 
 REGISTRY = DeviceRegistry(
     name="airconditioner",
     capabilities=_build(
         [
             *ignored.IGNORED,
-            *[c for c in common.UNIVERSAL if c is not common.ENERGY_METER],
+            *[
+                c
+                for c in common.UNIVERSAL
+                if c is not common.ENERGY_METER and c is not common.FILE_TRANSFER
+            ],
+            FILE_TRANSFER_RUNTIME_ONLY,
             airconditioner.ENERGY_METER_GENERIC,
             airconditioner.ENERGY_METER_LEGACY,
             dishwasher.DIAGNOSIS,

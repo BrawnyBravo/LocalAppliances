@@ -171,8 +171,13 @@ class ObserveManager:
         self._on_applied = callback
 
     def mark_write_pending(self, href: str, settle_s: float = DEFAULT_SETTLE_S) -> float:
-        """Arm the settle window; returns its deadline."""
-        with self._settle_lock:
+        """Arm the settle window; returns its deadline.
+
+        Taken under `_cache_lock` as well (always cache lock first, then
+        settle lock -- the same order apply() uses), so arming can never
+        land between another thread's settle check and its cache write.
+        """
+        with self._cache_lock, self._settle_lock:
             deadline = time.monotonic() + settle_s
             self._settle_until[href] = deadline
             return deadline
@@ -253,11 +258,18 @@ class ObserveManager:
         second selection from the cache until the first write's guard
         happened to expire, i.e. the exact symptom this guard exists to
         prevent, just relocated to whichever write loses the race.
+
+        The settle check runs inside `_cache_lock`, together with the
+        write it gates. Checked outside it, a notify or sub-poll thread
+        could pass the check, the event loop could then arm the window and
+        apply the optimistic value, and the thread would finally merge its
+        stale rep over that value -- after which the armed window drops
+        every fresh update for tens of seconds.
         """
-        if source != "optimistic" and self._is_settling(href):
-            self.log.debug("dropping %s update for %s (settling)", source, href)
-            return False
         with self._cache_lock:
+            if source != "optimistic" and self._is_settling(href):
+                self.log.debug("dropping %s update for %s (settling)", source, href)
+                return False
             prior = self.cache.get(href) or {}
             merged = dict(rep) if _is_alarms_href(href) else {**prior, **rep}
             # A notify's options[] carries only the tokens that changed (a

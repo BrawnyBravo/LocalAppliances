@@ -21,8 +21,6 @@
     "stick_operation_mode",
     "stick_status",
     "uvc_emitted_time",
-    "uvc_finished_time",
-    "uvc_intensive_mode",
     "uvc_operation_time",
     "uvc_total_operation_time"
   ]

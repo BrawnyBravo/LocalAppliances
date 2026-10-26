@@ -62,3 +62,31 @@ def test_do_not_disturb_uses_true_false_string():
     assert desc.write_fn("On", {}) == (["dnd", "vs", "0"], {"x.com.samsung.da.value": "true"})
     assert desc.write_fn("Off", {}) == (["dnd", "vs", "0"], {"x.com.samsung.da.value": "false"})
     assert _state()["dnd"] is False
+
+
+def test_no_uvc_controls_on_a_station_without_uvc():
+    """This station reports uvcSupport "Off" and uvcIntensive "not
+    supporting": no UV-C intensive switch (a dead control that wrote to a
+    feature the unit lacks) and no permanently-unknown UV-C finished time."""
+    state = _state()
+    assert "uvc_intensive_mode" not in state
+    assert "uvc_finished_time" not in state
+
+
+def test_uvc_switch_kept_where_the_station_reports_it():
+    """The original station (no uvcSupport field, uvcIntensive "Off") keeps
+    both, and a stub rep keeps the not-yet-fetched carve-out."""
+    from custom_components.localthings.registry.capabilities import vacuum_station as vs
+
+    descs = {d.key: d for d in vs.CLEANSTATION_STATUS.entities}
+    resources = _load_device("vacuum_station")
+    rep = resources["/status/cleanstation/vs/0"]
+    stub = {"href": "/status/cleanstation/vs/0"}
+    for key in ("uvc_intensive_mode", "uvc_finished_time"):
+        exists = descs[key].exists_fn
+        assert exists is not None, key
+        assert exists(rep, resources) is True, key
+        assert exists(stub, {}) is True, key
+    intensive = descs["uvc_intensive_mode"].exists_fn
+    assert intensive is not None
+    assert intensive({"x.com.samsung.da.uvcIntensive": "On"}, {})

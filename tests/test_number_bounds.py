@@ -66,3 +66,37 @@ def test_bounds_fn_returning_none_falls_through_to_static_bounds():
         10.0,
         1.0,
     )
+
+
+# ---------------------------------------------------------------------------
+# Slider or box (review L8)
+# ---------------------------------------------------------------------------
+
+
+def test_a_short_range_is_a_slider():
+    from homeassistant.components.number import NumberMode
+
+    desc = NumberDesc(key="level", field="value", native_min=0.0, native_max=10.0, step=1.0)
+    assert _number(desc, {"/temperatures/vs/0": {}}).mode == NumberMode.SLIDER
+
+
+def test_a_wide_range_is_a_box():
+    """A thousand positions cannot be hit reliably on a slider."""
+    from homeassistant.components.number import NumberMode
+
+    desc = NumberDesc(key="minutes", field="value", native_min=0.0, native_max=1000.0, step=1.0)
+    assert _number(desc, {"/temperatures/vs/0": {}}).mode == NumberMode.BOX
+
+
+def test_the_choice_follows_live_bounds():
+    from homeassistant.components.number import NumberMode
+
+    desc = NumberDesc(
+        key="setpoint",
+        field="value",
+        native_min=0.0,
+        native_max=10.0,
+        step=1.0,
+        bounds_fn=lambda rep, resources: (0.0, 600.0, 1.0),
+    )
+    assert _number(desc, {"/temperatures/vs/0": {}}).mode == NumberMode.BOX

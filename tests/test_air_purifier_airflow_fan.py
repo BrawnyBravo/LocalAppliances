@@ -2,6 +2,9 @@
 
 from typing import ClassVar, cast
 
+import pytest
+from homeassistant.components.fan import FanEntityFeature
+
 from custom_components.localthings.coordinator import LocalThingsCoordinator
 from custom_components.localthings.fan import LocalThingsAirflowFan
 from custom_components.localthings.registry.by_type import air_purifier
@@ -48,22 +51,68 @@ def _entity(resources, coordinator=None):
     )
 
 
-def test_power_off_maps_to_zero_percent_and_five_retained_speeds():
+def test_power_off_maps_to_zero_percent_and_three_speeds():
     entity = _entity(_load_device("air_purifier"))
     assert entity.is_on is False
-    assert entity.speed_count == 5
+    assert entity.speed_count == 3
     assert entity.percentage == 0
 
 
-def test_active_codes_map_to_ordered_percentages():
+def test_speeds_map_to_percentages_and_auto_sleep_to_presets():
     """Confirmed via issue #56's second, properly-spaced diagnostics round:
-    /airflow/0's speed is a clean 0-4 code across Auto/Sleep/Low/Medium/High."""
+    /airflow/0's speed is a clean 0-4 code across Auto/Sleep/Low/Medium/High.
+    Only Low/Medium/High are speeds (review L6): Auto and Sleep used to read
+    back as 20% and 40%, and setting 20% chose Auto."""
     resources = _load_device("air_purifier")
     resources["/power/0"]["value"] = True
 
-    for code, expected_percentage in ((0, 20), (1, 40), (2, 60), (3, 80), (4, 100)):
+    for code, percentage, preset in (
+        (0, None, "auto"),
+        (1, None, "sleep"),
+        (2, 33, None),
+        (3, 66, None),
+        (4, 100, None),
+    ):
         resources["/airflow/0"]["speed"] = code
-        assert _entity(resources).percentage == expected_percentage
+        entity = _entity(resources)
+        assert entity.percentage == percentage, code
+        assert entity.preset_mode == preset, code
+    assert entity.preset_modes == ["auto", "sleep"]
+    assert entity.supported_features & FanEntityFeature.PRESET_MODE
+
+
+@pytest.mark.parametrize(("percentage", "code"), [(1, 2), (20, 2), (40, 3), (66, 3), (100, 4)])
+async def test_any_positive_percentage_is_a_real_speed(percentage, code):
+    resources = _load_device("air_purifier")
+    resources["/power/0"]["value"] = True
+    coordinator = _FakeCoordinator(resources)
+
+    await _entity(resources, coordinator).async_set_percentage(percentage)
+
+    assert coordinator.commands[-1][1] == ("speed", code)
+
+
+@pytest.mark.parametrize(("preset", "code"), [("auto", 0), ("sleep", 1)])
+async def test_presets_write_their_speed_code_and_power_on(preset, code):
+    resources = _load_device("air_purifier")
+    resources["/power/0"]["value"] = False
+    coordinator = _FakeCoordinator(resources)
+
+    await _entity(resources, coordinator).async_set_preset_mode(preset)
+
+    assert [payload for _, payload in coordinator.commands] == [
+        ("power", True, "/power/0"),
+        ("speed", code),
+    ]
+
+
+async def test_turn_on_with_a_preset():
+    resources = _load_device("air_purifier")
+    coordinator = _FakeCoordinator(resources)
+
+    await _entity(resources, coordinator).async_turn_on(preset_mode="sleep")
+
+    assert coordinator.commands[-1][1] == ("speed", 1)
 
 
 async def test_power_write_prefers_standard_resource_when_both_exist():
@@ -98,7 +147,7 @@ async def test_set_percentage_writes_raw_speed_code():
     coordinator = _FakeCoordinator(resources)
     entity = _entity(resources, coordinator)
 
-    await entity.async_set_percentage(60)
+    await entity.async_set_percentage(33)
 
     assert coordinator.commands[-1][1] == ("speed", 2)
 

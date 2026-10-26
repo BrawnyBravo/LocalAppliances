@@ -17,9 +17,20 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 
-from .const import CONF_DEVICE_TYPE, CONF_HOST, CONF_PORT, CONF_SERIAL, DOMAIN, PLATFORMS
+from .const import (
+    CONF_DEVICE_TYPE,
+    CONF_HOST,
+    CONF_PORT,
+    CONF_SERIAL,
+    CONF_TRANSPORT,
+    DOMAIN,
+    PLATFORMS,
+    TRANSPORT_LEGACY_HTTP,
+)
 from .coordinator import LocalThingsCoordinator, mode_spec_store, snapshot_store
-from .entity import async_load_instance_names
+from .entity import _is_included, async_load_instance_names
+from .registry.by_type.microfiber_filter import WASHER_ONLY_ENTITIES
+from .registry.capabilities.cooktop import is_legacy_radiant_cooktop
 from .registry.identity import resolve_serial
 from .rekey import rekey_entry
 from .services import async_setup_services
@@ -106,11 +117,12 @@ def _repair_placeholder_keys(hass: HomeAssistant, entry: ConfigEntry, serial: st
 
 # Registries whose Dust/FineDust/SuperFineDust sensors gained pm10/pm25/pm1
 # and a unit in the release that introduced entry version 3. Deliberately
-# not every family reading /sensors/vs/0: range_hood still declares no unit
-# for its identically-named sensors, and relabelling their statistics to
-# µg/m³ would assert a unit those entities don't report. airconditioner's
-# gained a unit later (issue #583) but had no state_class before, so it
-# recorded no statistics to relabel.
+# not every family reading /sensors/vs/0: this is a one-time relabel of the
+# statistics those two families recorded before that release. range_hood's
+# identically-named sensors declared no unit at the time and only gained
+# one later, so they are not part of it; airconditioner's also gained a
+# unit later (issue #583) but had no state_class before, so it recorded no
+# statistics to relabel.
 _PARTICULATE_TYPED_IN_V3 = frozenset({"air_purifier", "air_monitor"})
 
 # unique_id is f"{DOMAIN}_{serial}_{state_key}"; state_key is the descriptor
@@ -249,6 +261,62 @@ def _drop_sensors_superseded_by_selects(hass: HomeAssistant, entry: ConfigEntry)
         ent_reg.async_remove(registry_entry.entity_id)
 
 
+@callback
+def _drop_duplicate_cooktop_timer(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: LocalThingsCoordinator
+) -> None:
+    """Remove the redundant timer entity only where Timer Remaining replaces it."""
+    resources = coordinator.discovery_resources
+    rep = resources.get("/mode/vs/0") or {}
+    if not is_legacy_radiant_cooktop(rep, resources) or not any(
+        bound.desc.key == "main_timer_set" and _is_included(bound, coordinator)
+        for bound in coordinator.bound
+    ):
+        return
+    ent_reg = er.async_get(hass)
+    unique_id = f"{DOMAIN}_{coordinator.device_key}_main_timer_current"
+    entity_id = ent_reg.async_get_entity_id("sensor", DOMAIN, unique_id)
+    old = ent_reg.async_get(entity_id) if entity_id else None
+    if old is None or old.config_entry_id != entry.entry_id:
+        return
+    # NZ36K7570R reports the same countdown in both fields; retaining the
+    # registry row would leave an unavailable duplicate after this upgrade.
+    _LOGGER.info(
+        "Removing %s, superseded by Timer Remaining on the same cooktop; "
+        "update any automation or dashboard that referenced it",
+        old.entity_id,
+    )
+    ent_reg.async_remove(old.entity_id)
+
+
+@callback
+def _drop_washer_entities_from_filters(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: LocalThingsCoordinator
+) -> None:
+    """Drop the washer rows a microfiber filter kept from #475's routing.
+
+    Runs on every setup for the same reason as
+    _drop_sensors_superseded_by_selects: idempotent, and a version bump would
+    fail the whole entry on a downgrade. Gated on the device type, since
+    every key here is real on a washer. The keys are derived from the two
+    registries, so a washer entity added later is covered too.
+    """
+    if coordinator.device_type_name != "microfiber_filter":
+        return
+    ent_reg = er.async_get(hass)
+    prefix = f"{DOMAIN}_{coordinator.device_key}_"
+    for registry_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+        key = registry_entry.unique_id.removeprefix(prefix)
+        if (registry_entry.domain, key) not in WASHER_ONLY_ENTITIES:
+            continue
+        _LOGGER.info(
+            "Removing %s, which a microfiber filter has no hardware for; "
+            "update any automation or dashboard that referenced it",
+            registry_entry.entity_id,
+        )
+        ent_reg.async_remove(registry_entry.entity_id)
+
+
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate an entry to the current version.
 
@@ -326,70 +394,83 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     coordinator = LocalThingsCoordinator(hass, entry)
 
-    # Before the first refresh, so the coordinator keeps rescheduling even
-    # when that refresh fails and leaves nothing subscribed: the base class
-    # only re-arms its timer while it has listeners, and an offline load can
-    # legitimately have zero live entities (every one of them disabled, say).
-    # Without this the entry loads once and never polls again (issue #295).
-    entry.async_on_unload(coordinator.async_add_listener(lambda: None))
-    await coordinator.async_load_mode_specs()
-
+    # Any failure from here on leaves the entry in a setup error, and Home
+    # Assistant only runs the async_on_unload callbacks -- not
+    # async_unload_entry -- so the coordinator would keep its session (and
+    # its DTLS reader / observe threads) open and stay in hass.data, where
+    # the raw services could still route writes to it. A later reload would
+    # then open a second session from the same fixed source port, tearing
+    # down the first one's peer on the appliance. Close it and forget it.
     try:
-        await coordinator.async_config_entry_first_refresh()
-    except ConfigEntryNotReady:
-        # An entry that has polled successfully before comes up on its last
-        # known entity set and keeps retrying on the normal poll interval,
-        # rather than sitting in setup-retry with a device that reads as
-        # broken and entities that exist only as registry rows (issue #295).
+        # Before the first refresh, so the coordinator keeps rescheduling even
+        # when that refresh fails and leaves nothing subscribed: the base class
+        # only re-arms its timer while it has listeners, and an offline load can
+        # legitimately have zero live entities (every one of them disabled, say).
+        # Without this the entry loads once and never polls again (issue #295).
+        entry.async_on_unload(coordinator.async_add_listener(lambda: None))
+        await coordinator.async_load_mode_specs()
+
+        try:
+            await coordinator.async_config_entry_first_refresh()
+        except ConfigEntryNotReady:
+            # An entry that has polled successfully before comes up on its last
+            # known entity set and keeps retrying on the normal poll interval,
+            # rather than sitting in setup-retry with a device that reads as
+            # broken and entities that exist only as registry rows (issue #295).
+            #
+            # An entry that has never reached the device has no snapshot, so
+            # there is nothing to show and no device metadata to name it with --
+            # that case still fails, which is also what keeps the door open for
+            # setup flows that need to interact with the device (issue #168).
+            if not await coordinator.async_rehydrate():
+                raise
+
+        hass.data[DOMAIN][entry.entry_id] = coordinator
+
+        # Send the DTLS close_notify on Core shutdown, not just on unload (issue
+        # #254): HA doesn't unload entries on a plain Core restart, so a restart
+        # left the previous run's association orphaned, making the next
+        # handshake time out. Complements the fixed source port, which covers
+        # the unclean-exit case this can't.
         #
-        # An entry that has never reached the device has no snapshot, so
-        # there is nothing to show and no device metadata to name it with --
-        # that case still fails, which is also what keeps the door open for
-        # setup flows that need to interact with the device (issue #168).
-        if not await coordinator.async_rehydrate():
+        # A coroutine listener, not one that spawns its own task: the event bus
+        # runs it as a hass-tracked job, awaited by `async_block_till_done()`
+        # inside `hass.async_stop`. A detached task would likely be cancelled
+        # mid-shutdown -- the exact case this exists to prevent.
+        async def _async_close_on_stop(_event: Event) -> None:
             await coordinator.async_close()
-            raise
 
-    hass.data[DOMAIN][entry.entry_id] = coordinator
+        entry.async_on_unload(
+            hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, _async_close_on_stop)
+        )
 
-    # Send the DTLS close_notify on Core shutdown, not just on unload (issue
-    # #254): HA doesn't unload entries on a plain Core restart, so a restart
-    # left the previous run's association orphaned, making the next
-    # handshake time out. Complements the fixed source port, which covers
-    # the unclean-exit case this can't.
-    #
-    # A coroutine listener, not one that spawns its own task: the event bus
-    # runs it as a hass-tracked job, awaited by `async_block_till_done()`
-    # inside `hass.async_stop`. A detached task would likely be cancelled
-    # mid-shutdown -- the exact case this exists to prevent.
-    async def _async_close_on_stop(_event: Event) -> None:
+        # Nothing else reacts to an options-flow save (issue #364): the cloud-
+        # courses Repair and canonical-view cache are only refreshed from
+        # _on_cloud_courses_changed, which only runs when a poll/observe
+        # actually reports new data. Without this, turning "Download cycles"
+        # off would leave an already-open Repair sitting there -- and an
+        # already-named program still offered as a cycle -- until the next
+        # unrelated change happened to fire it, indistinguishable from the
+        # toggle not working. Every other option (CONF_LEARN_MODES,
+        # CONF_BYPASS_REMOTE_CONTROL, ...) is read live on its own next use and
+        # has no comparable standing state to refresh, so this listener exists
+        # for cloud courses specifically rather than as a general
+        # options-changed hook. Must be a coroutine function -- HA wraps
+        # whatever an update listener returns in async_create_task, which raises
+        # on a plain callback's None.
+        async def _async_options_updated(_hass: HomeAssistant, _entry: ConfigEntry) -> None:
+            coordinator._on_cloud_courses_changed()
+
+        entry.async_on_unload(entry.add_update_listener(_async_options_updated))
+
+        _drop_duplicate_cooktop_timer(hass, entry, coordinator)
+        _drop_washer_entities_from_filters(hass, entry, coordinator)
+        coordinator.instance_names = await async_load_instance_names(hass)
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    except BaseException:
+        hass.data[DOMAIN].pop(entry.entry_id, None)
         await coordinator.async_close()
-
-    entry.async_on_unload(
-        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, _async_close_on_stop)
-    )
-
-    # Nothing else reacts to an options-flow save (issue #364): the cloud-
-    # courses Repair and canonical-view cache are only refreshed from
-    # _on_cloud_courses_changed, which only runs when a poll/observe
-    # actually reports new data. Without this, turning "Download cycles"
-    # off would leave an already-open Repair sitting there -- and an
-    # already-named program still offered as a cycle -- until the next
-    # unrelated change happened to fire it, indistinguishable from the
-    # toggle not working. Every other option (CONF_LEARN_MODES,
-    # CONF_BYPASS_REMOTE_CONTROL, ...) is read live on its own next use and
-    # has no comparable standing state to refresh, so this listener exists
-    # for cloud courses specifically rather than as a general
-    # options-changed hook. Must be a coroutine function -- HA wraps
-    # whatever an update listener returns in async_create_task, which raises
-    # on a plain callback's None.
-    async def _async_options_updated(_hass: HomeAssistant, _entry: ConfigEntry) -> None:
-        coordinator._on_cloud_courses_changed()
-
-    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
-
-    coordinator.instance_names = await async_load_instance_names(hass)
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+        raise
     return True
 
 
@@ -436,6 +517,12 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """
     await snapshot_store(hass, entry).async_remove()
     await mode_spec_store(hass, entry).async_remove()
+    if entry.data.get(CONF_TRANSPORT) == TRANSPORT_LEGACY_HTTP:
+        from .legacy_http_transport import forget
+
+        # Values held for the next start are kept in memory per address; a
+        # deleted entry's must not resurface if that address is added again.
+        forget(entry.data[CONF_HOST], entry.data[CONF_PORT])
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

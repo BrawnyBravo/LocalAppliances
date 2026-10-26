@@ -68,7 +68,13 @@ def test_unreported_burners_gated_out():
         assert key not in state, key
 
 
-def test_burner_power_level_write_is_read_modify_write():
+def test_burner_power_level_write_sends_only_that_burner():
+    """Deliberately changed from the old read-modify-write test, which
+    asserted every sibling burner's cached level was re-sent. A cache that
+    is a poll behind (a burner turned down or off at the knob since) would
+    have pushed that burner back to its old heat level. The write now names
+    only the burner being changed; the device's state for the rest is left
+    alone."""
     desc = next(
         e
         for e in range_caps.COOKTOP_STATUS.entities
@@ -76,8 +82,8 @@ def test_burner_power_level_write_is_read_modify_write():
     )
     rep = {
         "burnerList": [
-            {"burnerNumber": 0, "powerLevel": "3"},
-            {"burnerNumber": 1, "powerLevel": "0"},
+            {"burnerNumber": 0, "powerLevel": "7", "operationState": "run", "timer": 0},
+            {"burnerNumber": 1, "powerLevel": "0", "operationState": "ready", "timer": 0},
         ]
     }
     assert desc.write_fn is not None
@@ -85,9 +91,18 @@ def test_burner_power_level_write_is_read_modify_write():
     assert result is not None
     path, body = result
     assert path == ["cooktop", "status", "vs", "0"]
-    burners = {b["burnerNumber"]: b["powerLevel"] for b in body["burnerList"]}
-    assert burners[1] == "boost"
-    assert burners[0] == "3"  # sibling burner untouched
+    assert body == {"burnerList": [{"burnerNumber": 1, "powerLevel": "boost"}]}
+    # The cached rep itself is not mutated.
+    assert rep["burnerList"][1]["powerLevel"] == "0"
+
+
+def test_burner_hot_surface_unknown_when_burner_missing_from_list():
+    """A burnerList that doesn't carry this burner (e.g. the one-burner
+    optimistic entry a power write leaves until the next poll) is no
+    evidence the surface is cool."""
+    desc = next(e for e in range_caps.COOKTOP_STATUS.entities if e.key == "burner_0_hot_surface")
+    assert desc.value_fn([{"burnerNumber": 1, "hotSurfaceState": "normal"}]) is None
+    assert desc.value_fn(None) is None
 
 
 def test_burner_power_level_write_rejects_missing_burner():
@@ -154,3 +169,18 @@ def test_probe_status_connected_value_fn():  # issue #86
     desc = next(e for e in range_caps.PROBE_STATUS.entities if e.key == "probe_connected")
     assert desc.value_fn("Connected") is True
     assert desc.value_fn("Disconnected") is False
+
+
+def test_nx58k7850ss_has_no_unbound_hrefs():
+    """Issue #624's Flex Duo range reports the oven's diagnosisStart shape
+    on /diagnosis/vs/0, which raised the coverage repair until the range
+    bound it the way the oven registry does."""
+    from custom_components.localthings.registry.by_type import resolve
+
+    resources = _load_device("range_nx58k7850ss")
+    reg = resolve(resources, device_types=("oic.wk.d", "oic.d.range"))
+    assert reg is not None and reg.name == "range"
+    unbound = []
+    bound = discover(resources, reg.capabilities, reg.pattern_capabilities, log=unbound.append)
+    assert unbound == []
+    assert flatten(bound, resources)["diagnosis_status"] == "ready"

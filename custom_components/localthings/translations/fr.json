@@ -1190,6 +1190,20 @@
           "poll": "Interrogation périodique"
         }
       },
+      "last_response": {
+        "name": "Dernière réponse"
+      },
+      "filter_activity": {
+        "name": "Activité du filtre",
+        "state": {
+          "none": "Inactif",
+          "filtering": "Filtration",
+          "bypassing": "Dérivation",
+          "waiting": "En attente",
+          "stopping": "Arrêt en cours",
+          "sensing": "Détection"
+        }
+      },
       "cooktop_running_state": {
         "name": "État de fonctionnement de la plaque de cuisson"
       },
@@ -1632,6 +1646,21 @@
       },
       "burner_pan_size": {
         "name": "Taille de casserole du foyer {number}"
+      },
+      "cooktop_timer_remaining": {
+        "name": "Temps restant du minuteur"
+      },
+      "cooktop_timer_status": {
+        "name": "État du minuteur"
+      },
+      "cooktop_ring_size": {
+        "name": "Taille du foyer {number}",
+        "state": {
+          "idle": "Inactif",
+          "single": "Simple",
+          "dual": "Double",
+          "triple": "Triple"
+        }
       }
     },
     "switch": {
@@ -2039,6 +2068,10 @@
         "data": {
           "device_token": "Jeton d'appareil (laisser vide pour en demander un)"
         }
+      },
+      "reconfigure_certificate": {
+        "title": "Accepter un nouveau certificat d'appareil ?",
+        "description": "L'appareil à l'adresse {host} a présenté un autre certificat de sécurité que celui avec lequel cette entrée a été configurée. Rien ne lui a encore été envoyé.\n\nCertificat enregistré :\n{old_fingerprint}\n\nCertificat présenté maintenant :\n{new_fingerprint}\n\nNe continuez que si vous savez qu'il s'agit de votre appareil (par exemple après une réparation, une réinitialisation ou un remplacement de carte). Validez pour accepter le nouveau certificat et lui envoyer le jeton d'accès de cette entrée ; fermez cette fenêtre pour laisser l'entrée inchangée."
       }
     },
     "error": {
@@ -2066,7 +2099,8 @@
       "invalid_token": "L'appareil a rejeté ce jeton d'appareil. Laissez le champ vide pour en demander un nouveau.",
       "callback_port_in_use": "Le port 8889 est déjà utilisé sur Home Assistant, généralement par une demande de jeton encore en attente. Réessayez dans une minute et demie.",
       "callback_cert_rejected": "L'appareil a rappelé sur le port 8889 mais a refusé le certificat auto-signé de Home Assistant. Collez le certificat CA AC14K_M et sa clé pour que LocalThings puisse en signer un qu'il accepte ; la demande de jeton sera alors relancée.",
-      "callback_ca_rejected": "L'appareil a rappelé sur le port 8889 mais a également refusé le certificat signé par AC14K_M. Collez un jeton obtenu par un autre moyen, et consultez le journal de Home Assistant pour l'erreur de négociation."
+      "callback_ca_rejected": "L'appareil a rappelé sur le port 8889 mais a également refusé le certificat signé par AC14K_M. Collez un jeton obtenu par un autre moyen, et consultez le journal de Home Assistant pour l'erreur de négociation.",
+      "certificate_changed": "L'appareil à cette adresse a présenté un autre certificat de sécurité que celui avec lequel cette entrée a été configurée ; rien ne lui a donc été envoyé. S'il s'agit du même appareil après une réparation ou une réinitialisation, utilisez Reconfigurer, qui vous montre le nouveau certificat à accepter."
     },
     "abort": {
       "already_configured": "L'appareil est déjà configuré",
@@ -2166,7 +2200,8 @@
       "empty_payload": "Saisissez au moins un champ à écrire.",
       "write_failed": "L'écriture a échoué. Consultez les journaux de Home Assistant pour plus de détails.",
       "cloud_course_name_duplicate": "Deux programmes portent le même nom. Les noms doivent être uniques.",
-      "cloud_course_unknown_course": "Ce programme ne fait pas partie de ceux que propose cet appareil. Choisissez-en un dans la liste."
+      "cloud_course_unknown_course": "Ce programme ne fait pas partie de ceux que propose cet appareil. Choisissez-en un dans la liste.",
+      "security_resource": "Les ressources de sécurité OCF (/oic/sec/...) ne peuvent pas être écrites d'ici : y écrire peut casser le contrôle local d'une manière que Home Assistant ne peut pas annuler."
     },
     "abort": {
       "not_loaded": "Cet appareil n'est pas encore connecté. Réessayez une fois qu'il est chargé."
@@ -2183,6 +2218,14 @@
     "cloud_courses_undiscovered": {
       "title": "Programmes téléchargés non configurés pour {device_name}",
       "description": "{device_name} a {pending} programme(s) téléchargé(s) sur {total} que Home Assistant ne peut pas encore proposer. Un programme téléchargé ne peut être utilisé qu'une fois que l'appareil a été vu avec ce programme chargé — dans l'écran « Programmes téléchargés » de l'application SmartThings, et non dans l'écran « Programme » — et que vous lui avez donné un nom.\n\nPour les configurer, allez dans Paramètres > Appareils et services > LocalAppliances > {device_name} > Configurer > Programmes téléchargés et suivez les instructions.\n\nVous n'utilisez pas de programmes téléchargés ? Allez plutôt dans Configurer > Paramètres de l'appareil et désactivez « Proposer les programmes téléchargés » pour faire taire ce rappel définitivement."
+    },
+    "device_identity_mismatch": {
+      "title": "Un autre appareil répond à la place de {device_name}",
+      "description": "L'appareil à l'adresse {host} a accepté l'identifiant de cette entrée mais s'est présenté comme un autre appareil ; LocalThings a donc cessé de l'utiliser. En général, l'appareil a changé d'adresse et un autre occupe désormais l'ancienne. Ouvrez cette entrée dans Paramètres > Appareils et services et utilisez Reconfigurer pour la diriger vers la bonne adresse. Cet avis disparaît de lui-même dès que le bon appareil répond."
+    },
+    "appliance_certificate_changed": {
+      "title": "{device_name} a présenté un autre certificat de sécurité",
+      "description": "Ce qui a répondu à l'adresse {host} a présenté un autre certificat de sécurité que l'appareil lors de sa configuration ; LocalThings a donc cessé de communiquer avec lui et ne lui a pas envoyé le jeton d'accès de l'appareil. Un autre appareil a peut-être pris son adresse. Si l'appareil a changé d'adresse, utilisez Reconfigurer sur cette entrée (Paramètres > Appareils et services) pour la diriger vers la nouvelle. S'il s'agit du même appareil et que son certificat a changé (par exemple après une réparation ou une réinitialisation), Reconfigurer accepte aussi le nouveau certificat. Cet avis disparaît de lui-même dès que l'appareil d'origine répond."
     }
   },
   "exceptions": {
@@ -2296,6 +2339,18 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Le rinçage supplémentaire n'est pas disponible avec le programme sélectionné."
+    },
+    "security_resource_write_refused": {
+      "message": "L'écriture vers {href} est refusée. Les ressources de sécurité OCF (/oic/sec/...) contiennent le provisionnement et les identifiants de l'appareil ; y écrire peut casser le contrôle local d'une manière que Home Assistant ne peut pas annuler."
+    },
+    "command_unconfirmed": {
+      "message": "L'appareil n'a pas répondu à temps à la commande vers {href}. Elle n'a pas été renvoyée, car elle a peut-être déjà été exécutée et la renvoyer pourrait l'exécuter deux fois. Vérifiez l'appareil avant de réessayer."
+    },
+    "command_auth_rejected": {
+      "message": "L'appareil a refusé le jeton d'appareil de cette entrée. Ré-authentifiez l'entrée depuis Paramètres > Appareils et services pour en obtenir un nouveau."
+    },
+    "security_credential_read_refused": {
+      "message": "La lecture de {href} est refusée : elle contient les identifiants de l'appareil, qui ne doivent jamais quitter Home Assistant."
     }
   },
   "selector": {

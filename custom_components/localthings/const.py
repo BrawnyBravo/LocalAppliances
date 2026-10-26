@@ -29,6 +29,14 @@ TRANSPORT_LEGACY_HTTP = "legacy_http"
 # legacy_http_token.py). Stored on the entry beside the leaf.
 CONF_DEVICE_TOKEN = "device_token"
 
+# SHA-256 of the 8888 appliance's own TLS certificate, recorded the first
+# time it answers (trust on first use). That certificate cannot be validated
+# against any chain (legacy_http_tls.client_context), so this pin is the only
+# thing that stops the device token being sent to whatever else takes the
+# appliance's address. Absent on entries made before it existed; they learn
+# it on their first successful connection.
+CONF_LEGACY_CERT_SHA256 = "legacy_cert_sha256"
+
 # Which envelope table that appliance's responses are read with -- the
 # `description` it reports for itself, e.g. 'TP6X_WASHER'. Recorded even
 # when it names no table this integration knows, so a diagnostics dump

@@ -228,3 +228,46 @@ async def test_raw_read_reports_an_undecodable_body_raw_with_its_real_code(coord
     code, rep, body = await coordinator.async_raw_read("/mode/vs/0")
 
     assert (code, rep, body) == (0x45, {}, b"\x18")
+
+
+@pytest.mark.parametrize(
+    "href", ["/oic/sec/pstat", "/oic/sec/cred", "oic/sec/doxm/", "//OIC/SEC/acl2"]
+)
+async def test_raw_write_refuses_security_resources(coordinator, href) -> None:
+    """OCF security resources hold provisioning and credentials; a write
+    there can break local control for good, so it never reaches the wire."""
+    fake = _FakeRawWriteSession()
+    coordinator._session = fake
+
+    with pytest.raises(ServiceValidationError) as err:
+        await coordinator.async_raw_write(href, {"dos": {"s": 1}})
+
+    assert err.value.translation_key == "security_resource_write_refused"
+    assert fake.post_calls == []
+
+
+async def test_raw_write_refuses_security_resource_inside_a_batch(coordinator) -> None:
+    fake = _FakeRawWriteSession()
+    coordinator._session = fake
+
+    with pytest.raises(ServiceValidationError) as err:
+        await coordinator.async_raw_write_sequence(
+            [
+                {
+                    "href": "/device/0",
+                    "payload": [{"href": "/oic/sec/cred", "rep": {"creds": []}}],
+                }
+            ]
+        )
+
+    assert err.value.translation_key == "security_resource_write_refused"
+    assert fake.post_calls == []
+
+
+async def test_raw_write_still_allows_other_oic_resources(coordinator) -> None:
+    fake = _FakeRawWriteSession(post_code=0x44, get_rep={})
+    coordinator._session = fake
+
+    await coordinator.async_raw_write("/oic/secondary", {"a": 1})
+
+    assert fake.post_calls[0][0] == ["oic", "secondary"]
