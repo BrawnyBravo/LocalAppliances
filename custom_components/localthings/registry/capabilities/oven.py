@@ -242,8 +242,8 @@ def _cook_time_write(p, rep, href=None, resources=None):
     hms = f"{h:02d}:{m:02d}:00"
     body = {"x.com.samsung.da.operationTime": hms}
     model = ((resources or {}).get("/information/vs/0") or {}).get("x.com.samsung.da.modelNum")
-    # The NV51K7770S rejects timer edits that also send remainingTime;
-    # see docs/investigations/oven-running-cook-time.md.
+    # The NV51K7770S answers a running timer edit that also sends
+    # remainingTime with 4.00; operationTime alone is accepted (#662).
     if not (isinstance(model, str) and model.split("|", 1)[0] == "LCD_OV_WALL_16K"):
         body["x.com.samsung.da.remainingTime"] = hms
     return ["operational", "state", "vs", "0"], body

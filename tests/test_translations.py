@@ -427,11 +427,10 @@ def test_confirmed_ww6500_table_00_course_names():
 def test_confirmed_wv9900_table_00_course_names():
     """A live WV9900M's owner selected each cycle and checked its HA raw code.
 
-    Use the WV9900M manual's English/French/Spanish wording where it differs
+    Use the WV9900M manual's French/Spanish wording where it differs
     from the catalog's generic equivalents.
     """
     manual_overrides = {
-        "en": {"9d": "Rinse+Spin"},
         "fr": {
             "91": "Auto-nettoyage",
             "9c": "Grand rendement",
