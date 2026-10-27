@@ -118,6 +118,7 @@ one-token aggregate `PUT /devices/1`, accepted with 204:
 | FanSpeed_2 while off | Accepted, ignored |
 | power On and FanSpeed_2 in one body | Started on Low; the speed was ignored |
 | power On, then FanSpeed_3 0.4 s later | Started, then High |
+| power On while running on Med | Dropped to Low |
 
 The hood is therefore exposed as a fan whose speed is written after power
 On, and a light.

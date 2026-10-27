@@ -254,6 +254,12 @@ def paired_hood_model(resources):
     return model if model and model != "NULL" else None
 
 
+def paired_hood_running(resources):
+    """Whether the paired hood's fan runs; the slot's power is the hood's (#676)."""
+    power = resources.get("/power/vs/0") or {}
+    return str(power.get("x.com.samsung.da.power", "")).lower() == "on"
+
+
 def is_empty_legacy_hood_slot(resources):
     """Recognize the NZ36K7570R's captured, unpaired hood placeholder."""
     options = (resources.get("/mode/vs/0") or {}).get("x.com.samsung.da.options")

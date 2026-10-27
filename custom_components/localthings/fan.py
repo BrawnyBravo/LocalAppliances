@@ -34,7 +34,11 @@ from .registry.capabilities.air_purifier import (
     HREF_WIND_STRENGTH as AIR_PURIFIER_WIND_STRENGTH_HREF,
 )
 from .registry.capabilities.common import option_value
-from .registry.capabilities.cooktop import HOOD_FAN_SPEEDS, PAIRED_HOOD_FAN_KEY
+from .registry.capabilities.cooktop import (
+    HOOD_FAN_SPEEDS,
+    PAIRED_HOOD_FAN_KEY,
+    paired_hood_running,
+)
 from .registry.entities import FanDesc
 
 _LOGGER = logging.getLogger(__name__)
@@ -245,8 +249,7 @@ class LocalThingsPairedHoodFan(LocalThingsEntity, FanEntity):
 
     @property
     def is_on(self) -> bool:
-        power = self._resources.get(POWER_VS_HREF) or {}
-        return str(power.get("x.com.samsung.da.power", "")).lower() == "on"
+        return paired_hood_running(self._resources)
 
     @property
     def percentage(self) -> int | None:
@@ -267,7 +270,9 @@ class LocalThingsPairedHoodFan(LocalThingsEntity, FanEntity):
         if percentage is not None:
             await self.async_set_percentage(percentage)
             return
-        await self.coordinator.async_send_command(self._bound, ("power", True))
+        # Power On drops a running fan back to Low.
+        if not self.is_on:
+            await self.coordinator.async_send_command(self._bound, ("power", True))
 
     async def async_turn_off(self, **kwargs) -> None:
         await self.coordinator.async_send_command(self._bound, ("power", False))

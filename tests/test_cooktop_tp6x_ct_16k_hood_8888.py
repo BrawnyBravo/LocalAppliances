@@ -299,9 +299,18 @@ async def test_a_running_fan_changes_speed_alone_and_turns_off_by_power():
 
     await fan.async_set_percentage(100)
     await fan.async_set_percentage(0)
-    await fan.async_turn_on()
 
-    assert coordinator.commands == [("speed", "4"), ("power", False), ("power", True)]
+    assert coordinator.commands == [("speed", "4"), ("power", False)]
+
+
+async def test_turning_on_sends_power_only_from_off():
+    fan, coordinator = _fan("Off", _SHUTOFF_OPTIONS)
+    await fan.async_turn_on()
+    assert coordinator.commands == [("power", True)]
+
+    fan, coordinator = _fan("On", _BOOST_OPTIONS)
+    await fan.async_turn_on()
+    assert coordinator.commands == []
 
 
 async def test_a_timer_from_off_sends_power_then_the_minutes():

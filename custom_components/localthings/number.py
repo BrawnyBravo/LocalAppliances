@@ -12,10 +12,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN
 from .coordinator import LocalThingsCoordinator
 from .entity import LocalThingsEntity, _is_included
-from .registry.capabilities.cooktop import PAIRED_HOOD_TIMER_KEY
+from .registry.capabilities.cooktop import PAIRED_HOOD_TIMER_KEY, paired_hood_running
 from .registry.entities import NumberDesc
-
-POWER_VS_HREF = "/power/vs/0"
 
 
 async def async_setup_entry(
@@ -128,11 +126,7 @@ class LocalThingsPairedHoodTimer(LocalThingsNumber):
     off, so setting one from off turns the fan on first, the way
     fan.LocalThingsPairedHoodFan sends a speed. Cancelling never does."""
 
-    def _fan_is_on(self) -> bool:
-        power = self._resources.get(POWER_VS_HREF) or {}
-        return str(power.get("x.com.samsung.da.power", "")).lower() == "on"
-
     async def async_set_native_value(self, value: float) -> None:
-        if value > 0 and not self._fan_is_on():
+        if value > 0 and not paired_hood_running(self._resources):
             await self.coordinator.async_send_command(self._bound, ("power", True))
         await self.coordinator.async_send_command(self._bound, ("minutes", value))
