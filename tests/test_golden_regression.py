@@ -753,6 +753,15 @@ def test_registry_reproduces_golden_state_keys_for_induction_cooktop_nv9000d():
     )
 
 
+def test_registry_reproduces_golden_state_keys_for_range_nx60t8311ss_full():
+    """The NX60T8311SS's full 33-href dump (issue #670)."""
+    from tests.conftest import _load_device
+
+    resources = _load_device("range_nx60t8311ss_full")
+    golden = json.loads((GOLDEN / "range_nx60t8311ss_full.json").read_text())
+    assert set(_new_state_keys("range_nx60t8311ss_full", resources)) == set(golden["state_keys"])
+
+
 def test_registry_reproduces_golden_state_keys_for_range_no_info():
     """NE63B8411SS (issue #74) -- reports no oneUiVersion *and* no
     /information/vs/0 at all, so neither for_device nor
@@ -1218,6 +1227,15 @@ def test_registry_reproduces_golden_state_keys_for_air_monitor():
         f"  extra:   {sorted(set(state_keys) - set(golden['state_keys']))}\n"
         f"  missing: {sorted(set(golden['state_keys']) - set(state_keys))}"
     )
+
+
+def test_registry_reproduces_golden_state_keys_for_air_monitor_temperature():
+    """An Air Monitor Plus unit that also reports /temperatures/vs/0 (#683)."""
+    from tests.conftest import _load_device
+
+    resources = _load_device("air_monitor_temperature")
+    golden = json.loads((GOLDEN / "air_monitor_temperature.json").read_text())
+    assert set(_new_state_keys("air_monitor_temperature", resources)) == set(golden["state_keys"])
 
 
 def test_registry_reproduces_golden_state_keys_for_air_purifier_vtww():
