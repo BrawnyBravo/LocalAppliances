@@ -235,12 +235,16 @@ def is_legacy_radiant_cooktop(rep, resources):
 
 
 def is_legacy_hood_slot(resources):
-    """The TP6X cooktop's /device/1, which holds its Bluetooth hood, paired or not."""
+    """The TP6X cooktop's /device/1, which holds its Bluetooth hood, paired or not.
+
+    The description names the board. The board's own modelNum comes from a
+    linked read that a slow cooktop can skip (PR #677), so it only has to
+    agree when present."""
     information = resources.get("/information/vs/0") or {}
     board = str(information.get("x.com.samsung.da.modelNum", "")).split("|", 1)[0]
-    return (
-        board == "TP6X_CT_16K"
-        and information.get("x.com.samsung.da.description") == "TP6X_CT_16K_HOOD"
+    return information.get("x.com.samsung.da.description") == "TP6X_CT_16K_HOOD" and board in (
+        "",
+        "TP6X_CT_16K",
     )
 
 

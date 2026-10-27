@@ -16,6 +16,7 @@ from custom_components.localthings.fan import LocalThingsPairedHoodFan
 from custom_components.localthings.legacy_http import TP6X_CT, to_resources
 from custom_components.localthings.legacy_http_transport import (
     LegacyHttpTransport,
+    _with_record_description,
     _with_record_name,
 )
 from custom_components.localthings.number import LocalThingsPairedHoodTimer
@@ -29,6 +30,7 @@ from custom_components.localthings.registry.entities import FanDesc, LightDesc, 
 from custom_components.localthings.registry.subdevices import Subdevice
 from tests.conftest import _discover_full, _load_device_full
 from tests.test_coordinator_cook_start import bare_coordinator  # noqa: F401
+from tests.test_legacy_http_transport import _FakeConnection
 
 NAME = "cooktop_tp6x_ct_16k_hood_8888"
 FIXTURE = json.loads(
@@ -450,3 +452,54 @@ def test_the_platforms_find_the_hood_by_its_capabilities():
 
     assert fan.capability is LEGACY_HOOD_POWER
     assert timer.capability is LEGACY_HOOD_MODE
+
+
+# On 2026-10-27 the reporter's cooktop took 4 to 14 s a request, so the hood's
+# 10 s budget went on /devices and both linked reads were skipped. With no
+# Information the slot bound as a second cooktop. Its record still says what
+# it is.
+def test_a_hood_whose_linked_reads_time_out_still_binds_as_a_hood(monkeypatch):
+    monkeypatch.setattr("custom_components.localthings.legacy_http_transport._STATE", {})
+    monkeypatch.setattr(
+        "custom_components.localthings.legacy_http_transport.http.client.HTTPSConnection",
+        _FakeConnection,
+    )
+    monkeypatch.setattr(
+        "custom_components.localthings.legacy_http_transport.client_context",
+        lambda cert_pem, key_pem: object(),
+    )
+    body = {
+        key: value
+        for key, value in FIXTURE["device_bodies"]["1"].items()
+        if key not in ("Configuration", "Information")
+    }
+    record = {**body, "id": "1", "description": "TP6X_CT_16K_HOOD", "name": "Hood"}
+    _FakeConnection.log = []
+    _FakeConnection.routes = {
+        "/devices": (200, {"Devices": [record]}),
+        "/devices/1/configuration": TimeoutError("timed out"),
+        "/devices/1/information": TimeoutError("timed out"),
+    }
+    transport = LegacyHttpTransport(
+        "10.0.0.7", 8888, cert_pem="CERT", key_pem="KEY", token="tok123456", family="TP6X_CT"
+    )
+    transport.connect()
+
+    code, seed = transport.read(["device", "1"], timeout=10.0)
+
+    assert code == 0x45
+    view = {HOOD.to_canonical(e["href"]): e["rep"] for e in seed}
+    assert view["/information/vs/0"] == {
+        "x.com.samsung.da.description": "TP6X_CT_16K_HOOD",
+        "x.com.samsung.da.deviceName": "Hood",
+    }
+    assert cooktop.is_legacy_hood_slot(view)
+    assert LEGACY_HOOD_POWER.match_fn is not None and LEGACY_HOOD_POWER.match_fn({}, view)
+    assert cooktop.paired_hood_model(view) == "NK9300KM"
+
+
+# A record's description can carry the serial, so only a plain board token
+# stands in for a missing Information.
+@pytest.mark.parametrize("description", ["TP6X_CT_16K_HOOD(0A1B2C3D)", "Hood", "", None])
+def test_only_a_board_token_stands_in_for_information(description):
+    assert _with_record_description({"Mode": {}}, description) == {"Mode": {}}
