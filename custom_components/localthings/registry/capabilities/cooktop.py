@@ -433,13 +433,10 @@ def _hood_light_write(on, rep, href=None):
 
 # ShutOffTimerSet_N sets N minutes and 0 cancels, leaving the fan running,
 # verified on a second NK9300KM (PR #677). It only lands while the fan runs,
-# so number.py sends power On first. Writing ShutOffTimerState_Ready reads
-# back Ready but doesn't stop the countdown, so it isn't used to cancel.
-def _hood_timer_write(payload, rep, href=None):
-    kind, value = payload
-    if kind == "power":
-        return _hood_fan_write(payload, rep)
-    if kind == "minutes" and value == int(value) and 0 <= value <= HOOD_TIMER_MAX_MINUTES:
+# so number.py refuses a timer while it's off. Writing ShutOffTimerState_Ready
+# reads back Ready but doesn't stop the countdown, so it isn't used to cancel.
+def _hood_timer_write(value, rep, href=None):
+    if value == int(value) and 0 <= value <= HOOD_TIMER_MAX_MINUTES:
         return ["mode", "vs", "0"], {"x.com.samsung.da.options": [f"ShutOffTimerSet_{int(value)}"]}
     return None
 

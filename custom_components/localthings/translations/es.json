@@ -374,6 +374,9 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "El aclarado extra no está disponible en el ciclo seleccionado."
+    },
+    "paired_hood_fan_off": {
+      "message": "Encienda el ventilador de la campana extractora antes de programar su temporizador de apagado."
     }
   },
   "entity": {

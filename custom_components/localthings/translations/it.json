@@ -2369,6 +2369,9 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Risciacquo extra non è disponibile per il ciclo selezionato."
+    },
+    "paired_hood_fan_off": {
+      "message": "Accendi la ventola della cappa prima di impostare il timer di spegnimento."
     }
   },
   "selector": {

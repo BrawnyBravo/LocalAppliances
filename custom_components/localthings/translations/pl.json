@@ -2369,6 +2369,9 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Dodatkowe płukanie nie jest dostępne dla wybranego cyklu."
+    },
+    "paired_hood_fan_off": {
+      "message": "Włącz wentylator okapu przed ustawieniem wyłącznika czasowego."
     }
   },
   "selector": {

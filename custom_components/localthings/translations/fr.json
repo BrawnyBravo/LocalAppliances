@@ -2369,6 +2369,9 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Le rinçage supplémentaire n'est pas disponible avec le programme sélectionné."
+    },
+    "paired_hood_fan_off": {
+      "message": "Allumez le ventilateur de la hotte avant de régler sa minuterie d'arrêt."
     }
   },
   "selector": {

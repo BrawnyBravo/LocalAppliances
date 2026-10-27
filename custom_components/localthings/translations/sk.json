@@ -2369,6 +2369,9 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Extra plákanie nie je pri vybranom cykle dostupné."
+    },
+    "paired_hood_fan_off": {
+      "message": "Pred nastavením časovača vypnutia zapnite ventilátor digestora."
     }
   },
   "selector": {

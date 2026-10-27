@@ -2369,6 +2369,9 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Extra máchání není u vybraného cyklu k dispozici."
+    },
+    "paired_hood_fan_off": {
+      "message": "Před nastavením časovače vypnutí zapněte ventilátor digestoře."
     }
   },
   "selector": {

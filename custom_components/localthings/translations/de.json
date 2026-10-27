@@ -2369,6 +2369,9 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Extra Rinse ist bei dem ausgewählten Programm nicht verfügbar."
+    },
+    "paired_hood_fan_off": {
+      "message": "Schalten Sie den Lüfter der Dunstabzugshaube ein, bevor Sie den Abschalttimer einstellen."
     }
   },
   "selector": {

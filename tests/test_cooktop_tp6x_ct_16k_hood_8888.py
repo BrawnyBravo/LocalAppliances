@@ -8,6 +8,9 @@ import json
 from pathlib import Path
 from typing import ClassVar, cast
 
+import pytest
+from homeassistant.exceptions import ServiceValidationError
+
 from custom_components.localthings.coordinator import LocalThingsCoordinator
 from custom_components.localthings.fan import LocalThingsPairedHoodFan
 from custom_components.localthings.legacy_http import TP6X_CT, to_resources
@@ -202,21 +205,17 @@ def test_the_shutoff_timer_writes_one_token():
     assert isinstance(timer, NumberDesc) and timer.write_fn is not None
     assert (timer.native_min, timer.native_max, timer.step) == (0, 99, 1)
 
-    assert timer.write_fn(("minutes", 35.0), {}) == (
+    assert timer.write_fn(35.0, {}) == (
         ["mode", "vs", "0"],
         {"x.com.samsung.da.options": ["ShutOffTimerSet_35"]},
     )
-    assert timer.write_fn(("minutes", 0), {}) == (
+    assert timer.write_fn(0, {}) == (
         ["mode", "vs", "0"],
         {"x.com.samsung.da.options": ["ShutOffTimerSet_0"]},
     )
-    assert timer.write_fn(("power", True), {}) == (
-        ["power", "vs", "0"],
-        {"x.com.samsung.da.power": "On"},
-    )
-    assert timer.write_fn(("minutes", 100), {}) is None
-    assert timer.write_fn(("minutes", -1), {}) is None
-    assert timer.write_fn(("minutes", 2.5), {}) is None
+    assert timer.write_fn(100, {}) is None
+    assert timer.write_fn(-1, {}) is None
+    assert timer.write_fn(2.5, {}) is None
 
 
 class _FakeCoordinator:
@@ -313,12 +312,16 @@ async def test_turning_on_sends_power_only_from_off():
     assert coordinator.commands == []
 
 
-async def test_a_timer_from_off_sends_power_then_the_minutes():
+# A timer the hood would ignore is refused rather than turning the fan on,
+# which a number entity shouldn't do as a side effect (PR #677 review).
+async def test_a_timer_while_the_fan_is_off_is_refused():
     timer, coordinator = _timer("Off", _SHUTOFF_OPTIONS)
 
-    await timer.async_set_native_value(20)
+    with pytest.raises(ServiceValidationError) as err:
+        await timer.async_set_native_value(20)
 
-    assert coordinator.commands == [("power", True), ("minutes", 20)]
+    assert err.value.translation_key == "paired_hood_fan_off"
+    assert coordinator.commands == []
 
 
 async def test_a_running_fan_sets_and_cancels_the_timer_alone():
@@ -327,7 +330,7 @@ async def test_a_running_fan_sets_and_cancels_the_timer_alone():
     await timer.async_set_native_value(99)
     await timer.async_set_native_value(0)
 
-    assert coordinator.commands == [("minutes", 99), ("minutes", 0)]
+    assert coordinator.commands == [99, 0]
 
 
 async def test_cancelling_never_turns_the_fan_on():
@@ -335,7 +338,7 @@ async def test_cancelling_never_turns_the_fan_on():
 
     await timer.async_set_native_value(0)
 
-    assert coordinator.commands == [("minutes", 0)]
+    assert coordinator.commands == [0]
 
 
 def test_the_transport_sends_hood_writes_to_its_slot(monkeypatch):

@@ -2369,6 +2369,9 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Extra Rinse is niet beschikbaar voor het geselecteerde programma."
+    },
+    "paired_hood_fan_off": {
+      "message": "Zet de ventilator van de afzuigkap aan voordat u de uitschakeltimer instelt."
     }
   },
   "selector": {

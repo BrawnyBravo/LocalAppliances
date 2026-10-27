@@ -144,7 +144,9 @@ behaved as above. ShutOffTimerSet_0 with the fan off left it off. A timer of
 and Ready, so Current counts whole minutes rounded up.
 
 The timer is therefore exposed as a number from 0 to 99 minutes, 0
-cancelling, that turns the fan on first when it is off. It reads
+cancelling. Setting it while the fan is off is refused with an error
+rather than turning the fan on, which a number entity shouldn't do as a
+side effect; cancelling always goes through. It reads
 ShutOffTimerCurrent, because ShutOffTimerSet keeps its last value after the
 timer ends.
 
