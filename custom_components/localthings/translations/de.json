@@ -251,6 +251,7 @@
         "state_attributes": {
           "preset_mode": {
             "state": {
+              "auto": "Automatisch",
               "mid": "Mittel",
               "sleep": "Schlaf",
               "smart": "Intelligent",
@@ -821,6 +822,19 @@
           "75": "Feinwäsche",
           "77": "Pflegeleicht",
           "78": "Schnellwäsche",
+          "91": "Selbstreinigung",
+          "94": "Handtücher",
+          "9c": "Intensiv",
+          "9d": "Spülen + Schleudern",
+          "9e": "Pflegeleicht",
+          "9f": "Schnellwäsche",
+          "a2": "Feinwäsche",
+          "a3": "Sportkleidung",
+          "a5": "Bettwäsche",
+          "a9": "Hygienespülung",
+          "aa": "Weißwäsche",
+          "ab": "Eco Kalt",
+          "b1": "Selbstreinigung+",
           "ba": "Abpumpen + Schleudern",
           "d0": "Baumwolle",
           "d1": "Eco Baumwolle",
@@ -2137,6 +2151,7 @@
         "title": "LocalThings-Optionen",
         "menu_options": {
           "settings": "Geräteeinstellungen",
+          "subdevices": "Untergeräte",
           "cloud_courses": "Download-Programme",
           "debug_write": "Debug: In eine Ressource schreiben",
           "forget_learned_modes": "Gemerkte Modi vergessen"
@@ -2150,6 +2165,13 @@
           "finish_time_hysteresis_minutes": "Voraussichtliches Ende -- Mindeständerung (Minuten)",
           "learn_device_modes": "Vom Gerät gemeldete, aber nicht angegebene Modi merken",
           "cloud_courses_enabled": "Heruntergeladene Programme anbieten"
+        }
+      },
+      "subdevices": {
+        "title": "Untergeräte",
+        "description": "Manche Geräte stellen mehr als ein Gerät bereit: jedes Innengerät einer Multi-Split-Anlage oder jeden Garraum eines Doppelbackofens. Andere melden einen zusätzlichen Platz ohne echte Hardware, der als doppeltes oder leeres Gerät erscheint. Entferne das Häkchen bei jedem Untergerät, das zu nichts an deinem Gerät passt. Sein Gerät wird entfernt und die Integration ohne es neu geladen; setze das Häkchen wieder, um es zurückzuholen.",
+        "data": {
+          "enabled_subdevices": "Diese Untergeräte behalten"
         }
       },
       "debug_write": {
