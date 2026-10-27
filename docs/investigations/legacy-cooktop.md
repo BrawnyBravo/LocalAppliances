@@ -148,7 +148,11 @@ cancelling. Setting it while the fan is off is refused with an error
 rather than turning the fan on, which a number entity shouldn't do as a
 side effect; cancelling always goes through. It reads
 ShutOffTimerCurrent, because ShutOffTimerSet keeps its last value after the
-timer ends.
+timer ends. The second reporter found the hood reads back Set_N, Current_N
+and Run within 5 seconds of a write, while Home Assistant kept showing the
+old value for about 45 seconds, until the write's settle window ended. A
+timer write therefore also shows Current_N and Run (or Current_0 and Ready
+when cancelled) in Home Assistant right away. Only Set is sent to the hood.
 
 A 204 and a changed read-back don't prove the hood acted. A few minutes after
 the cooktop was power-cycled, a Lamp_Off/Lamp_On pair did both without the

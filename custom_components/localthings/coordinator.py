@@ -2638,8 +2638,10 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         previous_settle = self._observe.settle_deadline(write_href)
         armed_settle = 0.0
         if not write_only:
-            optimistic_body = body
-            new_options = body.get("x.com.samsung.da.options")
+            optimistic_fn = getattr(desc, "optimistic_fn", None)
+            optimistic_body = optimistic_fn(body) if optimistic_fn else body
+            # From optimistic_body, or the merge drops what optimistic_fn added.
+            new_options = optimistic_body.get("x.com.samsung.da.options")
             if isinstance(new_options, list):
                 cached_options = (self._cache.get(write_href) or {}).get("x.com.samsung.da.options")
                 optimistic_body = {
@@ -2648,7 +2650,7 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 }
             # Same fact, items[] shape (see airconditioner._climate_write's
             # vendor temperature write).
-            new_items = body.get("x.com.samsung.da.items")
+            new_items = optimistic_body.get("x.com.samsung.da.items")
             if isinstance(new_items, list):
                 cached_items = (self._cache.get(write_href) or {}).get("x.com.samsung.da.items")
                 optimistic_body = {

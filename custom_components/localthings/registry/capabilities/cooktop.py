@@ -441,6 +441,25 @@ def _hood_timer_write(value, rep, href=None):
     return None
 
 
+def _hood_timer_optimistic(body):
+    """The hood reports a new timer as running right after the write (#677),
+    and the entity reads Current, so carry it rather than show the old value
+    for the whole settle window."""
+    options = body.get("x.com.samsung.da.options")
+    minutes = _option_value(options, "ShutOffTimerSet")
+    if minutes is None:
+        return body
+    state = "Ready" if minutes == "0" else "Run"
+    return {
+        **body,
+        "x.com.samsung.da.options": [
+            *options,
+            f"ShutOffTimerCurrent_{minutes}",
+            f"ShutOffTimerState_{state}",
+        ],
+    }
+
+
 LEGACY_HOOD_POWER = Capability(
     href="/power/vs/0",
     poll_tier="hot",
@@ -522,6 +541,7 @@ LEGACY_HOOD_MODE = Capability(
             step=1,
             value_fn=lambda options: _int_or_none(_option_value(options, "ShutOffTimerCurrent")),
             write_fn=_hood_timer_write,
+            optimistic_fn=_hood_timer_optimistic,
             exists_fn=_option_present("ShutOffTimerCurrent"),
         ),
     ),

@@ -341,6 +341,33 @@ async def test_cancelling_never_turns_the_fan_on():
     assert coordinator.commands == [0]
 
 
+# The write only carries Set, so the entity, which reads Current, showed the
+# old value until the settle window ended, about 45 s (#677).
+def test_a_timer_write_shows_as_running_right_away():
+    bound, _materialized, _state = _discover()
+    desc = next(b.desc for b in bound if b.desc.key == "paired_hood_shutoff_timer")
+    assert isinstance(desc, NumberDesc)
+    assert desc.write_fn is not None and desc.optimistic_fn is not None
+
+    _path, body = desc.write_fn(5, {})
+    assert body == {"x.com.samsung.da.options": ["ShutOffTimerSet_5"]}
+    assert desc.optimistic_fn(body)["x.com.samsung.da.options"] == [
+        "ShutOffTimerSet_5",
+        "ShutOffTimerCurrent_5",
+        "ShutOffTimerState_Run",
+    ]
+
+    _path, body = desc.write_fn(0, {})
+    assert desc.optimistic_fn(body)["x.com.samsung.da.options"] == [
+        "ShutOffTimerSet_0",
+        "ShutOffTimerCurrent_0",
+        "ShutOffTimerState_Ready",
+    ]
+    assert desc.optimistic_fn({"x.com.samsung.da.options": ["Lamp_On"]}) == {
+        "x.com.samsung.da.options": ["Lamp_On"]
+    }
+
+
 def test_the_transport_sends_hood_writes_to_its_slot(monkeypatch):
     monkeypatch.setattr("custom_components.localthings.legacy_http_transport._STATE", {})
     transport = LegacyHttpTransport(
