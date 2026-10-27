@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from ..capability import Capability
+from ..entities import BinarySensorDesc, SensorDesc
 
 
 @dataclass(frozen=True)
@@ -65,3 +66,20 @@ def exclude_when(cap: Capability, placeholder: Callable[[dict], bool]) -> Capabi
             not placeholder(resources) and (cap.match_fn is None or cap.match_fn(rep, resources))
         ),
     )
+
+
+def read_only_when(cap: Capability, unconfirmed: Callable[[dict], bool]) -> list[Capability]:
+    """`cap` as a control part and a read part, the controls binding nothing
+    on a device `unconfirmed(resources)` recognizes: a family whose writes
+    failed or were never tested keeps its readings. Controls come first, as
+    they do within each capability (a power switch before its read-only
+    twin)."""
+    readings = tuple(d for d in cap.entities if isinstance(d, (SensorDesc, BinarySensorDesc)))
+    controls = tuple(d for d in cap.entities if not isinstance(d, (SensorDesc, BinarySensorDesc)))
+    if not controls:
+        return [cap]
+    match_fn = cap.match_fn or (lambda rep, resources: True)
+    return [
+        exclude_when(dataclasses.replace(cap, entities=controls, match_fn=match_fn), unconfirmed),
+        dataclasses.replace(cap, entities=readings, match_fn=match_fn),
+    ]

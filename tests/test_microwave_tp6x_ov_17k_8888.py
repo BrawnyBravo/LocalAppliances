@@ -20,6 +20,7 @@ from custom_components.localthings.legacy_http import (
 )
 from custom_components.localthings.registry.by_type import resolve
 from custom_components.localthings.registry.discovery import discover
+from custom_components.localthings.registry.entities import BinarySensorDesc, SensorDesc
 from custom_components.localthings.registry.subdevices import Subdevice
 from tests.conftest import _discover_full, _load_device_full
 
@@ -57,7 +58,7 @@ def test_the_microwave_is_the_master_with_nothing_unbound():
 
     assert unbound == []
     keys = {b.desc.key for b in bound}
-    assert {"cooking_mode", "power_level", "current_temp_c", "machine_state", "door_open"} <= keys
+    assert {"power_level", "current_temp_c", "machine_state", "door_open"} <= keys
 
 
 def test_the_oven_is_subdevice_2_and_the_blank_slot_is_skipped():
@@ -68,7 +69,7 @@ def test_the_oven_is_subdevice_2_and_the_blank_slot_is_skipped():
     assert [s.key for s in materialized] == ["2"]
     assert [s.subdevice.key for s in skipped] == ["1"]
     oven_keys = {b.desc.key for b in bound if b.subdevice.key == "2"}
-    assert {"oven_mode", "oven_setpoint", "oven_state", "current_temp_c"} <= oven_keys
+    assert {"oven_state", "machine_state", "current_temp_c"} <= oven_keys
     assert not any(b.subdevice.key == "1" for b in bound)
 
 
@@ -80,6 +81,40 @@ def test_the_oven_offers_its_own_modes():
 
     assert {"Bake", "ConvectionRoast", "SteamBake", "SelfClean"} <= set(modes)
     assert "MicroWave" not in modes
+
+
+def _controls(bound):
+    return {
+        (b.subdevice.key, b.desc.key)
+        for b in bound
+        if not isinstance(b.desc, (SensorDesc, BinarySensorDesc))
+    }
+
+
+def test_no_control_binds_on_either_cavity():
+    """Live on an NQ70M6650DS, every write was answered 204, but a remote start
+    only loaded the cook for Start at the panel, and a setpoint written while
+    idle cleared the mode (#675)."""
+    resources, oic_res, seeds = _load_device_full(NAME)
+
+    bound, _materialized, _skipped, _full, _name = _discover_full(resources, oic_res, seeds)
+
+    assert _controls(bound) == set()
+
+
+def test_the_same_cavities_on_another_board_keep_their_controls():
+    """The gate is this board's, not the oven or microwave registry's."""
+    resources, oic_res, seeds = _load_device_full(NAME)
+    resources, seeds = copy.deepcopy(resources), copy.deepcopy(seeds)
+    model = "LCD_OV_WALL_16K|40401841|"
+    resources["/information/vs/0"][PREFIX + "modelNum"] = model
+    for element in seeds["/device/2"]:
+        if element["href"] == "/information/vs/2":
+            element["rep"][PREFIX + "modelNum"] = model
+
+    bound, _materialized, _skipped, _full, _name = _discover_full(resources, oic_res, seeds)
+
+    assert {("2", "oven_mode"), ("2", "oven_setpoint"), ("2", "start_cooking")} <= _controls(bound)
 
 
 def _slot_1_set(seeds, href, field, value):

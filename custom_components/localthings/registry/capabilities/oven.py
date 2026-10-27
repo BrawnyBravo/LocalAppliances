@@ -197,15 +197,22 @@ def _has_option(prefix):
     )
 
 
+def is_tp6x_ov_board(resources):
+    """The NQ70M6650DS combo's 8888 board (#674). It answers every write
+    `204`, but runs a remote cook only once Start is pressed at the panel,
+    and a setpoint written while idle clears the chosen mode."""
+    information = resources.get("/information/vs/0") or {}
+    board = str(information.get("x.com.samsung.da.modelNum", "")).split("|", 1)[0]
+    return board.startswith("TP6X_OV_")
+
+
 def is_empty_legacy_oven_slot(resources):
     """The blank `/devices/1` the NQ70M6650DS combo's 8888 bridge answers
     between its microwave (0) and oven (2), and leaves out of `/devices`
     (#674): no cavity type, no modes, powered off."""
-    information = resources.get("/information/vs/0") or {}
-    board = str(information.get("x.com.samsung.da.modelNum", "")).split("|", 1)[0]
     mode = resources.get("/mode/vs/0") or {}
     return (
-        board.startswith("TP6X_OV_")
+        is_tp6x_ov_board(resources)
         and _option_value(mode.get("x.com.samsung.da.options"), "DeviceType") == "NULL"
         and not mode.get("x.com.samsung.da.supportedModes")
         and (resources.get("/power/vs/0") or {}).get("x.com.samsung.da.power") == "Off"

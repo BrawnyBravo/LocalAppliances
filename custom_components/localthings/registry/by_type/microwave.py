@@ -31,7 +31,7 @@ NQ7000B): the write contract is the one verified on a TP1X_DA-KS range
 
 from ..capabilities import common, dishwasher, ignored, microwave, oven, range_hood
 from ..capabilities import range as range_caps
-from ._base import DeviceRegistry, _build, exclude_when
+from ._base import DeviceRegistry, _build, exclude_when, read_only_when
 
 REGISTRY = DeviceRegistry(
     name="microwave",
@@ -39,7 +39,7 @@ REGISTRY = DeviceRegistry(
         [
             # The combo's blank middle slot (#674) types as nothing, so it
             # falls back to the master's registry, this one.
-            exclude_when(cap, oven.is_empty_legacy_oven_slot)
+            exclude_when(part, oven.is_empty_legacy_oven_slot)
             for cap in [
                 *ignored.without("/configuration/vs/0"),
                 *common.UNIVERSAL,
@@ -62,6 +62,7 @@ REGISTRY = DeviceRegistry(
                 # reported by the NW9300MD wall combo's microwave cavity (#525).
                 dishwasher.DIAGNOSIS,
             ]
+            for part in read_only_when(cap, oven.is_tp6x_ov_board)
         ]
     ),
 )
