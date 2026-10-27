@@ -200,6 +200,11 @@ FAMILIES: dict[str, tuple[Resource, ...]] = {
     "TP6X_CT": TP6X_CT,
     "TP6X_RAC": TP6X_RAC,
     "LCD_OV_WALL": LCD_OV_WALL,
+    # The NQ70M6650DS microwave/oven combo (#674) reports the Flex Duo's
+    # resources and fields, with the microwave on /devices/0 and the oven on
+    # /devices/2. Read-only: it takes no remote cook start (#675), see
+    # oven.is_tp6x_ov_board.
+    "TP6X_OV": LCD_OV_WALL,
 }
 
 _CAPACITY = re.compile(r"_\d+K$")
