@@ -477,6 +477,7 @@ LEGACY_HOOD_MODE = Capability(
     href="/mode/vs/0",
     poll_tier="hot",
     match_fn=lambda rep, resources: is_legacy_hood_slot(resources),
+    model_fn=paired_hood_model,
     entities=(
         BinarySensorDesc(
             key="paired_hood_connected",

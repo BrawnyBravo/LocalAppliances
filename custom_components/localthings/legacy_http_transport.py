@@ -269,6 +269,7 @@ class LegacyHttpTransport:
                 _LOGGER.debug("%s: %s/%s answered %s", self._host, base, endpoint, linked_status)
         if index:
             bodies = _with_record_description(bodies, record.get("description"))
+            bodies = _with_record_name(bodies, record.get("name"))
         self._state_at(index).last_bodies = bodies
         # Before the modes: a sibling's own listing decides them.
         listed = self._listed_rep(index, devices) if index and devices is not None else None
@@ -670,6 +671,20 @@ def _with_record_description(bodies: dict[str, Any], description: Any) -> dict[s
     if not (description.startswith(own) and _RECORD_SUFFIX.fullmatch(description[len(own) :])):
         return bodies
     return {**bodies, "Information": {**information, "description": description}}
+
+
+def _with_record_name(bodies: dict[str, Any], name: Any) -> dict[str, Any]:
+    """`bodies` with a sibling record's name (`Hood`, #676) on its
+    Information, which otherwise names only the board it shares with the
+    main unit. It names the sibling's type, not anything the owner sets."""
+    if not (isinstance(name, str) and name):
+        return bodies
+    information = bodies.get("Information")
+    if information is None:
+        information = {}
+    if not isinstance(information, dict):
+        return bodies
+    return {**bodies, "Information": {**information, "deviceName": name}}
 
 
 def _resource_bodies(bodies: Mapping[str, Any]) -> dict[str, Any]:

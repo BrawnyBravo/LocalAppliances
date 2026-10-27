@@ -70,7 +70,7 @@ from .registry import CAPABILITIES
 from .registry.adapter import _key, flatten
 from .registry.batch import parse_device0_batch
 from .registry.by_type import resolve as resolve_registry
-from .registry.capabilities import cook, cooktop
+from .registry.capabilities import cook
 from .registry.capabilities.common import (
     REMOTE_CONTROL_HREFS,
     merge_items_field,
@@ -1019,7 +1019,11 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         resources = self.canonical_resources(subdevice)
         info = resources.get("/information/vs/0", {})
         model_num = info.get("x.com.samsung.da.modelNum", "")
-        model = model_num.split("|", 1)[0] if model_num else ""
+        # A subdevice can report the main unit's board as its model, such as
+        # the TP6X cooktop's paired hood (issue #676); its capability knows.
+        model = self._device_model(subdevice, resources) or (
+            model_num.split("|", 1)[0] if model_num else ""
+        )
         serial = info.get("x.com.samsung.da.serialNum") or None
         base_name = self.device_info.get("name") or "Samsung Appliance"
         if cavity := _cavity_label(resources):
@@ -1028,10 +1032,9 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # and the two are indistinguishable in HA. The cavity says which
             # is which, and the device is the one saying it.
             label = cavity
-        elif hood_model := cooktop.paired_hood_model(resources):
-            # The TP6X cooktop's hood slot reports the cooktop's board as its
-            # modelNum (issue #676); the hood names its own model in options.
-            label, model = "Range Hood", hood_model
+        elif reported := info.get("x.com.samsung.da.deviceName"):
+            # An 8888 sibling's own name, such as "Hood" (issue #676).
+            label = reported
         elif model:
             label = model.replace("_", " ").title()
         else:
@@ -1053,6 +1056,14 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         set_via_device(self.hass, self._entry.entry_id, info, (DOMAIN, self.device_key))
         return info
+
+    def _device_model(self, subdevice: Subdevice, resources: dict[str, dict]) -> str | None:
+        """A bound capability's model_fn's model for this subdevice, if any."""
+        for bound in self.bound:
+            model_fn = bound.capability.model_fn
+            if bound.subdevice == subdevice and model_fn and (model := model_fn(resources)):
+                return model
+        return None
 
     @property
     def observe_mode(self) -> str:

@@ -14,7 +14,10 @@ from homeassistant.exceptions import ServiceValidationError
 from custom_components.localthings.coordinator import LocalThingsCoordinator
 from custom_components.localthings.fan import LocalThingsPairedHoodFan
 from custom_components.localthings.legacy_http import TP6X_CT, to_resources
-from custom_components.localthings.legacy_http_transport import LegacyHttpTransport
+from custom_components.localthings.legacy_http_transport import (
+    LegacyHttpTransport,
+    _with_record_name,
+)
 from custom_components.localthings.number import LocalThingsPairedHoodTimer
 from custom_components.localthings.registry.adapter import _key, flatten
 from custom_components.localthings.registry.capabilities import cooktop
@@ -397,15 +400,32 @@ def test_the_transport_sends_hood_writes_to_its_slot(monkeypatch):
 
 
 # The slot's modelNum is the cooktop's board, so it used to be named
-# "<cooktop> Tp6X Ct 16K"; the hood's DeviceType option names it instead.
-async def test_the_hood_device_is_named_by_its_own_model(bare_coordinator, monkeypatch):  # noqa: F811
+# "<cooktop> Tp6X Ct 16K". The hood's record names it, and its DeviceType
+# option gives the model, through its capability (PR #677 review).
+async def test_the_hood_device_is_named_by_its_own_record(bare_coordinator, monkeypatch):  # noqa: F811
     view = _hood_view()
+    view["/information/vs/0"] = {
+        **view["/information/vs/0"],
+        "x.com.samsung.da.deviceName": "Hood",
+    }
     monkeypatch.setattr(bare_coordinator, "canonical_resources", lambda subdevice: view)
+    bound, _materialized, _state = _discover()
+    bare_coordinator.bound = bound
 
     info = bare_coordinator.device_info_for(HOOD)
 
-    assert info["name"].endswith(" Range Hood")
+    assert info["name"] == f"{bare_coordinator.device_info['name']} Hood"
     assert info["model"] == "NK9300KM"
+
+
+# GET /devices and /devices/1 on the reporter's cooktop both carry the record
+# name, "CookTop" for 0 and "Hood" for 1 (PR #677).
+def test_a_sibling_record_names_its_information():
+    bodies = _with_record_name(FIXTURE["device_bodies"]["1"], "Hood")
+
+    information = to_resources(bodies, TP6X_CT)["/information/vs/0"]
+    assert information["x.com.samsung.da.deviceName"] == "Hood"
+    assert _with_record_name(FIXTURE["device_bodies"]["1"], None) == FIXTURE["device_bodies"]["1"]
 
 
 def test_an_unpaired_slot_has_no_hood_model():
