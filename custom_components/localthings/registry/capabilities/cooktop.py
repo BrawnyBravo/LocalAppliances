@@ -407,8 +407,6 @@ PAIRED_HOOD_STATUS = Capability(
 # confirmed as Med and 4 as Boost. 0 is the unpaired NZ36K7570R slot's value.
 _HOOD_FAN_SETTINGS = {"0": "off", "1": "low", "2": "medium", "3": "high", "4": "boost"}
 HOOD_FAN_SPEEDS = ("1", "2", "3", "4")
-PAIRED_HOOD_FAN_KEY = "paired_hood_fan"
-PAIRED_HOOD_TIMER_KEY = "paired_hood_shutoff_timer"
 # The hood keeps the minutes in one byte (256 wraps to 0, which cancels) and
 # its two-digit panel misreads 100 to 255, so 99 is the panel's own top step.
 HOOD_TIMER_MAX_MINUTES = 99
@@ -460,13 +458,19 @@ def _hood_timer_optimistic(body):
     }
 
 
+def _hood_slot_in_use(rep, resources):
+    # The empty slot's own exclusion, so the cooktop registry needn't wrap
+    # these and the platforms can recognize them by identity.
+    return is_legacy_hood_slot(resources) and not is_empty_legacy_hood_slot(resources)
+
+
 LEGACY_HOOD_POWER = Capability(
     href="/power/vs/0",
     poll_tier="hot",
-    match_fn=lambda rep, resources: is_legacy_hood_slot(resources),
+    match_fn=_hood_slot_in_use,
     entities=(
         FanDesc(
-            key=PAIRED_HOOD_FAN_KEY,
+            key="paired_hood_fan",
             field="x.com.samsung.da.power",
             write_fn=_hood_fan_write,
         ),
@@ -476,7 +480,7 @@ LEGACY_HOOD_POWER = Capability(
 LEGACY_HOOD_MODE = Capability(
     href="/mode/vs/0",
     poll_tier="hot",
-    match_fn=lambda rep, resources: is_legacy_hood_slot(resources),
+    match_fn=_hood_slot_in_use,
     model_fn=paired_hood_model,
     entities=(
         BinarySensorDesc(
@@ -532,7 +536,7 @@ LEGACY_HOOD_MODE = Capability(
         # Reads the minutes left, which is 0 with no timer running; Set
         # keeps its last value after the timer ends.
         NumberDesc(
-            key=PAIRED_HOOD_TIMER_KEY,
+            key="paired_hood_shutoff_timer",
             field="x.com.samsung.da.options",
             icon="mdi:timer-sand",
             unit="min",

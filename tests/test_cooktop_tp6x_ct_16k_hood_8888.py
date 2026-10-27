@@ -439,3 +439,14 @@ def test_an_unpaired_slot_has_no_hood_model():
         ]
     }
     assert cooktop.paired_hood_model(view) is None
+
+
+# The registry wraps its other capabilities to drop the empty slot; the hood's
+# are left whole so the platforms can pick their classes by them.
+def test_the_platforms_find_the_hood_by_its_capabilities():
+    bound, _materialized, _state = _discover()
+    fan = next(b for b in bound if b.desc.key == "paired_hood_fan")
+    timer = next(b for b in bound if b.desc.key == "paired_hood_shutoff_timer")
+
+    assert fan.capability is LEGACY_HOOD_POWER
+    assert timer.capability is LEGACY_HOOD_MODE

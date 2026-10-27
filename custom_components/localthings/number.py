@@ -13,7 +13,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN
 from .coordinator import LocalThingsCoordinator
 from .entity import LocalThingsEntity, _is_included
-from .registry.capabilities.cooktop import PAIRED_HOOD_TIMER_KEY, paired_hood_running
+from .registry.capabilities.cooktop import LEGACY_HOOD_MODE, paired_hood_running
 from .registry.entities import NumberDesc
 
 
@@ -26,7 +26,7 @@ async def async_setup_entry(
     async_add_entities(
         (
             LocalThingsPairedHoodTimer(coordinator, b)
-            if b.desc.key == PAIRED_HOOD_TIMER_KEY
+            if b.capability is LEGACY_HOOD_MODE
             else LocalThingsNumber(coordinator, b)
         )
         for b in coordinator.bound

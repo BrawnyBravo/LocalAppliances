@@ -68,11 +68,16 @@ def _exclude_empty_hood(cap):
     )
 
 
+# They exclude the empty slot themselves, and fan.py and number.py pick their
+# entity classes by these capabilities.
+_HOOD_CAPS = (cooktop.LEGACY_HOOD_POWER, cooktop.LEGACY_HOOD_MODE)
+
+
 REGISTRY = DeviceRegistry(
     name="cooktop",
     capabilities=_build(
         [
-            _exclude_empty_hood(cap)
+            cap if cap in _HOOD_CAPS else _exclude_empty_hood(cap)
             for cap in _unique(
                 [
                     *ignored.IGNORED,

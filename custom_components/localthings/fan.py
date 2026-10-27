@@ -36,7 +36,7 @@ from .registry.capabilities.air_purifier import (
 from .registry.capabilities.common import option_value
 from .registry.capabilities.cooktop import (
     HOOD_FAN_SPEEDS,
-    PAIRED_HOOD_FAN_KEY,
+    LEGACY_HOOD_POWER,
     paired_hood_running,
 )
 from .registry.entities import FanDesc
@@ -68,7 +68,7 @@ async def async_setup_entry(
     for bound in coordinator.bound:
         if not (isinstance(bound.desc, FanDesc) and _is_included(bound, coordinator)):
             continue
-        if bound.desc.key == PAIRED_HOOD_FAN_KEY:
+        if bound.capability is LEGACY_HOOD_POWER:
             entities.append(LocalThingsPairedHoodFan(coordinator, bound))
         elif bound.href in (AIR_PURIFIER_FAN_HREF, AIR_PURIFIER_WIND_STRENGTH_HREF):
             entities.append(LocalThingsAirPurifierFan(coordinator, bound))
