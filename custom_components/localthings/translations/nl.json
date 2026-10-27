@@ -265,6 +265,9 @@
     "light": {
       "lamp": {
         "name": "Lamp"
+      },
+      "paired_hood_light": {
+        "name": "Verlichting gekoppelde afzuigkap"
       }
     },
     "number": {
@@ -285,6 +288,9 @@
       },
       "oven_setpoint": {
         "name": "Instelpunt"
+      },
+      "paired_hood_shutoff_timer": {
+        "name": "Uitschakeltimer gekoppelde afzuigkap"
       },
       "sensing_interval": {
         "name": "AI Purify-interval"
@@ -1456,6 +1462,16 @@
       "power_level": {
         "name": "Vermogensniveau"
       },
+      "paired_hood_fan_setting": {
+        "name": "Ventilatorstand gekoppelde afzuigkap",
+        "state": {
+          "off": "Uit",
+          "low": "Laag",
+          "medium": "Gemiddeld",
+          "high": "Hoog",
+          "boost": "Boost"
+        }
+      },
       "paired_hood_fan_speed": {
         "name": "Ventilatorsnelheid gekoppelde afzuigkap"
       },
@@ -1464,6 +1480,12 @@
       },
       "paired_hood_model": {
         "name": "Model gekoppelde afzuigkap"
+      },
+      "paired_hood_shutoff_timer_set": {
+        "name": "Ingestelde uitschakeltimer gekoppelde afzuigkap"
+      },
+      "paired_hood_shutoff_timer_state": {
+        "name": "Status uitschakeltimer gekoppelde afzuigkap"
       },
       "power_energy_kwh": {
         "name": "Energieverbruik"
@@ -2347,6 +2369,9 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Extra Rinse is niet beschikbaar voor het geselecteerde programma."
+    },
+    "paired_hood_fan_off": {
+      "message": "Zet de ventilator van de afzuigkap aan voordat u de uitschakeltimer instelt."
     }
   },
   "selector": {

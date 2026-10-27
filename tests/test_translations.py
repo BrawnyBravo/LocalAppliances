@@ -678,7 +678,9 @@ def test_confirmed_course_names_are_localized():
 
 
 # The hood fan is its device's primary feature: fan.py sets _attr_name = None
-# so it presents as the device itself, and never reads a catalog name.
+# so it presents as the device itself, and never reads a catalog name. Same
+# for the legacy cooktop's paired hood fan (issue #676), the primary feature
+# of its hood subdevice.
 #
 # The EHS DHW water_heater is deliberately NOT in here: it is one loop of a
 # two-loop device rather than the device itself, so it carries a catalog
@@ -689,6 +691,7 @@ def test_confirmed_course_names_are_localized():
 # entity_component fallback, so no per-state entry is needed either way.
 UNNAMED_DESCRIPTORS = {
     ("fan", "fan"),
+    ("fan", "paired_hood_fan"),
 }
 
 

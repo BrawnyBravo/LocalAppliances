@@ -265,6 +265,9 @@
     "light": {
       "lamp": {
         "name": "Lampada"
+      },
+      "paired_hood_light": {
+        "name": "Luce cappa abbinata"
       }
     },
     "number": {
@@ -285,6 +288,9 @@
       },
       "oven_setpoint": {
         "name": "Valore impostato"
+      },
+      "paired_hood_shutoff_timer": {
+        "name": "Timer di spegnimento cappa abbinata"
       },
       "sensing_interval": {
         "name": "Intervallo AI Purify"
@@ -1456,6 +1462,16 @@
       "power_level": {
         "name": "Livello potenza"
       },
+      "paired_hood_fan_setting": {
+        "name": "Impostazione ventola cappa abbinata",
+        "state": {
+          "off": "Spenta",
+          "low": "Bassa",
+          "medium": "Media",
+          "high": "Alta",
+          "boost": "Turbo"
+        }
+      },
       "paired_hood_fan_speed": {
         "name": "Velocità ventola cappa abbinata"
       },
@@ -1464,6 +1480,12 @@
       },
       "paired_hood_model": {
         "name": "Modello cappa abbinata"
+      },
+      "paired_hood_shutoff_timer_set": {
+        "name": "Timer di spegnimento impostato cappa abbinata"
+      },
+      "paired_hood_shutoff_timer_state": {
+        "name": "Stato timer di spegnimento cappa abbinata"
       },
       "power_energy_kwh": {
         "name": "Energia"
@@ -2347,6 +2369,9 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Risciacquo extra non è disponibile per il ciclo selezionato."
+    },
+    "paired_hood_fan_off": {
+      "message": "Accendi la ventola della cappa prima di impostare il timer di spegnimento."
     }
   },
   "selector": {

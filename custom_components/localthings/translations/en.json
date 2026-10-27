@@ -265,6 +265,9 @@
     "light": {
       "lamp": {
         "name": "Lamp"
+      },
+      "paired_hood_light": {
+        "name": "Paired hood light"
       }
     },
     "number": {
@@ -285,6 +288,9 @@
       },
       "oven_setpoint": {
         "name": "Setpoint"
+      },
+      "paired_hood_shutoff_timer": {
+        "name": "Paired hood shutoff timer"
       },
       "sensing_interval": {
         "name": "AI Purify interval"
@@ -1456,6 +1462,16 @@
       "power_level": {
         "name": "Power level"
       },
+      "paired_hood_fan_setting": {
+        "name": "Paired hood fan setting",
+        "state": {
+          "off": "Off",
+          "low": "Low",
+          "medium": "Medium",
+          "high": "High",
+          "boost": "Boost"
+        }
+      },
       "paired_hood_fan_speed": {
         "name": "Paired hood fan speed"
       },
@@ -1464,6 +1480,12 @@
       },
       "paired_hood_model": {
         "name": "Paired hood model"
+      },
+      "paired_hood_shutoff_timer_set": {
+        "name": "Paired hood shutoff timer set"
+      },
+      "paired_hood_shutoff_timer_state": {
+        "name": "Paired hood shutoff timer status"
       },
       "power_energy_kwh": {
         "name": "Power energy"
@@ -2347,6 +2369,9 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Extra Rinse isn't available on the selected cycle."
+    },
+    "paired_hood_fan_off": {
+      "message": "Turn the range hood's fan on before setting its shutoff timer."
     }
   },
   "selector": {

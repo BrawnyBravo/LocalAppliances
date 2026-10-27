@@ -1019,7 +1019,11 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         resources = self.canonical_resources(subdevice)
         info = resources.get("/information/vs/0", {})
         model_num = info.get("x.com.samsung.da.modelNum", "")
-        model = model_num.split("|", 1)[0] if model_num else ""
+        # A subdevice can report the main unit's board as its model, such as
+        # the TP6X cooktop's paired hood (issue #676); its capability knows.
+        model = self._device_model(subdevice, resources) or (
+            model_num.split("|", 1)[0] if model_num else ""
+        )
         serial = info.get("x.com.samsung.da.serialNum") or None
         base_name = self.device_info.get("name") or "Samsung Appliance"
         if cavity := _cavity_label(resources):
@@ -1028,6 +1032,9 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # and the two are indistinguishable in HA. The cavity says which
             # is which, and the device is the one saying it.
             label = cavity
+        elif reported := info.get("x.com.samsung.da.deviceName"):
+            # An 8888 sibling's own name, such as "Hood" (issue #676).
+            label = reported
         elif model:
             label = model.replace("_", " ").title()
         else:
@@ -1049,6 +1056,14 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         set_via_device(self.hass, self._entry.entry_id, info, (DOMAIN, self.device_key))
         return info
+
+    def _device_model(self, subdevice: Subdevice, resources: dict[str, dict]) -> str | None:
+        """A bound capability's model_fn's model for this subdevice, if any."""
+        for bound in self.bound:
+            model_fn = bound.capability.model_fn
+            if bound.subdevice == subdevice and model_fn and (model := model_fn(resources)):
+                return model
+        return None
 
     @property
     def observe_mode(self) -> str:
@@ -2634,8 +2649,10 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         previous_settle = self._observe.settle_deadline(write_href)
         armed_settle = 0.0
         if not write_only:
-            optimistic_body = body
-            new_options = body.get("x.com.samsung.da.options")
+            optimistic_fn = getattr(desc, "optimistic_fn", None)
+            optimistic_body = optimistic_fn(body) if optimistic_fn else body
+            # From optimistic_body, or the merge drops what optimistic_fn added.
+            new_options = optimistic_body.get("x.com.samsung.da.options")
             if isinstance(new_options, list):
                 cached_options = (self._cache.get(write_href) or {}).get("x.com.samsung.da.options")
                 optimistic_body = {
@@ -2644,7 +2661,7 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 }
             # Same fact, items[] shape (see airconditioner._climate_write's
             # vendor temperature write).
-            new_items = body.get("x.com.samsung.da.items")
+            new_items = optimistic_body.get("x.com.samsung.da.items")
             if isinstance(new_items, list):
                 cached_items = (self._cache.get(write_href) or {}).get("x.com.samsung.da.items")
                 optimistic_body = {

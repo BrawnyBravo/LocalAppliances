@@ -83,6 +83,7 @@ _LISTED_FIELD = "x.com.samsung.da.connected"
 # a suffix (`LCD_OV_WALL_16K_DIV`, #572); only such a suffix is carried over,
 # since the record's description can otherwise carry the serial.
 _RECORD_SUFFIX = re.compile(r"_[A-Z]+")
+_RECORD_TOKEN = re.compile(r"[A-Z0-9]+(?:_[A-Z0-9]+)*")
 
 # Every request carries it; the appliance answers 401 without one.
 _AUTH_HEADER = "Authorization"
@@ -269,6 +270,7 @@ class LegacyHttpTransport:
                 _LOGGER.debug("%s: %s/%s answered %s", self._host, base, endpoint, linked_status)
         if index:
             bodies = _with_record_description(bodies, record.get("description"))
+            bodies = _with_record_name(bodies, record.get("name"))
         self._state_at(index).last_bodies = bodies
         # Before the modes: a sibling's own listing decides them.
         listed = self._listed_rep(index, devices) if index and devices is not None else None
@@ -660,16 +662,41 @@ def _remaining(deadline: float) -> float:
 
 def _with_record_description(bodies: dict[str, Any], description: Any) -> dict[str, Any]:
     """`bodies` with a sibling record's description on its Information, when
-    it is that Information's own description plus a suffix (_RECORD_SUFFIX)."""
+    it is that Information's own description plus a suffix (_RECORD_SUFFIX).
+
+    With no Information at all, because its linked read ran out of the
+    sibling's budget on a slow appliance (PR #677), a description that is a
+    plain board token (_RECORD_TOKEN) stands in for it: it says what the
+    sibling is, which the hood slot's bindings depend on."""
+    if not isinstance(description, str):
+        return bodies
     information = bodies.get("Information")
+    if information is None:
+        if not _RECORD_TOKEN.fullmatch(description):
+            return bodies
+        return {**bodies, "Information": {"description": description}}
     if not isinstance(information, dict):
         return bodies
     own = information.get("description")
-    if not (isinstance(own, str) and isinstance(description, str)):
+    if not isinstance(own, str):
         return bodies
     if not (description.startswith(own) and _RECORD_SUFFIX.fullmatch(description[len(own) :])):
         return bodies
     return {**bodies, "Information": {**information, "description": description}}
+
+
+def _with_record_name(bodies: dict[str, Any], name: Any) -> dict[str, Any]:
+    """`bodies` with a sibling record's name (`Hood`, #676) on its
+    Information, which otherwise names only the board it shares with the
+    main unit. It names the sibling's type, not anything the owner sets."""
+    if not (isinstance(name, str) and name):
+        return bodies
+    information = bodies.get("Information")
+    if information is None:
+        information = {}
+    if not isinstance(information, dict):
+        return bodies
+    return {**bodies, "Information": {**information, "deviceName": name}}
 
 
 def _resource_bodies(bodies: Mapping[str, Any]) -> dict[str, Any]:

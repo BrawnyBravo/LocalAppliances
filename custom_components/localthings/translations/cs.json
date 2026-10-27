@@ -265,6 +265,9 @@
     "light": {
       "lamp": {
         "name": "Lampa"
+      },
+      "paired_hood_light": {
+        "name": "Světlo spárovaného odsavače"
       }
     },
     "number": {
@@ -285,6 +288,9 @@
       },
       "oven_setpoint": {
         "name": "Požadovaná teplota"
+      },
+      "paired_hood_shutoff_timer": {
+        "name": "Časovač vypnutí spárovaného odsavače"
       },
       "sensing_interval": {
         "name": "Interval AI Purify"
@@ -1456,6 +1462,16 @@
       "power_level": {
         "name": "Úroveň výkonu"
       },
+      "paired_hood_fan_setting": {
+        "name": "Nastavení ventilátoru spárovaného odsavače",
+        "state": {
+          "off": "Vypnuto",
+          "low": "Nízké",
+          "medium": "Střední",
+          "high": "Vysoké",
+          "boost": "Turbo"
+        }
+      },
       "paired_hood_fan_speed": {
         "name": "Otáčky ventilátoru spárovaného odsavače"
       },
@@ -1464,6 +1480,12 @@
       },
       "paired_hood_model": {
         "name": "Model spárovaného odsavače"
+      },
+      "paired_hood_shutoff_timer_set": {
+        "name": "Nastavený časovač vypnutí spárovaného odsavače"
+      },
+      "paired_hood_shutoff_timer_state": {
+        "name": "Stav časovače vypnutí spárovaného odsavače"
       },
       "power_energy_kwh": {
         "name": "Spotřeba energie"
@@ -2347,6 +2369,9 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Extra máchání není u vybraného cyklu k dispozici."
+    },
+    "paired_hood_fan_off": {
+      "message": "Před nastavením časovače vypnutí zapněte ventilátor digestoře."
     }
   },
   "selector": {
