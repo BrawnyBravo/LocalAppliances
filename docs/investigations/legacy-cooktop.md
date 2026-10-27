@@ -135,6 +135,7 @@ while the fan runs:
 | ShutOffTimerSet_100 to 255 | Counted down, but the two-digit panel showed only the last two digits |
 | ShutOffTimerSet_256, 999 | Wrapped to one byte: 0 (cancelled) and 231 |
 | ShutOffTimerState_Ready | Read back Ready, but the countdown continued |
+| ShutOffTimerCurrent_7 idle, _3 running (#676's hood) | Rejected with 400; panel unchanged |
 | power Off | Cleared a running timer |
 
 On issue #676's own hood on 2026-10-26, power On then ShutOffTimerSet_5
@@ -152,7 +153,8 @@ timer ends. The second reporter found the hood reads back Set_N, Current_N
 and Run within 5 seconds of a write, while Home Assistant kept showing the
 old value for about 45 seconds, until the write's settle window ended. A
 timer write therefore also shows Current_N and Run (or Current_0 and Ready
-when cancelled) in Home Assistant right away. Only Set is sent to the hood.
+when cancelled) in Home Assistant right away. Only Set is sent to the hood,
+which rejects a written Current.
 
 A 204 and a changed read-back don't prove the hood acted. A few minutes after
 the cooktop was power-cycled, a Lamp_Off/Lamp_On pair did both without the
