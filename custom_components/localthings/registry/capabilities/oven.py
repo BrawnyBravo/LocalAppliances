@@ -560,6 +560,7 @@ OVEN_SETPOINT = Capability(
         # NumberDesc first — test_oven_setpoint_write_is_read_modify_write uses entities[0]
         NumberDesc(
             key="oven_setpoint",
+            mode="box",
             field="x.com.samsung.da.items",
             device_class="temperature",
             unit_fn=_oven_temp_unit,
