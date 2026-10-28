@@ -252,6 +252,11 @@ def _oven_setpoint_write(p, rep, href=None):
     return ["temperatures", "vs", "0"], {"x.com.samsung.da.items": items}
 
 
+def is_lcd_ov_wall_16k(model):
+    """Exact board token used by the NV51K7770S (#572, #662)."""
+    return isinstance(model, str) and model.split("|", 1)[0] == "LCD_OV_WALL_16K"
+
+
 def _cook_time_write(p, rep, href=None, resources=None):
     """Write the requested cook duration from minutes."""
     try:
@@ -266,7 +271,7 @@ def _cook_time_write(p, rep, href=None, resources=None):
     model = ((resources or {}).get("/information/vs/0") or {}).get("x.com.samsung.da.modelNum")
     # The NV51K7770S answers a running timer edit that also sends
     # remainingTime with 4.00; operationTime alone is accepted (#662).
-    if not (isinstance(model, str) and model.split("|", 1)[0] == "LCD_OV_WALL_16K"):
+    if not is_lcd_ov_wall_16k(model):
         body["x.com.samsung.da.remainingTime"] = hms
     return ["operational", "state", "vs", "0"], body
 
