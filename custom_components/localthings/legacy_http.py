@@ -19,6 +19,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from .registry.capabilities.oven import is_lcd_ov_wall_16k
+
 # The prefix every OCF-side field carries and no 8888-side field does.
 PREFIX = "x.com.samsung.da."
 
@@ -200,6 +202,11 @@ FAMILIES: dict[str, tuple[Resource, ...]] = {
     "TP6X_CT": TP6X_CT,
     "TP6X_RAC": TP6X_RAC,
     "LCD_OV_WALL": LCD_OV_WALL,
+    # The NQ70M6650DS microwave/oven combo (#674) reports the Flex Duo's
+    # resources and fields, with the microwave on /devices/0 and the oven on
+    # /devices/2. Read-only: it takes no remote cook start (#675), see
+    # oven.is_tp6x_ov_board.
+    "TP6X_OV": LCD_OV_WALL,
 }
 
 _CAPACITY = re.compile(r"_\d+K$")
@@ -209,11 +216,12 @@ def _family_key(family: str | None) -> str:
     return _CAPACITY.sub("", family or "")
 
 
-# Families whose `supportedModes` is one static list on every cavity, divider
-# in or out, mapped to the lower cavity's modes, which that list never names.
-# On the NV51K777OS (#572), cooks started at the panel ran as
+# Families whose cavities share one static `supportedModes`, divider in or
+# out, mapped to the lower cavity's modes, which that list never names. On
+# the NV51K777OS (#572), cooks started at the panel ran as
 # UpperConvectionBake and LowerConvectionBake with the divider in; the other
-# two Lower modes are the reporter's reading of the panel.
+# two Lower modes are the reporter's reading of the panel. A lower cavity
+# that names its own Lower modes, as the NW9300MD's does (#681), keeps them.
 _LOWER_CAVITY_MODES: dict[str, tuple[str, ...]] = {
     "LCD_OV_WALL": ("LowerBake", "LowerConvectionBake", "LowerConvectionRoast"),
 }
@@ -225,25 +233,39 @@ def has_cavities(family: str | None) -> bool:
     return _family_key(family) in _LOWER_CAVITY_MODES
 
 
+def cavity_slots(family: str | None, main_bodies: Mapping[str, Any]) -> tuple[int, int] | None:
+    """The (upper, lower) device indices of a divided oven, from device 0's
+    bodies, or None for a family without cavities. The NW9300MD combo (#681)
+    has its microwave on 0 and an empty slot on 1, so its oven is on 2 and 3."""
+    if not has_cavities(family):
+        return None
+    mode = main_bodies.get("Mode")
+    supported = _split_joined(mode.get("supportedModes")) if isinstance(mode, Mapping) else None
+    if isinstance(supported, list) and "MicroWave" in supported:
+        return 2, 3
+    return 0, 1
+
+
 def with_cavity_modes(
-    family: str | None, bodies: dict[str, Any], index: int, divided: bool | None
+    family: str | None, bodies: dict[str, Any], lower: bool, divided: bool | None
 ) -> dict[str, Any]:
     """`bodies` with `Mode.supportedModes` narrowed to what this cavity can
-    run: Upper modes on device 0 with the divider in, unprefixed ones with
-    it out, the family's Lower modes on device 1 and none with the divider
-    out. Device 0's is left as reported while the divider state is unknown.
-    The mode the cavity reports is always kept, so a running cook still
-    reads as one of its options."""
-    lower = _LOWER_CAVITY_MODES.get(_family_key(family))
+    run: Upper modes on the upper cavity with the divider in, unprefixed ones
+    with it out, Lower modes on the lower cavity and none with the divider
+    out. The upper cavity's is left as reported while the divider state is
+    unknown. The mode the cavity reports is always kept, so a running cook
+    still reads as one of its options."""
+    static_lower = _LOWER_CAVITY_MODES.get(_family_key(family))
     mode = bodies.get("Mode")
-    if lower is None or not isinstance(mode, Mapping):
+    if static_lower is None or not isinstance(mode, Mapping):
         return bodies
     supported = _split_joined(mode.get("supportedModes"))
     if not isinstance(supported, list):
         return bodies
     supported = [m for m in supported if isinstance(m, str)]
-    if index:
-        modes = [_IDLE_MODE] if divided is False else [_IDLE_MODE, *lower]
+    if lower:
+        own = [m for m in supported if m.startswith("Lower")]
+        modes = [_IDLE_MODE] if divided is False else [_IDLE_MODE, *(own or static_lower)]
     elif divided is None:
         return bodies
     elif divided:
@@ -387,9 +409,8 @@ _SETINFO_FAMILIES = frozenset({"TP6X_WASHER"})
 
 def model_settings(family: str | None, bodies: Mapping[str, Any]) -> dict[str, dict]:
     """A `/wm/setinfo/vs/0` rep carrying the power on/off flag this family
-    states in Information.modelID, which CoAP boards serve as a resource of
-    its own; empty when the model id doesn't carry it, or for a family
-    outside the laundry ones.
+    states in Information.modelID, or a confirmed model-specific override.
+    CoAP boards serve this flag as a resource of its own.
 
     The third `|` field of modelID is a hex feature string. Samsung's own
     washer plugin reads remote power control from bit 0 of the byte at
@@ -397,10 +418,16 @@ def model_settings(family: str | None, bodies: Mapping[str, Any]) -> dict[str, d
     whose byte is 00: `Operation.power = Off` answers
     `400 Control fail, <Operation.power=Off>` and the washer stays on.
     """
+    info = bodies.get("Information")
+    if not isinstance(info, Mapping):
+        return {}
+    model_id = info.get("modelID")
+    # NV51K7770S power writes do not operate either cavity (#664, #572).
+    # The same board also serves CombiOven models whose behavior is unverified.
+    if is_lcd_ov_wall_16k(model_id) and info.get("deviceSubType") == "WallOven":
+        return {SETINFO_HREF: {_POWER_ON_OFF_FIELD: "false"}}
     if _family_key(family) not in _SETINFO_FAMILIES:
         return {}
-    info = bodies.get("Information")
-    model_id = info.get("modelID") if isinstance(info, Mapping) else None
     if not isinstance(model_id, str):
         return {}
     parts = model_id.split("|")
