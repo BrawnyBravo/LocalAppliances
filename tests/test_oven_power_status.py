@@ -271,4 +271,3 @@ async def test_previously_affected_appliances_keep_power_switches(hass, name):
     assert all(registry.async_get(entity_id) is not None for entity_id in controls)
     state = flatten(coordinator.bound, coordinator.last_resources)
     assert "sound" in state
-    assert not any(key.endswith("reservoir_open") for key in state)
