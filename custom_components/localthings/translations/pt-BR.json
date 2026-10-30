@@ -2119,7 +2119,7 @@
       },
       "reconfigure_certificate": {
         "title": "Aceitar um novo certificado do aparelho?",
-        "description": "O aparelho em {host} apresentou um certificado de segurança diferente daquele com que esta entrada foi configurada. Nada foi enviado a ele ainda.\n\nCertificado registrado:\n{old_fingerprint}\n\nCertificado apresentado agora:\n{new_fingerprint}\n\nSó continue se tiver certeza de que este é o seu aparelho (por exemplo, após um reparo, uma redefinição ou a troca da placa). Envie para aceitar o novo certificado e enviar a ele o token de acesso desta entrada; feche esta janela para deixar a entrada como está."
+        "description": "O aparelho em {host} apresentou um certificado de segurança diferente daquele com que esta entrada foi configurada. Nada foi enviado a ele ainda.\n\nCertificado registrado:\n{old_fingerprint}\n\nCertificado apresentado agora:\n{new_fingerprint}\n\nSó continue se tiver certeza de que este é o seu aparelho (por exemplo, após um reparo, uma redefinição ou a troca da placa). Clique em Enviar para aceitar o novo certificado e enviar a ele o token de acesso desta entrada; feche esta janela para deixar a entrada como está."
       }
     },
     "error": {
@@ -2128,7 +2128,7 @@
       "no_dtls_server": "Há portas da faixa da API local acessíveis nesse endereço, mas nenhuma respondeu à negociação DTLS. Verifique se o endereço IP pertence ao aparelho e não a outro dispositivo da sua rede.",
       "appliance_no_dtls": "Esse endereço pertence a um aparelho Samsung — ele se identificou como {model} pelo canal de descoberta não criptografado e anunciou a porta segura {port} — mas nunca concluiu a negociação DTLS nela. O problema não é o endereço. Verifique se o controle remoto ou uma configuração semelhante está desativada no painel do aparelho e consulte o log do Home Assistant para saber a falha exata.",
       "non_appliance_stack": "Algo nesse endereço IP respondeu, mas se identificou como um serviço OCF que não é um eletrodoméstico. Alguns aparelhos Samsung executam um serviço assim junto ao seu próprio, e o LocalThings só consegue encontrar o aparelho por trás dele quando o Home Assistant está no mesmo segmento de rede. Coloque o Home Assistant e o aparelho na mesma sub-rede e VLAN e tente novamente.",
-      "multiple_appliances": "Mais de um aparelho Samsung responde nesse endereço IP, e o LocalThings ainda não consegue escolher entre eles. Relate o problema no rastreador de issues do LocalThings e inclua o log do Home Assistant.",
+      "multiple_appliances": "Mais de um aparelho Samsung responde nesse endereço IP, e o LocalThings ainda não consegue escolher entre eles. Relate o problema no rastreador de issues do LocalAppliances e inclua o log do Home Assistant.",
       "handshake_timeout": "O aparelho respondeu na porta da API local, mas não concluiu a negociação DTLS, mesmo após uma nova tentativa. Tente novamente. Se a falha persistir, reiniciar o aparelho libera as conexões que ele ainda mantém; o log do Home Assistant contém a falha exata.",
       "cert_rejected": "O aparelho rejeitou o certificado. Provavelmente o certificado e a chave da autoridade certificadora não pertencem à AC14K_M na qual este aparelho confia, ou não correspondem entre si. O log do Home Assistant registra o alerta exato enviado pelo aparelho.",
       "psk_rejected": "O aparelho recusou a chave pré-compartilhada. A identidade ou a chave está incorreta, ou pertence a outro aparelho ou a um proprietário que mudou desde então. O log do Home Assistant registra o alerta exato.",
@@ -2165,7 +2165,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "Opções do LocalThings",
+        "title": "Opções do LocalAppliances",
         "menu_options": {
           "settings": "Configurações do dispositivo",
           "subdevices": "Subdispositivos",
@@ -2273,7 +2273,7 @@
     },
     "cloud_courses_undiscovered": {
       "title": "Ciclos baixados não configurados para {device_name}",
-      "description": "{device_name} tem {pending} de {total} ciclo(s) baixado(s) que o Home Assistant ainda não pode oferecer. Um ciclo baixado só pode ser usado depois que o aparelho tiver sido detectado com ele carregado — na tela \"Baixar ciclos\" do aplicativo SmartThings, não na tela \"Ciclo\" — e você tiver dado um nome a ele.\n\nPara configurá-los, acesse Configurações > Dispositivos e serviços > LocalThings > {device_name} > Configurar > Baixar ciclos e siga as instruções.\n\nNão usa ciclos baixados? Acesse Configurar > Configurações do dispositivo e desative \"Oferecer ciclos baixados\" para silenciar este lembrete permanentemente."
+      "description": "{device_name} tem {pending} de {total} ciclo(s) baixado(s) que o Home Assistant ainda não pode oferecer. Um ciclo baixado só pode ser usado depois que o aparelho tiver sido detectado com ele carregado — na tela \"Baixar ciclos\" do aplicativo SmartThings, não na tela \"Ciclo\" — e você tiver dado um nome a ele.\n\nPara configurá-los, acesse Configurações > Dispositivos e serviços > LocalAppliances > {device_name} > Configurar > Baixar ciclos e siga as instruções.\n\nNão usa ciclos baixados? Acesse Configurar > Configurações do dispositivo e desative \"Oferecer ciclos baixados\" para silenciar este lembrete permanentemente."
     },
     "device_identity_mismatch": {
       "title": "Um aparelho diferente está respondendo por {device_name}",

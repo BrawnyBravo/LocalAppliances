@@ -28,7 +28,7 @@ LocalAppliances is a modified version of [LocalThings](https://github.com/mbillo
 - The raw read snapshot is redacted, credential resources can't be read, and OCF security resources (`/oic/sec/...`) can't be written.
 - A start-type command whose answer timed out is not sent again, so it can't run twice.
 - A just-sent setting is not overwritten by a stale update, and changing one cooktop burner doesn't re-send the others.
-- A range hood fan never switches off the whole appliance.
+- A range hood fan doesn't act until it knows how the hood turns off, so a missing reading can't switch off the whole appliance.
 - Wide-range number settings show as a box instead of a slider.
 - Sensors that can't be read show unknown instead of a wrong value (meat probe, locks, air-conditioner mode, filter usage, energy totals).
 - Controls appear only where the appliance reports them (oven and microwave sound, vacuum station UV-C, climate setpoint, fan and preset controls).
