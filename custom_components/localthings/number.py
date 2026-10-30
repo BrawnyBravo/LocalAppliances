@@ -7,11 +7,13 @@ from typing import cast
 from homeassistant.components.number import NumberDeviceClass, NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .coordinator import LocalThingsCoordinator
 from .entity import LocalThingsEntity, _is_included, async_migrate_subdevice_case
+from .registry.capabilities.cooktop import LEGACY_HOOD_MODE, paired_hood_running
 from .registry.entities import NumberDesc
 
 
@@ -23,7 +25,11 @@ async def async_setup_entry(
     coordinator: LocalThingsCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_migrate_subdevice_case(hass, entry, coordinator)
     async_add_entities(
-        LocalThingsNumber(coordinator, b)
+        (
+            LocalThingsPairedHoodTimer(coordinator, b)
+            if b.capability is LEGACY_HOOD_MODE
+            else LocalThingsNumber(coordinator, b)
+        )
         for b in coordinator.bound
         if isinstance(b.desc, NumberDesc) and _is_included(b, coordinator)
     )
@@ -39,6 +45,7 @@ class LocalThingsNumber(LocalThingsEntity, NumberEntity):
     def __init__(self, coordinator: LocalThingsCoordinator, bound) -> None:
         super().__init__(coordinator, bound)
         desc = cast(NumberDesc, bound.desc)
+        self._attr_mode = NumberMode(desc.mode)
         self._attr_native_unit_of_measurement = desc.unit
         self._attr_device_class = (
             NumberDeviceClass(desc.device_class) if desc.device_class else None
@@ -115,7 +122,10 @@ class LocalThingsNumber(LocalThingsEntity, NumberEntity):
     @property
     def mode(self) -> NumberMode:
         """A slider for short ranges, a box for wide ones (a 0-1000 setpoint
-        in steps of 1 is unusable as a slider)."""
+        in steps of 1 is unusable as a slider). A descriptor that names a
+        mode other than the default slider keeps it."""
+        if self._attr_mode is not NumberMode.SLIDER:
+            return self._attr_mode
         try:
             steps = (self.max_value - self.min_value) / (self.step or 1)
         except (TypeError, ValueError, ZeroDivisionError):
@@ -128,3 +138,18 @@ class LocalThingsNumber(LocalThingsEntity, NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         await self.coordinator.async_send_command(self._bound, value)
+
+
+class LocalThingsPairedHoodTimer(LocalThingsNumber):
+    """A legacy cooktop's paired hood shutoff timer (issue #676), in
+    minutes with 0 to cancel. The hood ignores a timer set while its fan is
+    off, so that's refused rather than silently dropped. Cancelling always
+    goes through."""
+
+    async def async_set_native_value(self, value: float) -> None:
+        if value > 0 and not paired_hood_running(self._resources):
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="paired_hood_fan_off",
+            )
+        await super().async_set_native_value(value)
