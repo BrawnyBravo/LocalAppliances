@@ -666,3 +666,25 @@ async def test_reauth_keeps_the_certificate_pin(hass: HomeAssistant, legacy_brid
     assert result["reason"] == "reauth_successful"
     assert entry.data[CONF_DEVICE_TOKEN] == "new-token"
     assert entry.data[CONF_LEGACY_CERT_SHA256] == _PIN
+
+
+async def test_refused_minted_identity_retries_original_ca_once(hass, legacy_bridge):
+    from custom_components.localthings.const import CONF_LEAF_KEY_PEM
+    from custom_components.localthings.legacy_http_token import CallbackCertRejected
+
+    token, _, _mint = legacy_bridge
+    result = await _rejected_callback(hass, token)
+    token.side_effect = [CallbackCertRejected("minted identity refused"), "tok-original-identity"]
+    with patch(
+        "custom_components.localthings.config_flow._mint_credentials",
+        return_value=("CA-FULLCHAIN", "CA-LEAFKEY"),
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_CA_CERT_PEM: "CA-CERT", CONF_CA_KEY_PEM: "CA-KEY"}
+        )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_LEAF_CERT_PEM] == "CA-CERT"
+    assert result["data"][CONF_LEAF_KEY_PEM] == "CA-KEY"
+    assert token.call_args_list[-2].args[2:] == ("CA-FULLCHAIN", "CA-LEAFKEY")
+    assert token.call_args_list[-1].args[2:] == ("CA-CERT", "CA-KEY")
+    assert token.call_count == 3
