@@ -1,0 +1,21 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      dev-tools:
+        patterns: ["*"]
+    ignore:
+      # Capped on purpose; see the comment in requirements-dev.txt.
+      - dependency-name: "pytest-homeassistant-custom-component"
+        versions: [">=0.13.368"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns: ["*"]
