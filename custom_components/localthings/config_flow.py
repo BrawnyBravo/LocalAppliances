@@ -73,6 +73,7 @@ from .const import (
     CONF_PSK_IDENTITY,
     CONF_PSK_KEY,
     CONF_PSK_PROFILE,
+    CONF_READ_MODE,
     CONF_SERIAL,
     CONF_TRANSPORT,
     DEFAULT_CLOUD_COURSES_ENABLED,
@@ -85,6 +86,7 @@ from .const import (
     PSK_PROFILE_OWNER,
     PSK_PROFILE_PEER,
     PSK_TRACKING_ISSUE_URL,
+    READ_MODE_PER_HREF,
     SERVICE_WRITE_RESOURCE,
     TRANSPORT_LEGACY_HTTP,
 )
@@ -777,6 +779,7 @@ def _read_device(transport, host: str, port: int) -> dict:
     """
     from .registry.batch import parse_device0_batch
     from .registry.by_type import resolve as resolve_registry
+    from .registry.flat import read_all
     from .registry.identity import (
         proven_ocf_device_id,
         read_identity,
@@ -789,14 +792,23 @@ def _read_device(transport, host: str, port: int) -> dict:
     identity = read_identity(transport, None)
 
     code, body = transport.read(["device", "0"], timeout=PROBE_GET_TIMEOUT_S)
-    if code != 0x45 or body is None:
+    per_href = code == 0x84
+    if per_href:
+        # No /device/0 Collection: read /oic/res's hrefs as the coordinator
+        # will poll them (registry/flat.py). A batch board stored this way
+        # while booting is moved back by the coordinator's /device/0 check.
+        resources = read_all(transport, identity.raw.get("/oic/res") or [], logger=_LOGGER)
+        usable = bool(resources)
+    else:
+        usable = code == 0x45 and body is not None
+        resources = parse_device0_batch(body) if usable and isinstance(body, list) else {}
+    if not usable:
         # Authenticated fine, so this isn't a connectivity or credentials
         # problem -- whatever is on this port just isn't an appliance whose
-        # /device/0 we understand.
+        # resources we understand.
         raise UnexpectedResponse(
             f"{host}:{port} answered /device/0 with {code >> 5}.{code & 0x1F:02d} ({code:#04x})"
         )
-    resources = parse_device0_batch(body) if isinstance(body, list) else {}
 
     info = resources.get("/information/vs/0", {})
     registry = resolve_registry(resources, device_types=identity.device_types)
@@ -817,8 +829,8 @@ def _read_device(transport, host: str, port: int) -> dict:
         # when the device reported no usable one.
         "ocf_device_id": proven_ocf_device_id(identity),
         "serial": resolve_serial(raw_serial, host),
-        # None for a board that doesn't report /wirelessinfo/vs/0 -- see
-        # resolve_mac, and CONF_MAC for what the stored value is for.
+        # None for a board that reports no MAC -- see resolve_mac, and
+        # CONF_MAC for what the stored value is for.
         "mac": resolve_mac(resources),
         "model": resolve_model(info.get("x.com.samsung.da.modelNum", ""), identity),
         "manufacturer": identity.manufacturer or "Samsung",
@@ -827,6 +839,8 @@ def _read_device(transport, host: str, port: int) -> dict:
         # What the appliance calls its own family ('TP6X_WASHER'); the 8888
         # bridge still keys its course table and model settings by it (#168).
         "description": info.get("x.com.samsung.da.description", ""),
+        # Stored as CONF_READ_MODE; None keeps the /device/0 Collection.
+        "read_mode": READ_MODE_PER_HREF if per_href else None,
     }
 
 
@@ -1016,6 +1030,14 @@ def _probe_and_validate(
     if scan.legacy_http and not scan.candidates:
         raise LegacyHttpFamily(f"{host} serves the legacy bridge on TCP 8888")
 
+    # An identity used directly by the 8888 bridge is not a DTLS client leaf.
+    if (
+        existing_leaf is not None
+        and ca_cert_pem
+        and existing_leaf[0].strip() == ca_cert_pem.strip()
+    ):
+        existing_leaf = None
+
     if existing_leaf is not None:
         cert_pem, key_pem = existing_leaf
         _LOGGER.debug("Reusing the leaf certificate from an existing entry")
@@ -1151,6 +1173,7 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_MODEL: info["model"],
                 CONF_MANUFACTURER: info["manufacturer"],
                 CONF_DEVICE_TYPE: info["device_type_name"],
+                **({CONF_READ_MODE: info["read_mode"]} if info.get("read_mode") else {}),
                 **(
                     {
                         CONF_TRANSPORT: TRANSPORT_LEGACY_HTTP,
@@ -1598,16 +1621,32 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 raise ApplianceCertificateMismatch(
                     f"{self._host} presented a different certificate than this entry pinned"
                 )
-        return await self.hass.async_add_executor_job(
-            functools.partial(
-                obtain_device_token,
-                self._host,
-                LEGACY_HTTP_PORT,
-                cert_pem,
-                key_pem,
-                stop=self._token_stop,
+        try:
+            return await self.hass.async_add_executor_job(
+                functools.partial(
+                    obtain_device_token,
+                    self._host,
+                    LEGACY_HTTP_PORT,
+                    cert_pem,
+                    key_pem,
+                    stop=self._token_stop,
+                )
             )
-        )
+        except CallbackCertRejected:
+            # TP6X_RAC_16K accepts the original AC14K_M identity, not a minted leaf.
+            identity = (self._ca_cert_pem, self._ca_key_pem)
+            if not all(identity) or self._legacy_leaf == identity:
+                raise
+            self._legacy_leaf = identity
+            return await self.hass.async_add_executor_job(
+                functools.partial(
+                    obtain_device_token,
+                    self._host,
+                    LEGACY_HTTP_PORT,
+                    *identity,
+                    stop=self._token_stop,
+                )
+            )
 
     @callback
     def async_remove(self) -> None:
@@ -1705,12 +1744,15 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         *,
         data_updates: dict[str, Any],
         title: str | UndefinedType = UNDEFINED,
+        drop: tuple[str, ...] = (),
     ) -> ConfigFlowResult:
         """async_update_reload_and_abort without its reload, which Core
         2026.12 stops making for an entry with an update listener (issue
-        #647); ours refreshes cloud courses on an options change."""
+        #647); ours refreshes cloud courses on an options change. `drop`
+        names keys to remove from the entry."""
+        data = {k: v for k, v in entry.data.items() if k not in drop}
         self.hass.config_entries.async_update_entry(
-            entry, title=title, data={**entry.data, **data_updates}
+            entry, title=title, data={**data, **data_updates}
         )
         self.hass.config_entries.async_schedule_reload(entry.entry_id)
         if self.source == config_entries.SOURCE_RECONFIGURE:
@@ -1925,7 +1967,13 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                 if entry.data.get(CONF_TRANSPORT) == TRANSPORT_LEGACY_HTTP
                                 else {}
                             ),
+                            # A new address can be a different board, so
+                            # the probe's read mode replaces the stored one.
+                            **(
+                                {CONF_READ_MODE: info["read_mode"]} if info.get("read_mode") else {}
+                            ),
                         },
+                        drop=() if info.get("read_mode") else (CONF_READ_MODE,),
                     )
 
         return self.async_show_form(
