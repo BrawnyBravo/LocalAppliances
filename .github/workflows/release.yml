@@ -1,0 +1,59 @@
+name: Release
+
+# Publishes a GitHub release when a new manifest version lands on main,
+# but only after the Validate workflow has passed for that same commit.
+
+on:
+  workflow_run:
+    workflows: ["Validate"]
+    types: [completed]
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  release:
+    name: Create release for a new version
+    # A manual Validate run on main can also release, to recover from a
+    # cancelled push run. Any passing run releases a version whose release
+    # is missing, so a deleted or failed release is recreated on the next run.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      (github.event.workflow_run.event == 'push' ||
+       github.event.workflow_run.event == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - name: Checkout the validated commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Read manifest version
+        id: version
+        run: |
+          version=$(jq -r .version custom_components/localthings/manifest.json)
+          echo "tag=v${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Create the release if it does not exist yet
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Release $TAG already exists; nothing to do."
+            exit 0
+          fi
+          # Use the body of the pull request that brought this commit in, if any.
+          gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" \
+            --jq '[.[] | select(.merged_at != null and .base.ref == "main")][0].body // ""' \
+            > "$RUNNER_TEMP/notes.md"
+          if [ -n "$(tr -d '[:space:]' < "$RUNNER_TEMP/notes.md")" ]; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SHA" --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SHA" --title "$TAG" --generate-notes
+          fi
