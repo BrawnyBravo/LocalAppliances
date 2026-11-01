@@ -14,9 +14,13 @@ permissions: {}
 jobs:
   release:
     name: Create release for a new version
+    # A manual Validate run on main can also release, to recover from a
+    # cancelled push run. Any passing run releases a version whose release
+    # is missing, so a deleted or failed release is recreated on the next run.
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push'
+      (github.event.workflow_run.event == 'push' ||
+       github.event.workflow_run.event == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -26,6 +30,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
 
       - name: Read manifest version
         id: version
@@ -44,8 +49,10 @@ jobs:
             exit 0
           fi
           # Use the body of the pull request that brought this commit in, if any.
-          gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" --jq '.[0].body // ""' > "$RUNNER_TEMP/notes.md"
-          if [ -s "$RUNNER_TEMP/notes.md" ]; then
+          gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" \
+            --jq '[.[] | select(.merged_at != null and .base.ref == "main")][0].body // ""' \
+            > "$RUNNER_TEMP/notes.md"
+          if [ -n "$(tr -d '[:space:]' < "$RUNNER_TEMP/notes.md")" ]; then
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SHA" --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
           else
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SHA" --title "$TAG" --generate-notes

@@ -5,12 +5,20 @@ updates:
     schedule:
       interval: "weekly"
     groups:
-      dev-tools:
-        patterns: ["*"]
+      # Lint and type-check bumps often need code changes; keep them apart.
+      lint-tools:
+        patterns: ["ruff", "ty"]
+      test-harness:
+        patterns: ["pytest-homeassistant-custom-component"]
     ignore:
       # Capped on purpose; see the comment in requirements-dev.txt.
       - dependency-name: "pytest-homeassistant-custom-component"
         versions: [">=0.13.368"]
+      # Runtime deps follow manifest.json, not this bot.
+      - dependency-name: "smartthings-local"
+      - dependency-name: "cbor2"
+      - dependency-name: "pyOpenSSL"
+      - dependency-name: "cryptography"
 
   - package-ecosystem: "github-actions"
     directory: "/"
