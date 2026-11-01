@@ -75,6 +75,8 @@ LocalThings uses the standards the appliances implement:
 
 ---
 
+**Moving from Home Assistant's SmartThings integration?** Since October 2026 it needs a paid SmartThings plan. [Moving from the SmartThings integration](docs/moving-from-smartthings.md) switches your appliances over and keeps your automations working.
+
 ## Install
 
 1. In [HACS](https://hacs.xyz/), open the menu, choose **Custom repositories**, and add `https://github.com/BrawnyBravo/LocalAppliances` with the type **Integration**. Then search for **LocalAppliances** and select **Download**. If LocalThings is already installed, remove it in HACS first, then download LocalAppliances, and restart only after that. Removing it in HACS deletes only its files: the appliances you set up, their entities and their history stay in Home Assistant and are picked up by LocalAppliances. If Home Assistant restarts between the two steps, those appliances show as unavailable until LocalAppliances is downloaded and Home Assistant restarts again.
