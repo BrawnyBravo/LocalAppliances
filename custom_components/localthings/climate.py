@@ -37,7 +37,11 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .coordinator import LocalThingsCoordinator
-from .entity import LocalThingsEntity, _is_included, async_migrate_subdevice_case
+from .entity import (
+    LocalThingsEntity,
+    async_add_bound_entities,
+    async_migrate_subdevice_case,
+)
 from .registry.capabilities.airconditioner import (
     HREF_AIRFLOW as AIRFLOW_HREF,
 )
@@ -65,6 +69,9 @@ from .registry.capabilities.airconditioner import (
     HREF_TEMP_DESIRED as TEMP_DESIRED_HREF,
 )
 from .registry.capabilities.airconditioner import (
+    HREF_TEMPS_INDOOR_VS as TEMPS_INDOOR_VS_HREF,
+)
+from .registry.capabilities.airconditioner import (
     HREF_TEMPS_VS as TEMPS_VS_HREF,
 )
 from .registry.capabilities.airconditioner import (
@@ -78,6 +85,7 @@ from .registry.capabilities.airconditioner import (
 )
 from .registry.capabilities.airconditioner import (
     _temperature_step,
+    _temps_indoor_item,
     extend_option_code_bit,
     has_extend_option_code,
     has_heating_capacity,
@@ -98,6 +106,11 @@ _SUPPORTED_FIELD = "x.com.samsung.da.supportedModes"
 # HVAC mode: Samsung /mode/vs/0 modes <-> HA HVACMode (excluding OFF, which is
 # driven by the power resource).
 _DEVICE_TO_HVAC: dict[str, HVACMode] = {
+    # Cool and Dry with Auto Clean, going by the names, read as their base
+    # mode (ARTIK051_DONGLE_FAC_18K, #844). Listed before 'Cool'/'Dry' so
+    # those stay the reverse map's fallback.
+    "CoolClean": HVACMode.COOL,
+    "DryClean": HVACMode.DRY,
     "Cool": HVACMode.COOL,
     # AI Air Combo ventilator (TP1X_DA-AC-RHS-01001, #551). Listed before
     # 'Dry' so that stays the reverse map's fallback.
@@ -224,15 +237,16 @@ async def async_setup_entry(
 ) -> None:
     coordinator: LocalThingsCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_migrate_subdevice_case(hass, entry, coordinator)
-    async_add_entities(
-        LocalThingsClimate(coordinator, b)
-        for b in coordinator.bound
-        if isinstance(b.desc, ClimateDesc) and _is_included(b, coordinator)
-    )
-    async_add_entities(
-        LocalThingsZoneClimate(coordinator, b)
-        for b in coordinator.bound
-        if isinstance(b.desc, ZoneClimateDesc) and _is_included(b, coordinator)
+    async_add_bound_entities(
+        entry,
+        coordinator,
+        async_add_entities,
+        lambda b: isinstance(b.desc, (ClimateDesc, ZoneClimateDesc)),
+        lambda b: (
+            LocalThingsClimate(coordinator, b)
+            if isinstance(b.desc, ClimateDesc)
+            else LocalThingsZoneClimate(coordinator, b)
+        ),
     )
 
 
@@ -358,7 +372,7 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
     # distinguishable from the Smart preset below, and no name to give it that
     # the appliance would recognise.
 
-    def _legacy_preset_codes(self, hvac: str, options: list) -> list[str]:
+    def _legacy_preset_codes(self, hvac: str, options: list, rep: dict) -> list[str]:
         """Comfort-mode codes this unit offers in this HVAC mode.
 
         Derived only for boards that publish *both* capability maps. One map on
@@ -375,7 +389,6 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
         to a parsing failure is worse than offering one too many. Codes that were
         never in that list (d'light) still need their bit to be explicitly set.
         """
-        rep = self._rep(MODE_HREF)
         if (
             not has_option_code(rep)
             or not has_extend_option_code(rep)
@@ -422,10 +435,14 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
             codes += self._LEGACY_SLEEP_PRESET_CODES
         return codes
 
-    def _legacy_convenient(self) -> dict:
+    def _legacy_convenient(self, mode_rep: dict | None = None) -> dict:
         """A /mode/convenient/vs/0-shaped rep built from the Comode_* token in
-        /mode/vs/0's options, for boards that have no convenient resource."""
-        options = self._rep(MODE_HREF).get("x.com.samsung.da.options") or []
+        /mode/vs/0's options, for boards that have no convenient resource.
+        `mode_rep` defaults to the live one; the option list passes the
+        capability view's so presets survive an offline load."""
+        if mode_rep is None:
+            mode_rep = self._rep(MODE_HREF)
+        options = mode_rep.get("x.com.samsung.da.options") or []
         active = next(
             (o.split("_", 1)[1] for o in options if isinstance(o, str) and o.startswith("Comode_")),
             None,
@@ -433,7 +450,7 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
         if active is None:
             return {}
 
-        codes = self._legacy_preset_codes(_first(self._rep(MODE_HREF).get(_MODES_FIELD)), options)
+        codes = self._legacy_preset_codes(_first(mode_rep.get(_MODES_FIELD)), options, mode_rep)
         # Whatever the unit is actually running has to be listed whether the
         # rules expect it there or not -- a preset_mode outside preset_modes is
         # not a state HA allows, and the appliance has the last word on what it
@@ -456,9 +473,19 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
         directly, so a subdevice's own /airflow/vs/1 gets translated first,
         like every other sibling read below.
         """
-        if not is_legacy_board(self._resources):
+        if not self._legacy_airflow_board():
             return {}
         return self._rep(AIRFLOW_HREF)
+
+    def _legacy_airflow_board(self) -> bool:
+        """The board-generation test alone, for the option lists.
+
+        Reads the capability view, so it still answers during an offline
+        load -- where _legacy_airflow's rep deliberately does not, being a
+        value. Without this the fan and swing lists come back empty before
+        the first poll and HomeKit builds an accessory with neither.
+        """
+        return is_legacy_board(self._capability_resources)
 
     def _legacy_preset(self) -> bool:
         """Whether presets come from the Comode_* token rather than a
@@ -473,7 +500,21 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
         would make the resource never look empty.
         """
         convenient_href = self._bound.subdevice.to_actual(CONVENIENT_HREF)
-        return not self.coordinator.resource(convenient_href) and bool(self._legacy_airflow())
+        return not self.coordinator.resource(convenient_href) and self._legacy_airflow_channel()
+
+    def _legacy_airflow_channel(self) -> bool:
+        """Whether /airflow/vs/0 is this board's fan/swing channel, from the
+        capability view -- so the preset list and the preset write agree on
+        a unit whose airflow resource hasn't answered yet."""
+        return self._legacy_airflow_board() and bool(self._capability_rep(AIRFLOW_HREF))
+
+    def _capability_rep(self, href: str) -> dict:
+        """The base capability view, plus _rep's Comode_* synthesis for a
+        legacy board's presets, built from the capability view's mode rep."""
+        rep = super()._capability_rep(href)
+        if not rep and href == CONVENIENT_HREF and self._legacy_airflow_channel():
+            return self._legacy_convenient(super()._capability_rep(MODE_HREF))
+        return rep
 
     def _rep(self, href: str) -> dict:
         """`href` is one of this module's canonical HREF_* constants,
@@ -500,8 +541,12 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
         Both the option lists (preset_modes, fan_modes, ...) and the write
         paths resolve codes through here, so a learned code is selectable
         and writable by virtue of appearing in one list.
+
+        Falls back to the capability view for what hasn't answered, so an
+        offline load or a silent sub-unit doesn't publish an hvac_modes of
+        nothing but OFF -- see coordinator.capability_canonical.
         """
-        rep = self._rep(href)
+        rep = self._rep(href) or self._capability_rep(href)
         supported = list(rep.get(_SUPPORTED_FIELD) or [])
         if href == MODE_HREF and "Heat" not in supported and has_heating_capacity(rep):
             # The TP6X_RAC bridge leaves Heat off a heat pump's list (#589).
@@ -556,11 +601,23 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
         return bool(self._rep(TEMP_CURRENT_HREF))
 
     def _temps_vs(self) -> dict:
-        """Vendor `/temperatures/vs/0` items[0] (empty {} when absent)."""
-        return _temps_vs_item(self._rep(TEMPS_VS_HREF))
+        """Vendor temperature item: /temperatures/vs/0's items[0], or a
+        multi-indoor system AC's flat /temperatures/indoor/vs/0 (same field
+        names, no items[] wrapper) when the former is absent. {} when neither."""
+        return _temps_vs_item(self._rep(TEMPS_VS_HREF)) or _temps_indoor_item(
+            self._rep(TEMPS_INDOOR_VS_HREF)
+        )
+
+    def _uses_indoor_vendor(self) -> bool:
+        """True when the writable setpoint lives on the flat
+        /temperatures/indoor/vs/0 (system AC) rather than /temperatures/vs/0's
+        items[] array -- selects the write channel in async_set_temperature."""
+        return not _temps_vs_item(self._rep(TEMPS_VS_HREF)) and bool(
+            _temps_indoor_item(self._rep(TEMPS_INDOOR_VS_HREF))
+        )
 
     @property
-    def temperature_unit(self) -> str:
+    def native_temperature_unit(self) -> str:
         raw = self._rep(TEMP_DESIRED_HREF).get("units")
         if raw is None:
             raw = self._temps_vs().get("x.com.samsung.da.unit")
@@ -571,14 +628,14 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
         )
 
     @property
-    def current_temperature(self):
+    def native_current_temperature(self):
         v = _num(self._rep(TEMP_CURRENT_HREF).get("temperature"))
         if v is None:
             v = _num(self._temps_vs().get("x.com.samsung.da.current"))
         return v
 
     @property
-    def target_temperature(self):
+    def native_target_temperature(self):
         # Read from the same channel writes go to (see async_set_temperature):
         # OCF /temperature/desired/0 on boards with the full OCF pair, vendor
         # /temperatures/vs/0 otherwise -- with the other as fallback.
@@ -588,11 +645,31 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
             return ocf if ocf is not None else vs
         return vs if vs is not None else ocf
 
+    # Older cores need aliases; newer cores must not see deprecated members.
+    if not hasattr(ClimateEntity, "native_temperature_unit"):
+        temperature_unit = native_temperature_unit
+        current_temperature = native_current_temperature
+        target_temperature = native_target_temperature
+
+    def _capability_temps_vs(self) -> dict:
+        """`_temps_vs` through the capability view, for the setpoint bounds
+        alone -- the current and desired readings stay on the live cache."""
+        return _temps_vs_item(self._capability_rep(TEMPS_VS_HREF)) or _temps_indoor_item(
+            self._capability_rep(TEMPS_INDOOR_VS_HREF)
+        )
+
     def _range(self) -> list | None:
-        r = self._rep(TEMP_DESIRED_HREF).get("range")
+        """The setpoint bounds, falling back to the capability view.
+
+        Home Assistant publishes min_temp/max_temp as capability attributes
+        and HomeKit freezes them into the target-temperature characteristic
+        at accessory creation, so an offline load answering with HA's generic
+        7-35 defaults leaves a slider that writes values the unit rejects.
+        """
+        r = (self._rep(TEMP_DESIRED_HREF) or self._capability_rep(TEMP_DESIRED_HREF)).get("range")
         if isinstance(r, (list, tuple)) and len(r) == 2:
             return r
-        item = self._temps_vs()
+        item = self._temps_vs() or self._capability_temps_vs()
         lo = _num(item.get("x.com.samsung.da.minimum"))
         hi = _num(item.get("x.com.samsung.da.maximum"))
         return [lo, hi] if (lo is not None and hi is not None) else None
@@ -611,9 +688,10 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
     def target_temperature_step(self) -> float:
         # Shared with the write path (airconditioner._climate_write) so a
         # step read here always matches the step a write is quantized to --
-        # self._resources is this entity's own subdevice's canonical view
-        # (issue #177), the same shape _temperature_step expects.
-        return _temperature_step(self._resources) or 1.0
+        # the capability view is this entity's own subdevice's canonical view
+        # (issue #177), the same shape _temperature_step expects, and keeps
+        # answering across an offline load like the other capabilities.
+        return _temperature_step(self._capability_resources) or 1.0
 
     # -- hvac mode ----------------------------------------------------------
 
@@ -669,7 +747,7 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
 
     @property
     def fan_modes(self) -> list[str]:
-        if self._legacy_airflow():
+        if self._legacy_airflow_board():
             # This resource carries no supportedModes, so the full scale is
             # offered. A known limitation: a unit without Turbo rejects it.
             # The capability bit maps that gate presets (_legacy_preset_codes)
@@ -688,7 +766,7 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
         """True when WIND_DIRECTION_HREF is the swing channel to use --
         signalled by its presence. Boards without it (issue #126) report
         the 2-axis oscillation resource instead; see _oscillation_swing."""
-        return bool(self._rep(WIND_DIRECTION_HREF))
+        return bool(self._capability_rep(WIND_DIRECTION_HREF))
 
     @property
     def swing_mode(self):
@@ -701,14 +779,14 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
 
     @property
     def swing_modes(self) -> list[str]:
-        if self._legacy_airflow():
+        if self._legacy_airflow_board():
             # Every direction, for the same reason as fan_modes above: no
             # known bit says whether this unit swings horizontally, so one
             # that cannot rejects "horizontal"/"both" (a known limitation).
             return list(_SWING_TO_DEVICE.keys())
         if self._swing_via_direction():
             return self._read_modes(WIND_DIRECTION_HREF, _DEVICE_TO_SWING)
-        if self._rep(WIND_OSCILLATION_HREF):
+        if self._capability_rep(WIND_OSCILLATION_HREF):
             return list(_SWING_TO_DEVICE.keys())
         return []
 
@@ -760,7 +838,12 @@ class LocalThingsClimate(LocalThingsEntity, ClimateEntity):
             return
         # OCF-pair boards write /temperature/desired/0; vendor boards write
         # /temperatures/vs/0 (see airconditioner._climate_write).
-        kind = "temperature_ocf" if self._ocf_temp_authoritative() else "temperature"
+        if self._ocf_temp_authoritative():
+            kind = "temperature_ocf"
+        elif self._uses_indoor_vendor():
+            kind = "temperature_indoor"
+        else:
+            kind = "temperature"
         await self.coordinator.async_send_command(self._bound, (kind, temp))
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:

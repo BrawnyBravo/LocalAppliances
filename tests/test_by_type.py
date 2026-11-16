@@ -1,5 +1,6 @@
 """Tests for samsung_appliance/registry/by_type."""
 
+import json
 from typing import cast
 
 import pytest
@@ -130,6 +131,7 @@ class TestBoardTokenTable:
     def test_every_token_resolves_to_a_real_registry(self):
         from custom_components.localthings.registry.by_type import (
             _BOARD_TOKEN_TO_KEY,
+            _CONSUMER_DESCRIPTION_TO_KEY,
             _CONSUMER_PREFIX_TO_KEY,
             _REGISTRY_BY_KEY,
         )
@@ -138,6 +140,8 @@ class TestBoardTokenTable:
             assert key in _REGISTRY_BY_KEY, f"{token!r} -> unknown registry {key!r}"
         for prefix, key in _CONSUMER_PREFIX_TO_KEY.items():
             assert key in _REGISTRY_BY_KEY, f"{prefix!r} -> unknown registry {key!r}"
+        for description, key in _CONSUMER_DESCRIPTION_TO_KEY.items():
+            assert key in _REGISTRY_BY_KEY, f"{description!r} -> unknown registry {key!r}"
 
     def test_tokens_are_upper_case(self):
         """`_board_tokens` upper-cases before lookup, so a lower-case entry
@@ -241,6 +245,7 @@ class TestForDeviceByOicType:
             ("oic.d.washer", "washer"),
             ("x.com.st.d.hood", "range_hood"),
             ("x.com.st.d.stickcleaner", "vacuum_station"),
+            ("oic.d.robotcleaner", "robot_vacuum"),
             ("x.com.st.d.steamcloset", "air_dresser"),
             ("x.com.st.d.airqualitysensor", "air_monitor"),
         ],
@@ -264,14 +269,14 @@ class TestForDeviceByOicType:
 
         assert for_device_by_oic_type(("oic.d.somethingnew",)) is None
 
-    def test_robotcleaner_is_not_mapped_to_the_vacuum_station_registry(self):
-        """'oic.d.robotcleaner' names an actual robot vacuum, a different
-        product from the clean/auto-empty station vacuum_station covers (no
-        vacuum-body capabilities at all) -- mapping it there would misroute
-        a genuine robot-vacuum dump."""
+    def test_robotcleaner_maps_to_robot_vacuum_not_the_station(self):
+        """'oic.d.robotcleaner' names an actual robot vacuum (issue #659), a
+        different product from the stick vacuum's clean station
+        vacuum_station covers."""
         from custom_components.localthings.registry.by_type import for_device_by_oic_type
 
-        assert for_device_by_oic_type(("oic.d.robotcleaner",)) is None
+        reg = for_device_by_oic_type(("oic.wk.d", "oic.d.robotcleaner"))
+        assert reg is not None and reg.name == "robot_vacuum"
 
     def test_cooktop_maps_to_the_one_cooktop_registry(self):
         """Both cooktop board generations report 'oic.d.cooktop' and share one
@@ -353,6 +358,21 @@ class TestForDeviceByModel:
         assert for_device_by_model(model, "LCD_OV_WALL_16K_DIV") is None
         reg = for_device_by_model("", "DA_DW_TP1_21_COMMON")
         assert reg is not None and reg.name == "dishwasher"
+
+    def test_flexdry_sections_resolve_by_exact_description(self):
+        from custom_components.localthings.registry.by_type import (
+            _REGISTRY_BY_KEY,
+            for_device_by_model,
+        )
+
+        for description in ("TP6X_DRYER_DRUM", "TP6X_DRYER_TOPLOAD"):
+            reg = for_device_by_model("TP6X_DM9900M", description)
+            assert reg is not None
+            assert reg.name == "flexdry"
+            assert reg is not _REGISTRY_BY_KEY["dryer"]
+            assert reg is _REGISTRY_BY_KEY["flexdry"]
+
+        assert for_device_by_model("TP6X_DM9900M", "TP6X_DRYER") is None
 
     def test_dryer_dve50a8600_paired_model_numbers_in_description(self):
         """Issue #79: description pairs two model numbers
@@ -816,11 +836,17 @@ class TestOneUiVersionIsNotConsulted:
 
     def test_resolve_types_every_one_ui_reporting_fixture_without_it(self, all_device_fixtures):
         """The claim above, checked: for every dump that reports a
-        oneUiVersion, the model strings alone reach a registry."""
+        oneUiVersion, its model strings, or its own /oic/d type where the
+        fixture records one, reach a registry. The 4-way cassette (#704)
+        carries no board token of its own: `SAC` is shared with the EHS's
+        `SAC_EHS_MONO`."""
         from custom_components.localthings.registry.by_type import resolve
+        from tests.conftest import FIXTURES
 
         seen = 0
         for name, resources in all_device_fixtures.items():
+            raw = json.loads((FIXTURES / f"{name}_device.json").read_text())
+            device_types = tuple(raw.get("oic_device_types", ()))
             one_ui = (
                 resources.get("/otninformation/vs/0", {})
                 .get("swVersionInfo", {})
@@ -829,7 +855,7 @@ class TestOneUiVersionIsNotConsulted:
             if not one_ui:
                 continue
             seen += 1
-            assert resolve(resources) is not None, (
+            assert resolve(resources, device_types=device_types) is not None, (
                 f"{name} reports oneUiVersion {one_ui!r} and nothing else types it"
             )
         assert seen, "no fixture reports oneUiVersion -- has the corpus changed?"

@@ -12,6 +12,8 @@ subdevices.
 
 from __future__ import annotations
 
+import logging
+
 import pytest
 from homeassistant.components.climate import HVACMode
 from homeassistant.core import HomeAssistant
@@ -55,10 +57,10 @@ async def test_subdevice_climate_reads_its_own_temperature(climates):
     28.0 -- distinct values in the real fixture, so a href mix-up here
     would show up as a wrong number, not just a wrong mode string."""
     main, sub1 = climates[None], climates["1"]
-    assert main.current_temperature == 25.0
-    assert main.target_temperature == 26.0
-    assert sub1.current_temperature == 27.0
-    assert sub1.target_temperature == 28.0
+    assert main.native_current_temperature == 25.0
+    assert main.native_target_temperature == 26.0
+    assert sub1.native_current_temperature == 27.0
+    assert sub1.native_target_temperature == 28.0
 
 
 async def test_subdevice_climate_reads_its_own_power_state(climates):
@@ -104,3 +106,14 @@ async def test_subdevice_climate_writes_are_scoped_to_its_own_bound_entity(clima
     assert main._bound.href == "/mode/vs/0"
     assert sub1._bound.href == "/mode/vs/1"
     assert main._bound is not sub1._bound
+
+
+async def test_auto_clean_modes_are_mapped_and_gear_still_reported(climates, caplog):
+    """#844: CoolClean/DryClean fold into COOL/DRY; Gear has no known meaning
+    yet, so it keeps the unmapped-code warning."""
+    with caplog.at_level(logging.WARNING):
+        modes = climates[None].hvac_modes
+    assert {HVACMode.COOL, HVACMode.DRY} <= set(modes)
+    assert "'CoolClean'" not in caplog.text
+    assert "'DryClean'" not in caplog.text
+    assert "'Gear'" in caplog.text

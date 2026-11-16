@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from contextlib import nullcontext
 from typing import cast
 
 from homeassistant.components.select import SelectEntity
@@ -13,7 +14,11 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .catalog import translated_states
 from .const import DOMAIN
 from .coordinator import LocalThingsCoordinator
-from .entity import LocalThingsEntity, _is_included, async_migrate_subdevice_case
+from .entity import (
+    LocalThingsEntity,
+    async_add_bound_entities,
+    async_migrate_subdevice_case,
+)
 from .registry.entities import SelectDesc
 
 
@@ -24,10 +29,12 @@ async def async_setup_entry(
 ) -> None:
     coordinator: LocalThingsCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_migrate_subdevice_case(hass, entry, coordinator)
-    async_add_entities(
-        LocalThingsSelect(coordinator, b)
-        for b in coordinator.bound
-        if isinstance(b.desc, SelectDesc) and _is_included(b, coordinator)
+    async_add_bound_entities(
+        entry,
+        coordinator,
+        async_add_entities,
+        lambda b: isinstance(b.desc, SelectDesc),
+        lambda b: LocalThingsSelect(coordinator, b),
     )
 
 
@@ -157,4 +164,9 @@ class LocalThingsSelect(LocalThingsEntity, SelectEntity):
             # device's own spelling, like every listed one.
             current = self._raw_current()
             raw = current if self._display_option(current) == option else option
-        await self.coordinator.async_send_command(self._bound, raw)
+        async with (
+            self.coordinator.playback.async_change()
+            if cast(SelectDesc, self._bound.desc).affects_playback
+            else nullcontext()
+        ):
+            await self.coordinator.async_send_command(self._bound, raw)

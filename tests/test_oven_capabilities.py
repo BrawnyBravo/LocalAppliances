@@ -2,7 +2,8 @@
 
 import pytest
 
-from custom_components.localthings.registry.by_type import for_device_by_model
+from custom_components.localthings.registry.adapter import flatten
+from custom_components.localthings.registry.by_type import for_device_by_model, registry_for
 from custom_components.localthings.registry.capabilities import oven
 from custom_components.localthings.registry.discovery import discover
 from custom_components.localthings.registry.entities import (
@@ -33,6 +34,30 @@ def test_oven_fixture_resolves_and_has_no_unbound_hrefs():
     unbound = []
     discover(resources, reg.capabilities, reg.pattern_capabilities, log=unbound.append)
     assert unbound == []
+
+
+@pytest.mark.parametrize("device_type", ["oven", "range", "microwave"])
+def test_divider_preserves_unknown_readings(device_type):
+    registry = registry_for(device_type)
+    resources = {
+        "/mode/vs/0": {"x.com.samsung.da.defaultMode": "LowerConvectionBake"},
+        "/connected/vs/0": {"x.com.samsung.da.connected": "On"},
+    }
+    bound = [b for b in discover(resources, registry.capabilities) if b.desc.key == "divider"]
+    assert len(bound) == 1
+    for value, expected in (
+        ("On", True),
+        ("Off", False),
+        (None, None),
+        ("", None),
+        ("Unknown", None),
+    ):
+        resources["/connected/vs/0"] = {"x.com.samsung.da.connected": value}
+        assert flatten(bound, resources)["divider"] is expected
+    resources["/connected/vs/0"] = {}
+    assert flatten(bound, resources)["divider"] is None
+    del resources["/connected/vs/0"]
+    assert flatten(bound, resources)["divider"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -232,9 +257,9 @@ def test_oven_mode_options_nonempty():
     assert len(desc.options({})) > 0
 
 
-def test_oven_mode_options_falls_back_when_no_live_supported_modes():
+def test_oven_mode_options_without_live_modes_offers_only_idle():
     desc = _oven_mode_desc()
-    assert desc.options({}) == list(oven._OVEN_MODES)
+    assert desc.options({}) == ["NoOperation"]
 
 
 def test_oven_mode_options_reads_live_supported_modes():
@@ -247,7 +272,7 @@ def test_oven_mode_options_reads_live_supported_modes():
             "x.com.samsung.da.supportedModes": ["Bake", "AirFryer", "SelfClean"],
         }
     }
-    assert desc.options(resources) == ["NoOperation", "Bake", "AirFryer", "SelfClean"]
+    assert desc.options(resources) == ["NoOperation", "Bake", "AirFryer"]
 
 
 def test_oven_mode_options_prepends_idle_token_when_live_list_omits_it():
@@ -261,7 +286,7 @@ def test_oven_mode_options_prepends_idle_token_when_live_list_omits_it():
             "x.com.samsung.da.modes": ["NoOperation"],
         }
     }
-    assert desc.options(resources) == ["NoOperation", "Bake", "Broil", "KeepWarm"]
+    assert desc.options(resources) == ["NoOperation", "Bake", "KeepWarm"]
 
 
 def test_oven_mode_options_drop_homecare_wizard():
@@ -333,12 +358,12 @@ def test_oven_mode_validate_rejects_idle_token_with_user_facing_key():
     assert oven._oven_mode_write("NoOperation", rep) is None
 
 
-def test_oven_mode_validate_passes_every_supported_mode():
+def test_oven_mode_writer_rejects_nonstartable_specless_modes():
     desc = _oven_mode_desc()
     rep = {"x.com.samsung.da.supportedModes": ["Bake", "Broil", "KeepWarm"]}
     for mode in rep["x.com.samsung.da.supportedModes"]:
         assert desc.validate_fn(mode, rep, {}) is None
-        assert oven._oven_mode_write(mode, rep) is not None
+        assert (oven._oven_mode_write(mode, rep) is not None) is (mode != "Broil")
 
 
 def test_oven_mode_options_does_not_duplicate_idle_token():
@@ -349,9 +374,10 @@ def test_oven_mode_options_does_not_duplicate_idle_token():
 
 def test_oven_mode_write_round_trips():
     desc = _oven_mode_desc()
-    valid_mode = desc.options({})[1]  # e.g. 'Bake'
+    rep = {"x.com.samsung.da.supportedModes": ["Bake"]}
+    valid_mode = desc.options({"/mode/vs/0": rep})[1]
     assert desc.write_fn is not None
-    result = desc.write_fn(valid_mode, {})
+    result = desc.write_fn(valid_mode, rep)
     assert result is not None
     path, body = result
     assert path == ["mode", "vs", "0"]
@@ -366,8 +392,8 @@ def test_oven_mode_rejects_unknown():
 
 def test_oven_mode_write_validates_against_live_supported_modes():
     """A device reporting its own supportedModes is validated against that
-    list, not the static fallback -- issue #138's AirFryer/SelfClean/etc.
-    are accepted, and a mode outside the device's own list is rejected even
+    list, filtered by startability without modeSpec. AirFryer is accepted,
+    and a mode outside the device's own list is rejected even
     if some other model's static guess would have allowed it."""
     desc = _oven_mode_desc()
     rep = {"x.com.samsung.da.supportedModes": ["Bake", "AirFryer", "SelfClean"]}

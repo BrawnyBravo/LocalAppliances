@@ -322,7 +322,15 @@ MICROWAVE_CAVITY = Capability(
     href="/oven/vs/0",
     poll_tier="hot",
     entities=(
-        SensorDesc(key="cavity_state", field="x.com.samsung.da.state"),
+        # The oven's lower-case enum (OVEN_CAVITY), so one template covers
+        # both appliances (#703).
+        SensorDesc(
+            key="cavity_state",
+            field="x.com.samsung.da.state",
+            device_class="enum",
+            options=("ready", "preheat", "cooking", "finish"),
+            value_fn=lambda v: v.lower() if isinstance(v, str) else v,
+        ),
         SensorDesc(
             key="power_level",
             field="x.com.samsung.da.powerLevel",
@@ -363,6 +371,13 @@ MICROWAVE_SETPOINT = Capability(
     ),
 )
 
+# OCF twins of MICROWAVE_SETPOINT's vendor array, which the LCD_R18_SCO board
+# (NQ5B6753CAA, #709) reports alongside it with the same reading. Bound as
+# duplicates so they leave unbound_hrefs; the vendor array carries the unit
+# and increment and is the write path.
+MICROWAVE_TEMP_CURRENT_OCF_DUPLICATE = Capability(href="/temperature/current/cook/0")
+MICROWAVE_TEMP_DESIRED_OCF_DUPLICATE = Capability(href="/temperature/desired/cook/0")
+
 MICROWAVE_MODE = Capability(
     href="/mode/vs/0",
     poll_tier="warm",
@@ -390,6 +405,8 @@ MICROWAVE_MODE = Capability(
             value_fn=lambda opts: option_value(opts, "Sound") == "On",
             write_fn=_sound_write,
         ),
+        # The Lamp token's three writers waive Remote Control: it doesn't heat, and
+        # TP2X_DA-KS-MICROWAVE-0101X applied it with Remote Control off.
         SwitchDesc(
             key="lamp",
             field="x.com.samsung.da.options",
@@ -398,6 +415,7 @@ MICROWAVE_MODE = Capability(
             exists_fn=_lamp_exists,
             value_fn=_lamp_is_on,
             write_fn=_lamp_write,
+            needs_remote_control=False,
         ),
         SelectDesc(
             key="lamp_level",
@@ -408,6 +426,7 @@ MICROWAVE_MODE = Capability(
             exists_fn=_lamp_level_exists,
             value_fn=lambda opts: option_value(opts, "Lamp"),
             write_fn=_lamp_level_write,
+            needs_remote_control=False,
         ),
         # Its own key so the switch above keeps its unique_id (#568).
         LightDesc(
@@ -419,6 +438,7 @@ MICROWAVE_MODE = Capability(
             exists_fn=_lamp_level_exists,
             value_fn=_lamp_brightness,
             write_fn=_lamp_brightness_write,
+            needs_remote_control=False,
         ),
         LightDesc(
             key="lamp_light",

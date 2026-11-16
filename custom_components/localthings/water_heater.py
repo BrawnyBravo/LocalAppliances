@@ -46,7 +46,11 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .coordinator import LocalThingsCoordinator
-from .entity import LocalThingsEntity, _is_included, async_migrate_subdevice_case
+from .entity import (
+    LocalThingsEntity,
+    async_add_bound_entities,
+    async_migrate_subdevice_case,
+)
 from .registry.capabilities.common import normalize_temp_unit
 from .registry.capabilities.ehs import (
     HREF_DHW_MODE as MODE_HREF,
@@ -93,10 +97,12 @@ async def async_setup_entry(
 ) -> None:
     coordinator: LocalThingsCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_migrate_subdevice_case(hass, entry, coordinator)
-    async_add_entities(
-        LocalThingsWaterHeater(coordinator, b)
-        for b in coordinator.bound
-        if isinstance(b.desc, WaterHeaterDesc) and _is_included(b, coordinator)
+    async_add_bound_entities(
+        entry,
+        coordinator,
+        async_add_entities,
+        lambda b: isinstance(b.desc, WaterHeaterDesc),
+        lambda b: LocalThingsWaterHeater(coordinator, b),
     )
 
 
@@ -141,7 +147,10 @@ class LocalThingsWaterHeater(LocalThingsEntity, WaterHeaterEntity):
         return str(self._rep(POWER_HREF).get("x.com.samsung.da.power", "")).lower() == "on"
 
     def _supported(self) -> list[str]:
-        return list(self._rep(MODE_HREF).get(_SUPPORTED_FIELD) or [])
+        """Same discovery-snapshot fallback as climate.py's identical helper:
+        an offline load must not publish an empty operation list."""
+        rep = self._rep(MODE_HREF) or self._capability_rep(MODE_HREF)
+        return list(rep.get(_SUPPORTED_FIELD) or [])
 
     def _warn_unmapped(self, code: str) -> None:
         if code in self._warned_unmapped:
@@ -157,7 +166,7 @@ class LocalThingsWaterHeater(LocalThingsEntity, WaterHeaterEntity):
     # -- temperature --------------------------------------------------------
 
     @property
-    def temperature_unit(self) -> str:
+    def native_temperature_unit(self) -> str:
         raw = self._rep(TEMPERATURE_HREF).get("x.com.samsung.da.unit")
         return (
             UnitOfTemperature.FAHRENHEIT
@@ -166,12 +175,18 @@ class LocalThingsWaterHeater(LocalThingsEntity, WaterHeaterEntity):
         )
 
     @property
-    def current_temperature(self):
+    def native_current_temperature(self):
         return _num(self._rep(TEMPERATURE_HREF).get("x.com.samsung.da.current"))
 
     @property
-    def target_temperature(self):
+    def native_target_temperature(self):
         return _num(self._rep(TEMPERATURE_HREF).get("x.com.samsung.da.desired"))
+
+    # Older cores need aliases; newer cores must not see deprecated members.
+    if not hasattr(WaterHeaterEntity, "native_temperature_unit"):
+        temperature_unit = native_temperature_unit
+        current_temperature = native_current_temperature
+        target_temperature = native_target_temperature
 
     def _range(self) -> list | None:
         """The device's own (minimum, maximum) pair, or None. Both ends

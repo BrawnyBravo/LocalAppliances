@@ -47,6 +47,8 @@ IGNORED: list[Capability] = [
     Capability(href="/quickcontrol/info/vs/0"),
     Capability(href="/realtimenotiforclient/vs/0"),
     Capability(href="/file/information/vs/0"),
+    # File-transfer chunking endpoint, empty on reads (R18_BIXBY_FAC_TIME_23K, #839).
+    Capability(href="/file/transfer/chunk/vs/0"),
     # Normally static region/countryCode metadata. The range, oven and
     # microwave registries replace this entry with the write-only clock button.
     Capability(href="/configuration/vs/0"),
@@ -144,6 +146,13 @@ IGNORED: list[Capability] = [
     # empty/zero on the only dump seen (device idle). Same "don't guess"
     # treatment as the microwave family's /recipe/cook/vs/0.
     Capability(href="/cooktop/recipe/status/vs/0"),
+    # Samsung's own diagnostic-log upload state (logRequestState/logState)
+    # and cloud-report availability flag (issue #784) -- service plumbing.
+    Capability(href="/logtrigger/vs/0"),
+    Capability(href="/report/vs/0"),
+    # SmartThings built-in hub module state (onboarding flags, hub and
+    # account IDs), issue #786 -- account plumbing, not appliance state.
+    Capability(href="/sec/da/iotHub"),
 ]
 
 

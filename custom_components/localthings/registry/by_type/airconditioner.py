@@ -14,30 +14,14 @@ every other AC family, so this registry needs two mutually-exclusive variants
 of that one capability instead of the single shared one every other registry
 uses unconditionally.
 
-common.FILE_TRANSFER is likewise swapped for a copy without its energy
-entity. Every air-conditioner usage file measured so far (ARTIK051_PRAC_20K,
-TP2X_RAC_20K) stores plain Wh in the field the other families store in tenths
-of a kWh, and nothing in the bytes says which. The usage-file decoder tells
-them apart by the third field, but on a new or barely-used head the runtime
-counter there (0, 5, 10 tenths of an hour) looks exactly like a washer's zeros
-or a fridge's month label, and the energy would then read ~100x high into a
-`total_increasing` sensor. Air conditioners report energy through their own
-meter (ENERGY_METER_GENERIC/LEGACY), so dropping the file's copy loses
-nothing; the per-head runtime sensor is kept.
+common.FILE_TRANSFER is swapped the same way, for airconditioner.FILE_TRANSFER:
+the usage file stores plain Wh on ACs (issue #741).
 
 Reuses dishwasher.DIAGNOSIS for /diagnosis/vs/0.
 """
 
-from dataclasses import replace
-
 from ..capabilities import air_purifier, airconditioner, common, dishwasher, ehs, ignored
 from ._base import DeviceRegistry, _build
-
-# The usage file without its energy entity -- see the module docstring.
-FILE_TRANSFER_RUNTIME_ONLY = replace(
-    common.FILE_TRANSFER,
-    entities=tuple(e for e in common.FILE_TRANSFER.entities if e.key != "energy_kwh"),
-)
 
 REGISTRY = DeviceRegistry(
     name="airconditioner",
@@ -49,11 +33,12 @@ REGISTRY = DeviceRegistry(
                 for c in common.UNIVERSAL
                 if c is not common.ENERGY_METER and c is not common.FILE_TRANSFER
             ],
-            FILE_TRANSFER_RUNTIME_ONLY,
             airconditioner.ENERGY_METER_GENERIC,
             airconditioner.ENERGY_METER_LEGACY,
+            airconditioner.FILE_TRANSFER,
             dishwasher.DIAGNOSIS,
             airconditioner.CLIMATE,
+            airconditioner.FOUR_WAY_FLAPS,
             airconditioner.AIR_PURIFY,
             airconditioner.AUTO_CLEAN,
             airconditioner.AIR_FILTER,
@@ -69,6 +54,7 @@ REGISTRY = DeviceRegistry(
             airconditioner.MOTION_DETECT_WIND,
             airconditioner.CURRENT_TEMPERATURE,
             airconditioner.CURRENT_TEMPERATURE_VS,
+            airconditioner.CURRENT_TEMPERATURE_INDOOR_VS,
             airconditioner.HUMIDITY,
             # TP1X_DA-AC-FAC-class (issue #319): shares its /display/vs/0,
             # /settings/sound/output/vs/0 and /settings/sound/volume/vs/0
@@ -82,6 +68,10 @@ REGISTRY = DeviceRegistry(
             airconditioner.ENERGY_SAVING,
             airconditioner.EDGE_LIGHTING,
             airconditioner.LIGHT_STATEFUL,
+            # Bixby floor-standing AC (R18_BIXBY_FAC_TIME_23K, #839).
+            airconditioner.SPEAKER_VOLUME,
+            airconditioner.ALWAYS_ON_DISPLAY,
+            airconditioner.BLUETOOTH_SPEAKER,
             # System Fresh Air Ventilator (PR #316, ACA-KR-TP2-21-AN9000):
             # WINDFREE/WINDSLEEP are this device's own hrefs; HEPA_FILTER/
             # DEVICE_ACTIVE reuse air_purifier.py's identical shapes.

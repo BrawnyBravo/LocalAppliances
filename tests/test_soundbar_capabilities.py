@@ -6,6 +6,8 @@ reads produce.
 
 from typing import Any
 
+import pytest
+
 from custom_components.localthings.registry.adapter import flatten
 from custom_components.localthings.registry.by_type import (
     for_device_by_oic_type,
@@ -16,6 +18,7 @@ from custom_components.localthings.registry.capabilities import soundbar
 from custom_components.localthings.registry.discovery import discover
 from custom_components.localthings.registry.entities import (
     ButtonDesc,
+    MediaPlayerDesc,
     NumberDesc,
     SelectDesc,
 )
@@ -58,19 +61,95 @@ def test_no_unbound_hrefs():
     assert unbound == []
 
 
-def test_media_surface_resources_are_covered_without_entities():
-    """Power, volume, input and playback stay bound but get no entities yet."""
+def test_media_player_is_the_only_power_volume_source_surface():
+    """Media controls live only on the media player; their resources stay bound."""
     state = _state()
-    for key in (
+    for dup in (
         "power_switch",
         "volume",
         "mute",
         "input_source",
         "soundbar_sound_mode",
         "playback",
-        "media_player",
     ):
-        assert key not in state
+        assert dup not in state
+    assert state["media_player"] == "stop"
+
+
+def test_media_player_write_contracts():
+    desc = soundbar.MEDIA_PLAYER.entities[0]
+    assert isinstance(desc, MediaPlayerDesc)
+    write = desc.write_fn
+    assert write is not None
+    assert write(("power", False), {}) == (
+        ["sec", "networkaudio", "switch", "binary"],
+        {"value": False},
+    )
+    assert write(("volume", 42), {}) == (["sec", "networkaudio", "audio"], {"volume": 42})
+    assert write(("mute", True), {}) == (["sec", "networkaudio", "audio"], {"mute": True})
+    assert write(("source", "bt"), {}) == (["sec", "networkaudio", "mode"], {"mode": "bt"})
+    assert write(("sound_mode", "music"), {}) == (
+        ["sec", "networkaudio", "soundmode"],
+        {"x.com.samsung.networkaudio.soundmode": "music"},
+    )
+    assert write(("shuffle", True), {}) == (
+        ["capability", "mediaPlaybackShuffle", "main", "0"],
+        {"mode": "enabled"},
+    )
+    assert write(("next_track", None), {}) == (
+        ["capability", "mediaTrackControl", "main", "0"],
+        {"modes": ["next"]},
+    )
+    assert write(("previous_track", None), {}) == (
+        ["capability", "mediaTrackControl", "main", "0"],
+        {"modes": ["previous"]},
+    )
+
+
+def test_seek_write_is_a_delta_in_milliseconds():
+    desc = soundbar.MEDIA_PLAYER.entities[0]
+    assert isinstance(desc, MediaPlayerDesc)
+    write = desc.write_fn
+    assert write is not None
+    assert write(("seek", -15_000), {}) == (
+        ["capability", "mediaPlayback", "main", "0"],
+        {"modes": ["seek"], "position": -15_000},
+    )
+
+
+def test_unadvertised_sources_and_sound_modes_are_not_written():
+    desc = soundbar.MEDIA_PLAYER.entities[0]
+    assert isinstance(desc, MediaPlayerDesc)
+    write: Any = desc.write_fn
+    resources = _load_device("soundbar_s61b")
+    assert write(("source", "bt"), {}, None, resources) is not None
+    assert write(("source", "hdmi2"), {}, None, resources) is None
+    assert write(("sound_mode", "game"), {}, None, resources) is not None
+    assert write(("sound_mode", "night"), {}, None, resources) is None
+
+
+def test_write_policy_is_declared_per_payload():
+    desc = soundbar.MEDIA_PLAYER.entities[0]
+    resend_unsafe: Any = desc.resend_unsafe_fn
+    cache_after_ack: Any = desc.cache_after_ack_fn
+    for payload in (("seek", 1), ("next_track", None), ("previous_track", None)):
+        assert resend_unsafe(payload)
+    assert resend_unsafe(("playback", "playpause"))
+    for payload in (("playback", "play"), ("volume", 3), ("source", "bt"), ("power", True)):
+        assert not resend_unsafe(payload)
+    assert cache_after_ack(("seek", 1))
+    assert not cache_after_ack(("volume", 3))
+
+
+@pytest.mark.parametrize(
+    ("source", "active"),
+    [("", True), ("bt", True), ("wifiidle", True), ("hdmi1", False), ("optical", False)],
+)
+def test_streams_are_only_trusted_off_the_wired_inputs(source, active):
+    desc = soundbar.MEDIA_PLAYER.entities[0]
+    assert isinstance(desc, MediaPlayerDesc)
+    stream_active: Any = desc.stream_active_fn
+    assert stream_active({soundbar.HREF_MODE: {"mode": source}}) is active
 
 
 def test_bass_boost_hidden_when_the_mode_disables_it():
@@ -80,6 +159,8 @@ def test_bass_boost_hidden_when_the_mode_disables_it():
     rep = {"x.com.samsung.networkaudio.bassboost": -1}
     assert desc.exists_fn(rep, {}) is False
     assert desc.exists_fn({"x.com.samsung.networkaudio.bassboost": 0}, {}) is True
+    # A rep without the field doesn't advertise it either.
+    assert desc.exists_fn({}, {}) is False
     assert "bass_boost" not in _state()
 
 
@@ -262,3 +343,45 @@ def test_attitude_toward_the_board_is_deliberate():
     reg = registry_for("soundbar")
     assert reg.subscribe_tiers == ()
     assert reg.write_settle_s == 6.0
+
+
+_APD = "/sec/networkaudio/autoPowerDown"
+_APD_AV = "/sec/networkaudio/av/autoPowerDown"
+
+
+def _auto_power_down(resources):
+    reg = resolve(resources, device_types=DEVICE_TYPES)
+    assert reg is not None
+    bound = discover(resources, reg.capabilities, reg.pattern_capabilities)
+    # registration.is_included's gate: exists_fn when there is one.
+    return [
+        b
+        for b in bound
+        if b.desc.key == "auto_power_down"
+        and (b.desc.exists_fn is None or b.desc.exists_fn(resources[b.href], resources))
+    ]
+
+
+def test_auto_power_down_under_av_on_2025_bars():
+    """HW-Q935GF (#853) serves the setting under /av/ only."""
+    resources = _load_device(FIXTURE)
+    resources[_APD_AV] = resources.pop(_APD)
+    (bound,) = _auto_power_down(resources)
+    assert bound.href == _APD_AV
+    assert flatten([bound], resources)["auto_power_down"] is True
+    assert _write(bound.desc, "Off", bound.href) == (
+        ["sec", "networkaudio", "av", "autoPowerDown"],
+        {"x.com.samsung.networkaudio.autoPowerDown": False},
+    )
+
+
+def test_auto_power_down_binds_once_when_both_hrefs_answer():
+    """The /av/ form wins, as it does for the /av/ sound settings."""
+    resources = _load_device(FIXTURE)
+    resources[_APD_AV] = dict(resources[_APD])
+    (bound,) = _auto_power_down(resources)
+    assert bound.href == _APD_AV
+    # An /av/ resource with no usable field leaves the switch on the old href.
+    resources[_APD_AV] = {}
+    (bound,) = _auto_power_down(resources)
+    assert bound.href == _APD

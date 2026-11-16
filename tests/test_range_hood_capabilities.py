@@ -2,7 +2,7 @@
 
 from custom_components.localthings.registry.adapter import flatten
 from custom_components.localthings.registry.by_type import for_device_by_model
-from custom_components.localthings.registry.capabilities import range_hood
+from custom_components.localthings.registry.capabilities import common, range_hood
 from custom_components.localthings.registry.discovery import discover
 from custom_components.localthings.registry.entities import (
     BinarySensorDesc,
@@ -72,13 +72,13 @@ def test_range_hood_fixture_values():
     assert state["hood_filter_usage"] == 100
     assert state["hood_filter_status"] == "wash"
     assert state["energy_kwh"] == 165.62
-    assert state["clean_level"] == 2
+    assert state["clean_level"] == "normal"
     assert state["dust"] == 18
     assert state["fine_dust"] == 14
     assert state["super_fine_dust"] == 9
     assert state["periodic_air_sensing"] is False
     assert state["air_sensing_state"] == "NonProcessing"
-    assert state["last_air_sensing_level"] == "Kr2"
+    assert state["last_air_sensing_level"] == "normal"
     assert state["after_run_active"] is False
     assert state["after_run_progress"] == 0
 
@@ -183,7 +183,7 @@ def test_hood_alarms_use_the_shared_parser():
     """The hood kept its own copy of the alarm parser that only dropped the
     literal ErrorCode_OFF; the shared one drops every <Name>_OFF placeholder
     row, which other families pre-populate one per alarm type."""
-    desc = next(e for e in range_hood.HOOD_ALARMS.entities if e.key == "alarm_code")
+    desc = next(e for e in common.ALARMS.entities if e.key == "alarm_code")
     items = [
         {"x.com.samsung.da.code": "ErrorCode_OFF"},
         {"x.com.samsung.da.code": "FilterAlarm_OFF"},

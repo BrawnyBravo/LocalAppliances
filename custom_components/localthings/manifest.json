@@ -1,7 +1,7 @@
 {
   "domain": "localthings",
   "name": "LocalAppliances",
-  "after_dependencies": ["recorder"],
+  "after_dependencies": ["camera", "ffmpeg", "http", "media_source", "network", "recorder"],
   "codeowners": ["@BrawnyBravo"],
   "config_flow": true,
   "dependencies": [],
@@ -12,7 +12,7 @@
   "loggers": ["smartthings_local"],
   "requirements": [
     "cbor2>=5.4.6",
-    "smartthings-local>=0.1.23"
+    "smartthings-local>=0.1.25"
   ],
-  "version": "0.35.0-la.2"
+  "version": "0.39.0-la.1"
 }

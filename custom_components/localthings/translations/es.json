@@ -39,6 +39,16 @@
           "fallback_ca": "Probar un certificado de CA AC14K_M"
         }
       },
+      "credential_timeout": {
+        "title": "El electrodoméstico dejó de responder",
+        "description": "{host} respondió en el puerto de su API local, pero dejó de responder durante el intercambio del certificado, incluso tras un reintento. Algunos electrodomésticos lo hacen cuando usan una clave precompartida en lugar de un certificado. Otros aún mantienen una conexión antigua, que se libera al reiniciar el electrodoméstico. Si acabas de reiniciarlo, inténtalo de nuevo. Si no, importa una clave precompartida que ya tengas: LocalThings no puede obtenerla por sí mismo. También se ofrece un certificado de CA AC14K_M, pero no se ha informado de ningún electrodoméstico que ignorara el certificado automático y lo aceptara.\n\nLos electrodomésticos que usan una clave precompartida son algo que aún estamos intentando entender, y es probable que tengas problemas con ellos. Nuestro plan, lo que hemos descubierto hasta ahora y un lugar para dejar tus comentarios están en la [incidencia #435]({issue_url}).",
+        "menu_options": {
+          "retry_probe": "Intentar de nuevo",
+          "psk_owner": "Importar una clave precompartida de propietario",
+          "psk_peer": "Importar una clave precompartida de par",
+          "fallback_ca": "Probar un certificado de CA AC14K_M"
+        }
+      },
       "ca_rejected": {
         "title": "Certificado rechazado de nuevo",
         "description": "{host} también rechazó el certificado firmado por esa CA. Coincide con todos los informes hasta ahora: ningún electrodoméstico que rechazó el certificado automático ha aceptado una CA AC14K_M. Puede que use una clave precompartida. El registro de Home Assistant contiene la alerta exacta.\n\nLos electrodomésticos que usan una clave precompartida son algo que aún estamos intentando entender, y es probable que tengas problemas con ellos. Nuestro plan, lo que hemos descubierto hasta ahora y un lugar para dejar tus comentarios están en la [incidencia #435]({issue_url}).",
@@ -119,6 +129,7 @@
       "no_response": "No hubo respuesta de esa dirección IP: no llegó nada por ningún puerto del rango de la API local del electrodoméstico (UDP 49152-49160). Comprueba que la dirección IP sea correcta, que el electrodoméstico esté encendido y en la misma red que Home Assistant, y que ningún cortafuegos esté descartando el tráfico UDP hacia él.",
       "ports_closed": "Esa dirección IP es accesible, pero rechazó activamente todos los puertos del rango de la API local (UDP 49152-49160) y no respondió nada por el canal de descubrimiento. Lo más probable es que no sea un electrodoméstico Samsung, o que sea uno sin la API local activada.",
       "no_dtls_server": "Los puertos del rango de la API local son accesibles en esa dirección, pero nada respondió a un saludo DTLS. Comprueba que la dirección IP pertenezca al electrodoméstico y no a otro dispositivo de tu red.",
+      "exec_memory_denied": "Home Assistant no tiene permitido crear memoria ejecutable, que la biblioteca DTLS necesita para sus callbacks, así que ningún saludo pudo siquiera empezar. Es un ajuste del equipo donde corre Home Assistant, no un problema del electrodoméstico. En una instalación con systemd, pon MemoryDenyWriteExecute=no (o elimina la línea) en la unidad de servicio de Home Assistant y reinícialo. El ajuste deny_execmem de SELinux y los kernels reforzados pueden causar lo mismo. El registro de Home Assistant tiene el error exacto.",
       "appliance_no_dtls": "Esa dirección es un electrodoméstico Samsung: se identificó como {model} por el canal de descubrimiento sin cifrar y anunció {port} como su puerto seguro, pero nunca completó un saludo DTLS en él. La dirección no es el problema. Comprueba si el Control remoto u otro ajuste similar está desactivado en el panel del electrodoméstico, y consulta el registro de Home Assistant para ver el fallo exacto.",
       "non_appliance_stack": "Algo respondió en esa dirección IP, pero se identificó como un servicio OCF que no es un electrodoméstico. Algunos electrodomésticos Samsung ejecutan uno junto al suyo, y LocalThings solo encuentra el electrodoméstico que hay detrás cuando Home Assistant está en el mismo segmento de red. Pon Home Assistant y el electrodoméstico en la misma subred y VLAN y vuelve a intentarlo.",
       "multiple_appliances": "Más de un electrodoméstico Samsung responde en esa dirección IP y LocalThings aún no puede elegir entre ellos. Infórmalo en el gestor de incidencias de LocalAppliances e incluye el registro de Home Assistant.",
@@ -164,12 +175,13 @@
           "subdevices": "Subdispositivos",
           "cloud_courses": "Ciclos descargados",
           "forget_learned_modes": "Olvidar los modos recordados",
-          "debug_write": "Depuración: escribir en un recurso"
+          "debug_write": "Depuración: escribir en un recurso",
+          "camera_casting": "Transmisión de cámaras"
         }
       },
       "settings": {
         "title": "Ajustes del dispositivo",
-        "description": "Algunos dispositivos aceptan ciertas escrituras (p. ej. la dosificación por defecto de detergente/suavizante en una lavadora) incluso cuando informan de control remoto desactivado. Por defecto, LocalThings bloquea cada escritura con un error claro cuando un dispositivo informa de control remoto desactivado, en lugar de dejar que el dispositivo la rechace en silencio. Solo actívalo si has confirmado que las escrituras funcionan de verdad en este dispositivo con el control remoto desactivado; si no, cambiarás ese error claro por un fallo silencioso.\n\nLa hora estimada de finalización se recalcula a partir de la estimación de tiempo restante del dispositivo en cada sondeo, que puede variar o revisarse uno o dos minutos entre actualizaciones. Sube el valor de cambio mínimo siguiente para mantener el sensor en su último valor notificado hasta que la estimación varíe al menos esa cantidad de minutos, reduciendo el ruido en el historial/registro de actividad. Ponlo a 0 para notificar cada cambio calculado.\n\nAlgunos modelos notifican un modo que nunca incluyen entre los admitidos: por ejemplo, un aire acondicionado en modo Quiet que solo ofrece Off/Sleep/Speed. LocalThings recuerda cualquier modo así que detecte y lo sigue ofreciendo, de modo que quede seleccionable en cuanto el dispositivo haya estado en él al menos una vez. Desactívalo para ofrecer solo lo que el dispositivo anuncia; usa «Olvidar los modos recordados» en la pantalla anterior para borrar lo ya recordado. Un dispositivo de lavandería con ciclos descargados de la nube recibe aquí un aviso en cuanto informa de uno que Home Assistant aún no puede ofrecer -- algunos dispositivos informan de uno incluso si nunca has abierto tú mismo la pantalla \"Descarga de Programas\" de la app SmartThings. Desactiva esto para detener ese aviso y ocultar los ciclos descargados ya nombrados de la lista de ciclos; no se pierde nada de lo ya configurado, y al volver a activarlo reaparece de inmediato.",
+        "description": "Algunos dispositivos aceptan ciertas escrituras (p. ej. la dosificación por defecto de detergente/suavizante en una lavadora) incluso cuando informan de control remoto desactivado. Por defecto, LocalThings bloquea cada escritura con un error claro cuando un dispositivo informa de control remoto desactivado, en lugar de dejar que el dispositivo la rechace en silencio. Solo actívalo si has confirmado que las escrituras funcionan de verdad en este dispositivo con el control remoto desactivado; si no, cambiarás ese error claro por un fallo silencioso.\n\nLa hora estimada de finalización se calcula desde que llega cada lectura del tiempo restante: al segundo en los dispositivos que informan segundos y al minuto más cercano en los demás. Una revisión inferior a aproximadamente el 5 % del tiempo restante se retiene, como máximo hasta el valor de cambio mínimo siguiente, reduciendo el ruido en el historial/registro de actividad. Ponlo a 0 para notificar cada cambio.\n\nAlgunos modelos notifican un modo que nunca incluyen entre los admitidos: por ejemplo, un aire acondicionado en modo Quiet que solo ofrece Off/Sleep/Speed. LocalThings recuerda cualquier modo así que detecte y lo sigue ofreciendo, de modo que quede seleccionable en cuanto el dispositivo haya estado en él al menos una vez. Desactívalo para ofrecer solo lo que el dispositivo anuncia; usa «Olvidar los modos recordados» en la pantalla anterior para borrar lo ya recordado. Un dispositivo de lavandería con ciclos descargados de la nube recibe aquí un aviso en cuanto informa de uno que Home Assistant aún no puede ofrecer -- algunos dispositivos informan de uno incluso si nunca has abierto tú mismo la pantalla \"Descarga de Programas\" de la app SmartThings. Desactiva esto para detener ese aviso y ocultar los ciclos descargados ya nombrados de la lista de ciclos; no se pierde nada de lo ya configurado, y al volver a activarlo reaparece de inmediato.",
         "data": {
           "bypass_remote_control_lock": "Permitir escrituras incluso cuando el control remoto se notifica como desactivado",
           "finish_time_hysteresis_minutes": "Finalización estimada -- cambio mínimo (minutos)",
@@ -212,7 +224,7 @@
       },
       "cloud_manual": {
         "title": "Ciclos descargados",
-        "description": "Este dispositivo informa de {total} ciclos descargados; se han detectado {found} hasta ahora.\n\nLos ajustes de un ciclo descargado solo son visibles mientras ese ciclo está cargado, y el dispositivo nunca informa de sus nombres. Para añadir los que faltan ({pending}): en la app SmartThings (no en el dispositivo), abre este dispositivo y toca \"Descarga de Programas\" -- una fila aparte de \"Ciclo\", más abajo en la pantalla, y la que importa aquí. Ve pasando por cada programa descargado uno a uno, deteniéndote unos segundos en cada uno para que LocalThings pueda detectarlo, y vuelve aquí.\n\nDa a cada uno el nombre que quieras ver en Home Assistant. Deja un nombre en blanco para mantener ese ciclo fuera de la lista de ciclos. Los nombres deben ser únicos.\n\nDescarga de Programas es el programa de este dispositivo que ejecuta un ciclo descargado. Se detecta automáticamente, pero confírmalo aquí antes de usarlo: seleccionar un ciclo descargado escribe este código de programa en el dispositivo.",
+        "description": "Este dispositivo tiene al menos {total} ciclos descargados; se han detectado {found} hasta ahora.\n\nLos ajustes de un ciclo descargado solo son visibles mientras ese ciclo está cargado, y el dispositivo nunca informa de sus nombres. Para añadir los que faltan ({pending}): en la app SmartThings (no en el dispositivo), abre este dispositivo y toca \"Descarga de Programas\" -- una fila aparte de \"Ciclo\", más abajo en la pantalla, y la que importa aquí. Ve pasando por cada programa descargado uno a uno, deteniéndote unos segundos en cada uno para que LocalThings pueda detectarlo, y vuelve aquí.\n\nDa a cada uno el nombre que quieras ver en Home Assistant. Deja un nombre en blanco para mantener ese ciclo fuera de la lista de ciclos. Los nombres deben ser únicos.\n\nDescarga de Programas es el programa de este dispositivo que ejecuta un ciclo descargado. Se detecta automáticamente, pero confírmalo aquí antes de usarlo: seleccionar un ciclo descargado escribe este código de programa en el dispositivo.",
         "data": {
           "download_course": "Código de programa de Descarga de Programas"
         }
@@ -242,6 +254,13 @@
         "menu_options": {
           "cloud_guided": "Esperar de nuevo",
           "cloud_finish": "Finalizar"
+        }
+      },
+      "camera_casting": {
+        "title": "Transmisión de cámaras con baja latencia",
+        "description": "Cuando envías una cámara a este televisor, Home Assistant la sirve normalmente a través de su propio stream, que el televisor almacena en búfer unos 20 segundos. Actívalo para que LocalThings ejecute ffmpeg y sirva la cámara por sí mismo, lo que reduce el retraso a unos pocos segundos.\n\nEsto añade dos endpoints al servidor web de Home Assistant. El televisor abre el stream con un enlace aleatorio de un solo uso, porque no puede iniciar sesión. Déjalo desactivado salvo que envíes cámaras y el retraso te importe: nada más del televisor lo necesita. Requiere ffmpeg y una URL de Home Assistant accesible desde el televisor.",
+        "data": {
+          "camera_casting": "Enviar cámaras a través de LocalThings (ffmpeg)"
         }
       }
     },
@@ -275,6 +294,10 @@
     "appliance_certificate_changed": {
       "title": "{device_name} presentó un certificado de seguridad distinto",
       "description": "Lo que respondió en {host} presentó un certificado de seguridad distinto al del aparato cuando se configuró, así que LocalThings ha dejado de comunicarse con él y no le ha enviado el token de acceso del aparato. Puede que otro dispositivo haya tomado la dirección del aparato. Si el aparato cambió de dirección, usa Reconfigurar en esta entrada (Ajustes > Dispositivos y servicios) para apuntarla allí. Si es el mismo aparato y su certificado cambió (por ejemplo tras una reparación o un restablecimiento), Reconfigurar también acepta el nuevo certificado. Este aviso desaparece solo cuando responda el aparato original."
+    },
+    "removed_entities": {
+      "title": "Entidades eliminadas de {device_name}",
+      "description": "LocalThings ha eliminado de {device_name} entidades que ya no proporciona, normalmente porque en esta versión pasaron a ser otro tipo de entidad. Estas automatizaciones y scripts aún hacen referencia a ellas:\n\n{entities}\n\nActualízalos para usar las entidades de reemplazo de la página del dispositivo y luego descarta este aviso."
     }
   },
   "exceptions": {
@@ -307,6 +330,9 @@
     },
     "command_failed": {
       "message": "El comando para {href} falló incluso después de reconectar: {error}"
+    },
+    "cook_start_unconfirmed": {
+      "message": "No se pudo confirmar el inicio de la cocción y no se volvió a intentar. Compruebe el aparato antes de intentarlo de nuevo. Detalles: {error}"
     },
     "command_refused": {
       "message": "El electrodoméstico rechazó el comando para {href}: {error}"
@@ -403,6 +429,66 @@
     },
     "paired_hood_fan_off": {
       "message": "Encienda el ventilador de la campana extractora antes de programar su temporizador de apagado."
+    },
+    "vacuum_unsupported_fan_speed": {
+      "message": "Este robot aspirador no admite la potencia de succión {fan_speed}."
+    },
+    "vacuum_unsupported_command": {
+      "message": "Este robot aspirador no incluye {command} entre sus comandos admitidos."
+    },
+    "vacuum_command_params": {
+      "message": "Los comandos del robot aspirador no admiten parámetros."
+    },
+    "media_option_not_supported": {
+      "message": "El dispositivo no ofrece esa opción en este momento."
+    },
+    "unknown_remote_command": {
+      "message": "Comando de mando desconocido: {command}"
+    },
+    "remote_power_unavailable": {
+      "message": "El control de encendido no está disponible para este dispositivo"
+    },
+    "wake_on_lan_failed": {
+      "message": "No se pudo enviar Wake-on-LAN al televisor: {error}"
+    },
+    "unsupported_media_type": {
+      "message": "Este televisor puede reproducir canales, apps, imágenes, archivos de vídeo, streams HLS, cámaras y vídeos de YouTube (channel, app, image, video, url o youtube), no {media_type}."
+    },
+    "invalid_channel_number": {
+      "message": "{channel} no es un número de canal; usa dígitos como 5 o 5-1."
+    },
+    "invalid_app_id": {
+      "message": "Indica el id de la app (p. ej. kIciSQlYEM.plex) o el nombre de una app que el televisor ya haya abierto."
+    },
+    "search_unsupported": {
+      "message": "Este dispositivo no puede buscar; solo pueden los televisores Samsung."
+    },
+    "invalid_media_url": {
+      "message": "{url} no es un enlace http(s) a una imagen, un archivo de vídeo o un stream HLS, ni un enlace o id de vídeo de YouTube (los streams MJPEG y los manifiestos DASH .mpd no son compatibles)."
+    },
+    "cast_unsupported": {
+      "message": "Este dispositivo no puede mostrar imágenes ni reproducir vídeos de YouTube."
+    },
+    "notify_unsupported": {
+      "message": "Este dispositivo no puede mostrar notificaciones."
+    },
+    "notify_message_empty": {
+      "message": "El mensaje de la notificación está vacío."
+    },
+    "settings_unsupported": {
+      "message": "Este dispositivo no tiene un menú de ajustes de TV que se pueda controlar."
+    },
+    "apps_unsupported": {
+      "message": "Este dispositivo no guarda una lista de aplicaciones de TV."
+    },
+    "invalid_ask": {
+      "message": "extra.ask debe ser true o false, no {value}."
+    },
+    "camera_timeout": {
+      "message": "La cámara {camera} tardó demasiado en responder."
+    },
+    "wake_on_lan_no_route": {
+      "message": "No se pudo enviar Wake-on-LAN al televisor: no hay ruta de red a {targets}."
     }
   },
   "entity": {
@@ -464,6 +550,18 @@
       "door_open": {
         "name": "Puerta"
       },
+      "door_1_open": {
+        "name": "Puerta 1"
+      },
+      "door_2_open": {
+        "name": "Puerta 2"
+      },
+      "door_3_open": {
+        "name": "Puerta 3"
+      },
+      "door_4_open": {
+        "name": "Puerta 4"
+      },
       "filter_blockage": {
         "name": "Obstrucción del filtro"
       },
@@ -484,9 +582,6 @@
       },
       "paired_hood_power": {
         "name": "Energía de la campana emparejada"
-      },
-      "periodic_air_sensing": {
-        "name": "Detección de aire periódica"
       },
       "pouring": {
         "name": "Sirviendo"
@@ -580,6 +675,42 @@
       },
       "woofer_connection": {
         "name": "Conexión del woofer"
+      },
+      "bluetooth_speaker": {
+        "name": "Altavoz Bluetooth"
+      },
+      "ip_control": {
+        "name": "Control por IP"
+      },
+      "lamp": {
+        "name": "Lámpara"
+      },
+      "energy_saving": {
+        "name": "Ahorro de energía"
+      },
+      "mop_attached": {
+        "name": "Mopa colocada"
+      },
+      "dust_bag_full": {
+        "name": "Bolsa de polvo de la base llena"
+      },
+      "dock_filter": {
+        "name": "Filtro de la base"
+      },
+      "motor_filter": {
+        "name": "Filtro del motor"
+      },
+      "do_not_disturb": {
+        "name": "No molestar"
+      },
+      "clean_water_tank": {
+        "name": "Depósito de agua limpia"
+      },
+      "dirty_water_tank": {
+        "name": "Depósito de agua sucia"
+      },
+      "station_water_leak": {
+        "name": "Fuga de agua en la base"
       }
     },
     "button": {
@@ -633,6 +764,15 @@
       },
       "pair_bluetooth": {
         "name": "Emparejar Bluetooth"
+      },
+      "screen_off": {
+        "name": "Apagar pantalla"
+      },
+      "empty_dust_bin": {
+        "name": "Vaciar depósito de polvo"
+      },
+      "find_robot": {
+        "name": "Buscar robot"
       }
     },
     "climate": {
@@ -692,6 +832,9 @@
       },
       "paired_hood_light": {
         "name": "Luz de la campana emparejada"
+      },
+      "drum_light": {
+        "name": "Luz del tambor"
       }
     },
     "number": {
@@ -703,6 +846,12 @@
       },
       "dispense_capacity": {
         "name": "Capacidad de dosificación"
+      },
+      "freezer_setpoint": {
+        "name": "Congelador: punto de ajuste"
+      },
+      "fridge_setpoint": {
+        "name": "Frigorífico: punto de ajuste"
       },
       "good_sleep": {
         "name": "Sueño reparador"
@@ -724,6 +873,9 @@
       },
       "sound_volume": {
         "name": "Volumen del sonido"
+      },
+      "speaker_volume": {
+        "name": "Volumen del altavoz"
       },
       "target_humidity": {
         "name": "Humedad objetivo"
@@ -790,6 +942,34 @@
       }
     },
     "select": {
+      "north_flap": {
+        "name": "Lama norte",
+        "state": {
+          "stop": "Fija",
+          "vertical": "Oscilación"
+        }
+      },
+      "east_flap": {
+        "name": "Lama este",
+        "state": {
+          "stop": "Fija",
+          "vertical": "Oscilación"
+        }
+      },
+      "south_flap": {
+        "name": "Lama sur",
+        "state": {
+          "stop": "Fija",
+          "vertical": "Oscilación"
+        }
+      },
+      "west_flap": {
+        "name": "Lama oeste",
+        "state": {
+          "stop": "Fija",
+          "vertical": "Oscilación"
+        }
+      },
       "welcome_lighting_proximity": {
         "name": "Proximidad de iluminación de bienvenida",
         "state": {
@@ -904,6 +1084,32 @@
           "87": "Solo aclarado"
         }
       },
+      "dishwasher_cycle_dw8700b": {
+        "name": "Ciclo",
+        "state": {
+          "80": "Delicado",
+          "83": "Normal",
+          "84": "Intenso",
+          "86": "Express 60",
+          "90": "Autolimpieza",
+          "0e": "Lavado IA",
+          "07": "Prelavado intenso",
+          "8d": "Ollas y sartenes",
+          "8e": "Plástico",
+          "8f": "Cuidado del bebé",
+          "82": "Automático",
+          "8a": "Eco",
+          "a7": "Intenso",
+          "a8": "Express",
+          "8c": "Extra silencioso",
+          "88": "Autolimpieza",
+          "85": "Delicado",
+          "0c": "Express",
+          "0d": "Autolimpieza",
+          "87": "Solo aclarado",
+          "01": "Prelavado"
+        }
+      },
       "dispense_type": {
         "name": "Tipo de dosificación"
       },
@@ -942,7 +1148,13 @@
           "7f": "Secado por tiempo",
           "98": "Secado rápido 35",
           "eb": "Delicados",
-          "b6": "Sintéticos"
+          "b6": "Sintéticos",
+          "94": "Toallas",
+          "a1": "Antiarrugas",
+          "ad": "Camisas/blusas",
+          "ae": "Ropa interior",
+          "af": "Suéteres",
+          "b0": "Accesorios"
         }
       },
       "dryer_cycle_table_03": {
@@ -965,6 +1177,7 @@
           "1a": "Lana",
           "1b": "Ropa de cama",
           "1c": "Camisas",
+          "43": "Camisas",
           "1d": "Toallas",
           "1e": "Exterior",
           "1f": "Carga mixta",
@@ -1001,7 +1214,10 @@
           "35": "Antiarrugas",
           "36": "Aireación",
           "3e": "Carga pequeña",
-          "2e": "Eco normal"
+          "2e": "Eco normal",
+          "42": "Renovar",
+          "44": "Secado rápido",
+          "47": "Secado cuidado de mascotas"
         }
       },
       "dryer_dry_level": {
@@ -1013,6 +1229,17 @@
           "normal": "Normal",
           "more": "Más",
           "very": "Muy"
+        }
+      },
+      "drying_temperature": {
+        "name": "Temperatura",
+        "state": {
+          "none": "Sin calor",
+          "extra_low": "Extra baja",
+          "low": "Baja",
+          "medium_low": "Media baja",
+          "medium": "Media",
+          "high": "Alta"
         }
       },
       "favorite_capacity": {
@@ -1053,7 +1280,15 @@
           "cv_fdr_soft_freezer": "Congelador suave",
           "fconvert_freezer": "Congelar",
           "fconvert_fridge": "Refrigerar",
-          "fconvert_off": "Desactivado"
+          "fconvert_off": "Desactivado",
+          "cv_ttype_freezer": "Congelador",
+          "cv_ttype_soft_freezer": "Congelador suave",
+          "cv_ttype_chill": "Enfriado",
+          "cv_ttype_cool": "Refrigerar",
+          "cv_ttype_ferment": "Fermentar",
+          "cv_ttype_kimchi_warm": "Kimchi, suave",
+          "cv_ttype_kimchi_normal": "Kimchi",
+          "cv_ttype_kimchi_cold": "Kimchi, fuerte"
         }
       },
       "heated_dry": {
@@ -1135,7 +1370,21 @@
           "steam_roast": "Asar al vapor",
           "upper_steam_bake": "Hornear al vapor (superior)",
           "descale": "Descalcificación",
-          "drain": "Vaciado de agua"
+          "drain": "Vaciado de agua",
+          "healthycook1": "Cocción saludable 1",
+          "healthycook2": "Cocción saludable 2",
+          "healthycook3": "Cocción saludable 3",
+          "healthycook4": "Cocción saludable 4",
+          "healthycook5": "Cocción saludable 5",
+          "healthycook6": "Cocción saludable 6",
+          "upper_healthycook1": "Cocción saludable 1 (superior)",
+          "upper_healthycook2": "Cocción saludable 2 (superior)",
+          "upper_healthycook3": "Cocción saludable 3 (superior)",
+          "upper_healthycook4": "Cocción saludable 4 (superior)",
+          "lower_healthycook1": "Cocción saludable 1 (inferior)",
+          "lower_healthycook2": "Cocción saludable 2 (inferior)",
+          "lower_healthycook3": "Cocción saludable 3 (inferior)",
+          "lower_healthycook4": "Cocción saludable 4 (inferior)"
         }
       },
       "operating_mode": {
@@ -1266,6 +1515,9 @@
           "mute": "Silencio"
         }
       },
+      "sound_tone": {
+        "name": "Tono de sonido"
+      },
       "energy_saving_mode": {
         "name": "Modo de ahorro de energía"
       },
@@ -1312,6 +1564,30 @@
         "name": "Ciclo",
         "state": {
           "01": "Normal",
+          "11": "Lana",
+          "19": "Aclarar + Centrifugar",
+          "1b": "Lavado a 95 °C",
+          "1e": "Niños",
+          "1f": "Lavado diario",
+          "2c": "Sintéticos",
+          "2f": "Algodón",
+          "30": "Denim",
+          "31": "Prendas oscuras",
+          "33": "Limpieza de tambor Eco",
+          "34": "Super Eco",
+          "35": "Cuidado para exterior",
+          "37": "Cuidado del bebé",
+          "3a": "Ropa de cama",
+          "3b": "Solo centrifugar",
+          "3e": "Lavado óptimo",
+          "3f": "Planchado algodón eco",
+          "41": "Jardinería",
+          "42": "Ropa deportiva",
+          "43": "Desinfección",
+          "47": "Súper velocidad",
+          "48": "Delicados",
+          "50": "Secado de algodón",
+          "51": "Secado de sintéticos",
           "55": "Blancos",
           "57": "Autolimpieza+",
           "5b": "Algodón",
@@ -1351,6 +1627,9 @@
           "ab": "Eco frío",
           "b1": "Autolimpieza+",
           "ba": "Solo centrifugar",
+          "bd": "Lavado óptimo automático",
+          "c7": "Limpieza de tambor Eco",
+          "ca": "Lavado con aire",
           "d0": "Algodón",
           "d1": "Algodón E",
           "d2": "Sintéticos",
@@ -1363,7 +1642,9 @@
           "da": "Super Eco",
           "db": "Súper velocidad",
           "dc": "Lavado rápido 15'",
-          "e4": "Antialérgico"
+          "e3": "Lavado diario",
+          "e4": "Antialérgico",
+          "e7": "Lavado + Secado rápido"
         }
       },
       "washer_cycle_table_02": {
@@ -1476,7 +1757,14 @@
           "5f": "Solo centrifugar",
           "63": "Vapor potente",
           "67": "Antialérgico con vapor",
-          "68": "Voluminoso con vapor"
+          "68": "Voluminoso con vapor",
+          "a1": "Normal",
+          "a7": "Cuidado del producto",
+          "a9": "Tide Pod frío",
+          "ad": "AI OptiWash + Secado",
+          "59": "Planchado fácil",
+          "a8": "Secado por tiempo",
+          "aa": "Aireación"
         }
       },
       "washer_dry_level": {
@@ -1489,7 +1777,12 @@
           "180": "3 horas",
           "240": "4 horas",
           "none": "Desactivado",
-          "cupboard": "Armario"
+          "cupboard": "Armario",
+          "damp": "Húmedo",
+          "less": "Menos",
+          "normal": "Normal",
+          "more": "Más",
+          "very": "Muy"
         }
       },
       "zone_mode": {
@@ -1539,6 +1832,13 @@
           "smart": "Inteligente",
           "high": "Alto",
           "low": "Bajo"
+        }
+      },
+      "always_on_display_mode": {
+        "name": "Modo de pantalla siempre activa",
+        "state": {
+          "always": "Siempre",
+          "scheduled": "Programado"
         }
       },
       "ventilation_mode": {
@@ -1634,6 +1934,14 @@
           "ita": "italiano"
         }
       },
+      "tv_remote": {
+        "name": "Mando del televisor",
+        "state": {
+          "tv_remote_all": "Todos los mandos",
+          "tv_remote_off": "Apagado",
+          "tv_remote_samsung": "Solo mandos Samsung"
+        }
+      },
       "equalizer": {
         "name": "Ecualizador",
         "state": {
@@ -1642,6 +1950,88 @@
           "jazz": "Jazz",
           "classic": "Clásica",
           "custom": "Personalizado"
+        }
+      },
+      "dryer_temperature": {
+        "name": "Temperatura",
+        "state": {
+          "none": "Ninguna",
+          "extra_low": "Extra bajo",
+          "low": "Baja",
+          "medium_low": "Media / Baja",
+          "medium": "Media",
+          "high": "Alta"
+        }
+      },
+      "cleaning_mode": {
+        "name": "Modo de limpieza",
+        "state": {
+          "auto": "Automático",
+          "part": "Puntual",
+          "repeat": "Repetir",
+          "manual": "Manual",
+          "stop": "Detener",
+          "map": "Mapa",
+          "spot": "Puntual",
+          "area": "Habitación",
+          "object": "Objeto"
+        }
+      },
+      "robot_sound": {
+        "name": "Sonido",
+        "state": {
+          "soundeffect": "Efectos de sonido",
+          "mute": "Silencio",
+          "voice": "Voz",
+          "voicefeed": "Voz"
+        }
+      },
+      "smart_ventilate_mode": {
+        "name": "Modo de ventilación inteligente",
+        "state": {
+          "sensing": "Solo detección",
+          "alarm": "Recibir notificaciones",
+          "airpurify": "Ventilar silenciosamente"
+        }
+      },
+      "picture_mode": {
+        "name": "Modo de imagen"
+      },
+      "rear_speaker_position": {
+        "name": "Ubicación de los altavoces traseros",
+        "state": {
+          "front": "Delante",
+          "rear": "Detrás"
+        }
+      },
+      "open_app": {
+        "name": "Abrir aplicación"
+      },
+      "cleaning_method": {
+        "name": "Método de limpieza",
+        "state": {
+          "vacuum": "Aspirar",
+          "mop": "Fregar",
+          "atonce": "Aspirar y fregar",
+          "mopaftervacuum": "Fregar tras aspirar"
+        }
+      },
+      "water_level": {
+        "name": "Nivel de agua",
+        "state": {
+          "veryhigh": "Muy alto",
+          "high": "Alto",
+          "med": "Medio",
+          "low": "Bajo",
+          "verylow": "Muy bajo"
+        }
+      },
+      "cleaning_option": {
+        "name": "Opción de limpieza",
+        "state": {
+          "daily": "Diaria",
+          "intensive": "Intensiva",
+          "light": "Ligera"
         }
       }
     },
@@ -1678,9 +2068,6 @@
       },
       "auto_ventilation_action": {
         "name": "Acción de ventilación automática"
-      },
-      "automatic_ventilation_state": {
-        "name": "Estado de ventilación automática"
       },
       "battery": {
         "name": "Batería"
@@ -1833,6 +2220,12 @@
       "drum_clean_last_cleaned": {
         "name": "Última limpieza del tambor"
       },
+      "combo_dry_clean_cycles_remaining": {
+        "name": "Limpieza de tambor (secado) en"
+      },
+      "combo_dry_clean_last_cleaned": {
+        "name": "Última limpieza del tambor (secado)"
+      },
       "quick_wash": {
         "name": "Lavado rápido",
         "state": {
@@ -1954,7 +2347,13 @@
         }
       },
       "cavity_state": {
-        "name": "Estado de la cavidad"
+        "name": "Estado de la cavidad",
+        "state": {
+          "ready": "Listo",
+          "preheat": "Precalentamiento",
+          "cooking": "Cocción",
+          "finish": "Finalizado"
+        }
       },
       "power_level": {
         "name": "Nivel de potencia"
@@ -2005,12 +2404,14 @@
           "idle": "Inactiva",
           "delaywash": "Inicio diferido",
           "weightsensing": "Detección de carga",
+          "laundrysensing": "Detección de ropa",
           "wash": "Lavado",
           "rinse": "Aclarado",
           "spin": "Centrifugado",
           "finish": "Finalizado",
           "steaming": "Vaporización",
           "airwashing": "Lavado con aire",
+          "aidrying": "Secado",
           "drying": "Secado",
           "dryingwithdooropen": "Ventilación",
           "cooling": "Enfriamiento",
@@ -2021,6 +2422,15 @@
       },
       "progress_percentage": {
         "name": "Porcentaje de progreso"
+      },
+      "wash_progress_percentage": {
+        "name": "Porcentaje de progreso del lavado"
+      },
+      "dry_progress_percentage": {
+        "name": "Porcentaje de progreso del secado"
+      },
+      "wash_remaining_minutes": {
+        "name": "Tiempo de lavado restante"
       },
       "selfcheck_error": {
         "name": "Error de autocomprobación"
@@ -2092,6 +2502,57 @@
       },
       "zone_temperature": {
         "name": "Temperatura de zona"
+      },
+      "zone_water_law_offset": {
+        "name": "Desplazamiento de la curva climática de la zona"
+      },
+      "zone2_water_law_offset": {
+        "name": "Desplazamiento de la curva climática de la zona 2"
+      },
+      "fsv_outdoor_curve_cold_point": {
+        "name": "Curva climática, punto frío de temperatura exterior (FSV 2011)"
+      },
+      "fsv_outdoor_curve_warm_point": {
+        "name": "Curva climática, punto cálido de temperatura exterior (FSV 2012)"
+      },
+      "fsv_water_law_1_cold_target": {
+        "name": "Curva climática 1, temperatura objetivo con temperatura exterior fría (FSV 2021)"
+      },
+      "fsv_water_law_1_warm_target": {
+        "name": "Curva climática 1, temperatura objetivo con temperatura exterior cálida (FSV 2022)"
+      },
+      "fsv_water_law_2_cold_target": {
+        "name": "Curva climática 2, temperatura objetivo con temperatura exterior fría (FSV 2031)"
+      },
+      "fsv_water_law_2_warm_target": {
+        "name": "Curva climática 2, temperatura objetivo con temperatura exterior cálida (FSV 2032)"
+      },
+      "fsv_dhw_temperature_maximum": {
+        "name": "Límite máximo de la temperatura objetivo de ACS (FSV 1051)"
+      },
+      "fsv_dhw_temperature_minimum": {
+        "name": "Límite mínimo de la temperatura objetivo de ACS (FSV 1052)"
+      },
+      "fsv_dhw_application_mode": {
+        "name": "Modo de funcionamiento de ACS (FSV 3011)"
+      },
+      "fsv_heating_dhw_priority": {
+        "name": "Prioridad entre calefacción y ACS (FSV 4011)"
+      },
+      "fsv_heating_dhw_changeover_temperature": {
+        "name": "Temperatura exterior de cambio de prioridad calefacción/ACS (FSV 4012)"
+      },
+      "fsv_backup_heater_application": {
+        "name": "Uso de la resistencia de apoyo (FSV 4021)"
+      },
+      "fsv_heating_outlet_temperature_maximum": {
+        "name": "Límite máximo de la temperatura de impulsión de calefacción (FSV 1031)"
+      },
+      "fsv_heating_outlet_temperature_minimum": {
+        "name": "Límite mínimo de la temperatura de impulsión de calefacción (FSV 1032)"
+      },
+      "fsv_zone_control_application": {
+        "name": "Control de zonas (FSV 4061)"
       },
       "zone2_temperature": {
         "name": "Temperatura de zona 2"
@@ -2201,6 +2662,36 @@
       "heat_generated_kwh": {
         "name": "Calor generado"
       },
+      "cycle_flow_temperature": {
+        "name": "Temperatura de impulsión (ciclo)"
+      },
+      "cycle_return_temperature": {
+        "name": "Temperatura de retorno (ciclo)"
+      },
+      "cycle_flow_rate": {
+        "name": "Caudal (ciclo)"
+      },
+      "cycle_pump_speed": {
+        "name": "Velocidad de la bomba (ciclo)"
+      },
+      "compressor_frequency": {
+        "name": "Frecuencia del compresor"
+      },
+      "compressor_target_frequency": {
+        "name": "Frecuencia objetivo del compresor"
+      },
+      "discharge_temperature": {
+        "name": "Temperatura de descarga"
+      },
+      "evaporator_saturation_temperature": {
+        "name": "Temperatura de saturación del evaporador"
+      },
+      "suction_temperature": {
+        "name": "Temperatura de aspiración"
+      },
+      "cycle_updated": {
+        "name": "Datos del ciclo actualizados"
+      },
       "three_way_valve": {
         "name": "Válvula de 3 vías"
       },
@@ -2209,6 +2700,9 @@
       },
       "installation_type": {
         "name": "Tipo de instalación"
+      },
+      "audio_codec": {
+        "name": "Códec de audio"
       },
       "micom_version": {
         "name": "Versión de micom"
@@ -2228,6 +2722,96 @@
       },
       "wifi_signal": {
         "name": "Señal Wi-Fi"
+      },
+      "robot_status": {
+        "name": "Estado del robot",
+        "state": {
+          "cleaning": "Limpiando",
+          "point": "Limpieza puntual",
+          "homing": "Volviendo a la base",
+          "charging": "Cargando",
+          "idle": "Inactivo",
+          "pause": "En pausa",
+          "alarm": "Alarma",
+          "reserve": "Programado",
+          "poweroff": "Apagado",
+          "charged": "Cargado"
+        }
+      },
+      "robot_movement": {
+        "name": "Movimiento"
+      },
+      "oven_setpoint": {
+        "name": "Punto de ajuste"
+      },
+      "air_sensing_interval": {
+        "name": "Intervalo de medición del aire"
+      },
+      "range_hood_pm10_air_quality": {
+        "name": "PM10 calidad del aire",
+        "state": {
+          "good": "Buena",
+          "normal": "Normal",
+          "poor": "Mala",
+          "very_poor": "Muy mala",
+          "processing": "Procesando"
+        }
+      },
+      "range_hood_pm25_air_quality": {
+        "name": "PM2.5 calidad del aire",
+        "state": {
+          "good": "Buena",
+          "normal": "Normal",
+          "poor": "Mala",
+          "very_poor": "Muy mala",
+          "processing": "Procesando"
+        }
+      },
+      "range_hood_pm1_air_quality": {
+        "name": "PM1.0 calidad del aire",
+        "state": {
+          "good": "Buena",
+          "normal": "Normal",
+          "poor": "Mala",
+          "very_poor": "Muy mala",
+          "processing": "Procesando"
+        }
+      },
+      "range_hood_last_air_sensing_level": {
+        "name": "Último nivel de detección de aire",
+        "state": {
+          "good": "Buena",
+          "normal": "Normal",
+          "poor": "Mala",
+          "very_poor": "Muy mala"
+        }
+      },
+      "range_hood_clean_level": {
+        "name": "Nivel de limpieza",
+        "state": {
+          "good": "Buena",
+          "normal": "Normal",
+          "poor": "Mala",
+          "very_poor": "Muy mala"
+        }
+      },
+      "illuminance": {
+        "name": "Iluminancia"
+      },
+      "channel": {
+        "name": "Canal"
+      },
+      "now_showing": {
+        "name": "En emisión"
+      },
+      "cast_session": {
+        "name": "Sesión de casting"
+      },
+      "cast_item": {
+        "name": "Elemento de casting"
+      },
+      "battery_health": {
+        "name": "Estado de la batería"
       }
     },
     "switch": {
@@ -2420,6 +3004,9 @@
       "storm_wash": {
         "name": "Lavado Tormenta+"
       },
+      "vacation_mode": {
+        "name": "Modo vacaciones"
+      },
       "welcome_lighting": {
         "name": "Iluminación de bienvenida"
       },
@@ -2446,6 +3033,12 @@
       },
       "indicator_light": {
         "name": "Luz indicadora"
+      },
+      "always_on_display": {
+        "name": "Pantalla siempre activa"
+      },
+      "bluetooth_discoverable": {
+        "name": "Bluetooth visible"
       },
       "windfree": {
         "name": "Modo Wind-Free"
@@ -2512,6 +3105,21 @@
       },
       "voice_amplifier": {
         "name": "Amplificador de voz"
+      },
+      "repeated_cleaning": {
+        "name": "Repetir limpieza"
+      },
+      "buzzer_sound": {
+        "name": "Sonido del zumbador"
+      },
+      "smart_ventilate": {
+        "name": "Ventilación inteligente"
+      },
+      "hood_do_not_disturb": {
+        "name": "No molestar"
+      },
+      "robot_lighting": {
+        "name": "Iluminación"
       }
     },
     "time": {
@@ -2545,13 +3153,50 @@
       "sensing_skip_end": {
         "name": "Fin de la omisión de medición de AI Purify"
       },
+      "always_on_display_start": {
+        "name": "Inicio de pantalla siempre activa"
+      },
+      "always_on_display_end": {
+        "name": "Fin de pantalla siempre activa"
+      },
       "sensing_skip_start": {
         "name": "Inicio de la omisión de medición de AI Purify"
+      },
+      "hood_do_not_disturb_start": {
+        "name": "Inicio de No molestar"
+      },
+      "hood_do_not_disturb_end": {
+        "name": "Fin de No molestar"
       }
     },
     "water_heater": {
       "dhw": {
         "name": "Agua caliente"
+      }
+    },
+    "vacuum": {
+      "robot_vacuum": {
+        "state_attributes": {
+          "fan_speed": {
+            "state": {
+              "normal": "Normal",
+              "turbo": "Turbo",
+              "quiet": "Silencioso",
+              "extra_quiet": "Extra silencioso",
+              "ultra_quiet": "Ultrasilencioso"
+            }
+          }
+        }
+      }
+    },
+    "remote": {
+      "remote": {
+        "name": "Mando"
+      }
+    },
+    "notify": {
+      "notification": {
+        "name": "Notificaciones"
       }
     }
   },
@@ -2568,6 +3213,7 @@
         "winecellar_bottom": "Zona de vino inferior",
         "door_freezer": "Puerta del congelador",
         "door_cooler": "Puerta del frigorífico",
+        "door_fridge": "Puerta del frigorífico",
         "door_cvroom": "Puerta de la zona flexible",
         "door_winecellar": "Puerta de la vinoteca",
         "door_onedoorfreezer": "Puerta principal",
@@ -2635,6 +3281,14 @@
         "href": {
           "name": "href del recurso",
           "description": "href canónico del recurso que se va a leer (p. ej. /mode/vs/0). Añade una consulta después de ? para enviarla con el GET, p. ej. /device/1?if=oic.if.b, con & entre los parámetros. Omítelo para obtener la instantánea en caché de todos los recursos seguidos en lugar de un GET en vivo."
+        },
+        "timeout": {
+          "name": "Tiempo límite",
+          "description": "Segundos que puede durar la lectura, 10 por defecto. Uno mayor también levanta el límite de tamaño de 64 KB, para un recurso grande como una transferencia de archivo. El sondeo y los comandos esperan mientras dura."
+        },
+        "save_to_file": {
+          "name": "Guardar archivos",
+          "description": "Guarda cada archivo que devuelve la lectura en la carpeta localthings_downloads del directorio de configuración de Home Assistant y enumera en la respuesta los archivos guardados en lugar de su contenido."
         }
       }
     },
@@ -2653,6 +3307,62 @@
         "duration": {
           "name": "Duración",
           "description": "Cuántos segundos escuchar, hasta 120."
+        }
+      }
+    },
+    "forget_known_apps": {
+      "name": "Olvidar las apps aprendidas del TV",
+      "description": "Borra las apps que se han visto en ejecución en un televisor, que la selección Abrir app y media_player.play_media ofrecen por nombre. Las pantallas integradas se mantienen. Las apps se vuelven a aprender a medida que el televisor las muestra, empezando por la que está abierta ahora.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "El televisor cuyas apps aprendidas se olvidan."
+        }
+      }
+    },
+    "search": {
+      "name": "Buscar en el TV",
+      "description": "Abre una búsqueda en un televisor Samsung: YouTube se abre con los resultados; los demás sitios se abren en el navegador del televisor.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "El televisor en el que buscar."
+        },
+        "query": {
+          "name": "Consulta",
+          "description": "Qué buscar."
+        },
+        "site": {
+          "name": "Sitio",
+          "description": "Dónde buscar. YouTube por defecto."
+        }
+      }
+    },
+    "open_settings": {
+      "name": "Abrir una página de ajustes del TV",
+      "description": "Abre una página del menú de ajustes de un televisor Samsung. La lista viene del firmware de Samsung; no todos los televisores tienen todas las páginas, y se puede escribir otro id de página.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "El televisor en el que abrir la página."
+        },
+        "page": {
+          "name": "Página",
+          "description": "La página de ajustes que abrir."
+        }
+      }
+    },
+    "set_sleep_timer": {
+      "name": "Programar el temporizador de apagado del TV",
+      "description": "Apaga un televisor Samsung tras estos minutos; 0 desactiva el temporizador. El televisor no informa del tiempo restante, así que compruébelo en su menú (General, Administrador del sistema, Hora, Temporizador de apagado).",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "El televisor en el que programar el temporizador."
+        },
+        "minutes": {
+          "name": "Minutos",
+          "description": "Minutos hasta que el televisor se apague; 0 desactiva el temporizador."
         }
       }
     }
