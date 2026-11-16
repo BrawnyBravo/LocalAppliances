@@ -2828,6 +2828,10 @@
         "data": {
           "device_token": "Token uređaja (ostavite prazno da biste zatražili novi)"
         }
+      },
+      "reconfigure_certificate": {
+        "title": "Prihvatiti novi sertifikat uređaja?",
+        "description": "Uređaj na adresi {host} je pokazao drugačiji bezbednosni sertifikat od onog sa kojim je ovaj unos podešen. Još mu ništa nije poslato.\n\nSačuvani sertifikat:\n{old_fingerprint}\n\nSertifikat pokazan sada:\n{new_fingerprint}\n\nNastavite samo ako znate da je ovo vaš uređaj (na primer posle popravke, resetovanja ili zamene ploče). Pošaljite da biste prihvatili novi sertifikat i poslali mu pristupni token ovog unosa; zatvorite ovaj prozor da biste unos ostavili nepromenjen."
       }
     },
     "error": {
@@ -2856,7 +2860,8 @@
       "invalid_token": "Uređaj je odbio taj token uređaja. Ostavite polje prazno da biste zatražili novi.",
       "callback_port_in_use": "Port 8889 je već u upotrebi na Home Assistant-u, obično zbog zahteva za tokenom koji još uvek čeka. Pokušajte ponovo za minut i po.",
       "callback_cert_rejected": "Uređaj je uzvratio poziv na portu 8889, ali je odbio samopotpisani sertifikat Home Assistant-a. Nalepite AC14K_M CA sertifikat i ključ kako bi LocalThings mogao da potpiše onaj koji uređaj prihvata; zahtev za tokenom će se tada ponovo pokrenuti.",
-      "callback_ca_rejected": "Uređaj je uzvratio poziv na portu 8889, ali je odbio i sertifikat potpisan od strane AC14K_M. Nalepite token koji ste pribavili na drugi način, i pogledajte dnevnik (log) Home Assistant-a za grešku pri rukovanju."
+      "callback_ca_rejected": "Uređaj je uzvratio poziv na portu 8889, ali je odbio i sertifikat potpisan od strane AC14K_M. Nalepite token koji ste pribavili na drugi način, i pogledajte dnevnik (log) Home Assistant-a za grešku pri rukovanju.",
+      "certificate_changed": "Uređaj na ovoj adresi je pokazao drugačiji bezbednosni sertifikat od onog sa kojim je ovaj unos podešen, pa mu ništa nije poslato. Ako je to isti uređaj posle popravke ili resetovanja, koristite Ponovno podešavanje, koje prikazuje novi sertifikat da biste ga prihvatili."
     },
     "abort": {
       "already_configured": "Uređaj je već konfigurisan",
@@ -2972,7 +2977,8 @@
       "empty_payload": "Unesite najmanje jedno polje za upis.",
       "write_failed": "Upis nije uspeo. Proverite dnevnike (logs) Home Assistant-a za više detalja.",
       "cloud_course_name_duplicate": "Dva ciklusa imaju isto ime. Imena moraju biti jedinstvena.",
-      "cloud_course_unknown_course": "Taj program nije među onima koje ovaj aparat nudi. Izaberite neki sa liste."
+      "cloud_course_unknown_course": "Taj program nije među onima koje ovaj aparat nudi. Izaberite neki sa liste.",
+      "security_resource": "OCF bezbednosni resursi (/oic/sec/...) ne mogu se upisivati odavde: upis u njih može pokvariti lokalnu kontrolu na način koji Home Assistant ne može da popravi."
     },
     "abort": {
       "not_loaded": "Ovaj uređaj još uvek nije povezan. Pokušajte ponovo kada se učita."
@@ -2989,6 +2995,14 @@
     "cloud_courses_undiscovered": {
       "title": "Preuzeti ciklusi nisu podešeni za {device_name}",
       "description": "{device_name} ima {pending} od ukupno {total} preuzetih ciklusa koje Home Assistant još uvek ne može da ponudi. Preuzeti ciklus se može koristiti tek kada aparat bude uočen sa učitanim tim ciklusom — na ekranu „Preuzmi cikluse“ u aplikaciji SmartThings, a ne na ekranu „Ciklus“ — i nakon što mu dodelite ime.\n\nDa biste ih podesili, idite na Podešavanja > Uređaji i usluge > LocalAppliances > {device_name} > Konfiguriši > Preuzmi cikluse i pratite uputstva tamo.\n\nNe koristite preuzete cikluse? Idite na Konfiguriši > Podešavanja uređaja i isključite opciju „Ponudi preuzete cikluse“ da biste trajno isključili ovaj podsetnik."
+    },
+    "device_identity_mismatch": {
+      "title": "Drugi uređaj odgovara umesto {device_name}",
+      "description": "Uređaj na adresi {host} je prihvatio akreditive ovog unosa, ali se predstavio kao drugi uređaj, pa ga LocalThings više ne koristi. Ovo obično znači da je uređaj dobio novu adresu, a da staru adresu sada ima drugi. Otvorite ovaj unos u Podešavanja > Uređaji i usluge i koristite Ponovno podešavanje da biste ga usmerili na pravu adresu. Ovo obaveštenje nestaje samo čim se javi pravi uređaj."
+    },
+    "appliance_certificate_changed": {
+      "title": "{device_name} je pokazao drugačiji bezbednosni sertifikat",
+      "description": "Ono što se javilo na adresi {host} pokazalo je drugačiji bezbednosni sertifikat nego uređaj pri podešavanju, pa je LocalThings prekinuo komunikaciju sa njim i nije mu poslao pristupni token uređaja. Možda je drugi uređaj preuzeo adresu uređaja. Ako je uređaj dobio novu adresu, koristite Ponovno podešavanje na ovom unosu (Podešavanja > Uređaji i usluge) da biste ga usmerili tamo. Ako je to isti uređaj i njegov sertifikat se promenio (na primer posle popravke ili resetovanja), Ponovno podešavanje takođe prihvata novi sertifikat. Ovo obaveštenje nestaje samo čim se javi prvobitni uređaj."
     },
     "removed_entities": {
       "title": "Entiteti uklonjeni sa {device_name}",
@@ -3109,6 +3123,18 @@
     },
     "extra_rinse_unavailable_for_cycle": {
       "message": "Dodatno ispiranje nije dostupno na izabranom ciklusu."
+    },
+    "security_resource_write_refused": {
+      "message": "Upis u {href} je odbijen. OCF bezbednosni resursi (/oic/sec/...) čuvaju podešavanja i akreditive uređaja; upis u njih može pokvariti lokalnu kontrolu na način koji Home Assistant ne može da popravi."
+    },
+    "command_unconfirmed": {
+      "message": "Uređaj nije na vreme odgovorio na komandu za {href}. Nije ponovo poslata, jer je možda već izvršena, a slanje dva puta moglo bi je izvršiti dva puta. Proverite uređaj pre novog pokušaja."
+    },
+    "command_auth_rejected": {
+      "message": "Uređaj je odbio token uređaja ovog unosa. Ponovo potvrdite identitet unosa u Podešavanja > Uređaji i usluge da biste dobili novi."
+    },
+    "security_credential_read_refused": {
+      "message": "Čitanje {href} je odbijeno: tu se čuvaju akreditivi uređaja, koji nikada ne smeju da napuste Home Assistant."
     },
     "paired_hood_fan_off": {
       "message": "Uključite ventilator aspiratora pre nego što podesite tajmer za njegovo isključivanje."

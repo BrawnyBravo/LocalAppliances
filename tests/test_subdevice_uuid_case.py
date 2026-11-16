@@ -243,5 +243,7 @@ async def test_every_platform_migrates_before_adding_entities(hass, monkeypatch,
         calls.append("add")
 
     await module.async_setup_entry(hass, coordinator._entry, _add)
+    # The platform's add-new listener arms the refresh timer; release it.
+    await coordinator._entry._async_process_on_unload(hass)
 
     assert calls and calls[0] == "migrate"

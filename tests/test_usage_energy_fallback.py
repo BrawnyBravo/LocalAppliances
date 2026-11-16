@@ -219,10 +219,9 @@ def test_an_ac_with_an_all_zero_third_field_reads_plain_wh():
     SmartThings shows 694.957."""
     state = _ac_state({TRANSFER: _transfer_rep(_cac_like())})
     assert state["energy_kwh"] == pytest.approx(694.954)
-    # The shared capability still reads that shape as a washer's.
-    assert _state({ENERGY: {}, TRANSFER: _transfer_rep(_cac_like())})["energy_kwh"] == (
-        pytest.approx(69495.4)
-    )
+    # The shared capability would read that shape as a washer's (69,495.4
+    # kWh); LocalAppliances' plausibility limits refuse it there instead.
+    assert "energy_kwh" not in _state({ENERGY: {}, TRANSFER: _transfer_rep(_cac_like())})
 
 
 def test_an_ac_runtime_board_still_publishes_no_energy_fallback():
