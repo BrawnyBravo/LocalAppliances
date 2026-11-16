@@ -27,7 +27,7 @@ _COORD = "custom_components.localthings.coordinator.LocalThingsCoordinator"
     "target",
     [
         "custom_components.localthings.async_load_instance_names",
-        "custom_components.localthings._drop_washer_entities_from_filters",
+        "custom_components.localthings.async_reconcile_entities",
     ],
 )
 async def test_failure_after_first_refresh_closes_and_forgets_coordinator(
