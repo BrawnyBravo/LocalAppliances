@@ -1,0 +1,46 @@
+name: Failure alert
+
+# Posts to a Discord channel when Validate (push, PR or nightly) or Release
+# fails. The webhook lives in the DISCORD_WEBHOOK_URL repository secret; with
+# no secret set the job does nothing. A manual run posts one test message.
+
+on:
+  workflow_run:
+    workflows: ["Validate", "Release"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  alert:
+    name: Post the failure to Discord
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(fromJSON('["failure", "timed_out", "startup_failure"]'),
+               github.event.workflow_run.conclusion)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          EVENT: ${{ github.event_name }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          TRIGGER: ${{ github.event.workflow_run.event }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          REPO: ${{ github.repository }}
+          SELF_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then
+            echo "DISCORD_WEBHOOK_URL is not set; nothing to post."
+            exit 0
+          fi
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            text="Test: $REPO failure alerts are connected. $SELF_URL"
+          else
+            text="$REPO: $WORKFLOW $CONCLUSION on $BRANCH ($TRIGGER). $RUN_URL"
+          fi
+          jq -n --arg content "$text" '{content: $content, allowed_mentions: {parse: []}}' \
+            | curl --fail-with-body -sS -H "Content-Type: application/json" -d @- "$WEBHOOK"
