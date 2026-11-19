@@ -88,6 +88,9 @@ def _mode_select(href: str, key: str, icon: str) -> SelectDesc:
         control_response=True,
         options=lambda resources: list(mode_options(resources.get(href) or {})),
         display_fn=lambda raw, resources: mode_options(resources.get(href) or {}).get(raw),
+        # Only listed modes can be written back (_mode_write), so a raw id the
+        # TV reports outside its list is not offered as a choice.
+        admit_live_value=False,
         exists_fn=lambda rep, resources: _writable(rep) and bool(mode_options(rep)),
         # Mode lists can collapse to an empty row (the LS43DM703's input list
         # on the tuner), so a monitor idle at startup must not lose it for good.

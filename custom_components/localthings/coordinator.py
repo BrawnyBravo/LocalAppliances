@@ -123,6 +123,7 @@ from .transport import (
     OvenStartUnconfirmed,
     Transport,
     create_transport,
+    is_not_started,
 )
 from .transport import local_source_port as _local_source_port
 
@@ -4123,7 +4124,12 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         translation_key="cook_start_unconfirmed",
                         translation_placeholders={"error": str(e)},
                     ) from e
-                if sent and not idempotent and isinstance(e, TimeoutError):
+                if (
+                    sent
+                    and not idempotent
+                    and isinstance(e, TimeoutError)
+                    and not is_not_started(e)
+                ):
                     self._log.warning(
                         "no answer to %s; not re-sending it, since it may already have run: %s",
                         write_href,

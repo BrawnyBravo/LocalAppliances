@@ -93,6 +93,26 @@ class OvenStartUnconfirmed(Exception):
     """A staged legacy oven start lost its response and must not be replayed."""
 
 
+_NOT_STARTED_ATTR = "_localthings_command_not_started"
+
+
+def mark_not_started(err: BaseException) -> BaseException:
+    """Tag a failure as one that cannot have started anything.
+
+    The legacy oven start writes its settings before a separate Run; a lost
+    answer to the settings step leaves the oven idle, so that step is safe
+    to resend even though the start as a whole is not. The exception keeps
+    its type (a timeout stays a timeout); only the tag says so.
+    """
+    setattr(err, _NOT_STARTED_ATTR, True)
+    return err
+
+
+def is_not_started(err: BaseException) -> bool:
+    """True when `mark_not_started` tagged this failure."""
+    return bool(getattr(err, _NOT_STARTED_ATTR, False))
+
+
 def _is_success(code: int) -> bool:
     """A 2.xx response class -- the only one whose body is CBOR by contract.
     An error response often carries a plain diagnostic string instead."""

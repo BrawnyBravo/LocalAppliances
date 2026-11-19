@@ -143,7 +143,12 @@ class LocalThingsSelect(LocalThingsEntity, SelectEntity):
         else:
             declared = list(self._attr_options)
         current = self.current_option
-        if declared and isinstance(current, str) and current not in declared:
+        if (
+            declared
+            and isinstance(current, str)
+            and current not in declared
+            and cast(SelectDesc, self._bound.desc).admit_live_value
+        ):
             declared.append(current)
         return declared
 

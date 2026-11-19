@@ -177,6 +177,11 @@ class SelectDesc(SamsungEntityDescription):
     display_fn: DisplayFn = None
     write_fn: WriteFn = None
     validate_fn: ValidateFn = None
+    # A live value the declared options do not list is normally added to
+    # them so the state stays readable (#327). False keeps it out when the
+    # list is the full set of writable values and the device reports ids it
+    # will not accept back (a TV's raw picture-mode id, say).
+    admit_live_value: bool = True
 
 
 @dataclass(frozen=True, kw_only=True)

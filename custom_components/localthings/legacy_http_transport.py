@@ -70,7 +70,7 @@ from .registry.capabilities.laundry import (
     course_option_mask,
 )
 from .registry.subdevices import Subdevice
-from .transport import AuthRejected, OvenStartUnconfirmed
+from .transport import AuthRejected, OvenStartUnconfirmed, mark_not_started
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -624,9 +624,17 @@ class LegacyHttpTransport:
             operation.pop("state", None)
             if not operation:
                 del body["Device"]["Operation"]
-        status, response = self._request(
-            "PUT", base, body=body, timeout=_remaining(deadline) if settings_first else timeout
-        )
+        try:
+            status, response = self._request(
+                "PUT", base, body=body, timeout=_remaining(deadline) if settings_first else timeout
+            )
+        except AuthRejected:
+            raise
+        except Exception as err:
+            if settings_first:
+                # The settings body carries no Run, so the oven is still idle.
+                raise mark_not_started(err) from None
+            raise
         if not 200 <= status < 300:
             return http_status_to_coap(status), response
         held.clear()

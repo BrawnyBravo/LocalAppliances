@@ -34,7 +34,7 @@ from .coordinator import (
     mode_spec_store,
     snapshot_store,
 )
-from .entity import async_load_instance_names
+from .entity import async_load_instance_names, async_migrate_subdevice_case
 from .registry.identity import resolve_serial
 from .rekey import rekey_entry
 from .services import async_setup_services
@@ -372,7 +372,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry.async_on_unload(entry.add_update_listener(_async_options_updated))
 
         # Before the platforms register, so a replaced row and its replacement
-        # are never both alive.
+        # are never both alive. Subdevice ids are lowercased first, so the
+        # reconciler judges rows under the spelling the platforms will use.
+        async_migrate_subdevice_case(hass, entry, coordinator)
         async_notify_removed(hass, entry, async_reconcile_entities(hass, entry, coordinator))
         coordinator.instance_names = await async_load_instance_names(hass)
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
