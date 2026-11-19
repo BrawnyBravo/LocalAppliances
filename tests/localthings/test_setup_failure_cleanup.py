@@ -27,7 +27,7 @@ _COORD = "custom_components.localthings.coordinator.LocalThingsCoordinator"
     "target",
     [
         "custom_components.localthings.async_load_instance_names",
-        "custom_components.localthings._drop_washer_entities_from_filters",
+        "custom_components.localthings.async_reconcile_entities",
     ],
 )
 async def test_failure_after_first_refresh_closes_and_forgets_coordinator(
@@ -70,3 +70,29 @@ async def test_failed_forward_of_platforms_closes_coordinator(
     assert entry.state is ConfigEntryState.SETUP_ERROR
     assert entry.entry_id not in hass.data.get(DOMAIN, {})
     close.assert_awaited()
+
+
+async def test_failure_after_snapshot_load_closes_coordinator(
+    hass: HomeAssistant, mock_coordinator_session
+) -> None:
+    """The snapshot path runs its first refresh in the background, so a
+    later setup failure must close the coordinator there too."""
+    entry = MockConfigEntry(domain=DOMAIN, data=ENTRY_DATA, unique_id=f"localthings_{MOCK_SERIAL}")
+    entry.add_to_hass(hass)
+
+    close = AsyncMock()
+    with (
+        patch(f"{_COORD}.async_rehydrate", AsyncMock(return_value=True)),
+        patch.object(
+            hass.config_entries,
+            "async_forward_entry_setups",
+            AsyncMock(side_effect=ImportError("platform failed to import")),
+        ),
+        patch(f"{_COORD}.async_close", close),
+    ):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.SETUP_ERROR
+    assert entry.entry_id not in hass.data.get(DOMAIN, {})
+    close.assert_awaited_once()

@@ -53,6 +53,7 @@ from .const import (
     CONF_BYPASS_REMOTE_CONTROL,
     CONF_CA_CERT_PEM,
     CONF_CA_KEY_PEM,
+    CONF_CAMERA_CASTING,
     CONF_CLOUD_COURSES_ENABLED,
     CONF_DEVICE_KEY,
     CONF_DEVICE_TOKEN,
@@ -76,6 +77,7 @@ from .const import (
     CONF_READ_MODE,
     CONF_SERIAL,
     CONF_TRANSPORT,
+    DEFAULT_CAMERA_CASTING,
     DEFAULT_CLOUD_COURSES_ENABLED,
     DEFAULT_FINISH_TIME_HYSTERESIS_MINUTES,
     DEFAULT_LEARN_MODES,
@@ -208,6 +210,26 @@ class HandshakeTimeout(CannotConnect):
     """A DTLS server is confirmed present but never finished the handshake."""
 
     error_key = "handshake_timeout"
+
+
+class ExecMemoryDenied(CannotConnect):
+    """Home Assistant's own process may not map write+execute memory, which
+    cffi needs for the DTLS library's callbacks (#740: systemd's
+    MemoryDenyWriteExecute). No port or credential can change that."""
+
+    error_key = "exec_memory_denied"
+
+
+def _exec_memory_denied(exc: BaseException) -> bool:
+    """Whether `exc`, or anything it wraps, is cffi refusing an ffi.callback()."""
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if "write+execute memory" in str(current):
+            return True
+        current = current.__cause__ or current.__context__
+    return False
 
 
 class CertRejected(CannotConnect):
@@ -778,6 +800,7 @@ def _read_device(transport, host: str, port: int) -> dict:
     (issue #236).
     """
     from .registry.batch import parse_device0_batch
+    from .registry.by_type import for_device_by_oic_type
     from .registry.by_type import resolve as resolve_registry
     from .registry.flat import read_all
     from .registry.identity import (
@@ -797,7 +820,13 @@ def _read_device(transport, host: str, port: int) -> dict:
         # No /device/0 Collection: read /oic/res's hrefs as the coordinator
         # will poll them (registry/flat.py). A batch board stored this way
         # while booting is moved back by the coordinator's /device/0 check.
-        resources = read_all(transport, identity.raw.get("/oic/res") or [], logger=_LOGGER)
+        family = for_device_by_oic_type(identity.device_types)
+        resources = read_all(
+            transport,
+            identity.raw.get("/oic/res") or [],
+            logger=_LOGGER,
+            awake=family.awake_href if family is not None else None,
+        )
         usable = bool(resources)
     else:
         usable = code == 0x45 and body is not None
@@ -974,6 +1003,10 @@ def _handshake_and_read(
                     raise
                 raise failure from err
             except Exception as exc:
+                if _exec_memory_denied(exc):
+                    raise ExecMemoryDenied(
+                        f"this host denies the write+execute memory cffi needs: {exc}"
+                    ) from exc
                 if not retried and _worth_retrying(exc, port in scan.confirmed, local_port):
                     retried = True
                     _LOGGER.debug("port %d failed (%s); retrying once", port, exc)
@@ -1266,6 +1299,13 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # carrier at all and wants a pre-shared key (#435).
                 _LOGGER.debug("%s rejected the automatic certificate", self._host)
                 return await self.async_step_credential()
+            except HandshakeTimeout as exc:
+                # Not every PSK appliance refuses the leaf the way a Family Hub
+                # does: some DA_WM_TP1_21 units (oxms [65282] only) just stop
+                # answering (#822), so the credential step must be reachable here.
+                _LOGGER.warning("Probe of %s: %s; offering the credential step", self._host, exc)
+                self._plaintext_port = None
+                return await self.async_step_credential_timeout()
             except (CannotConnect, InvalidCA) as exc:
                 # Every probe failure carries the message that fits it (see
                 # CannotConnect); the log line is where the specifics live.
@@ -1440,6 +1480,30 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             menu_options=["psk_owner", "psk_peer", "fallback_ca"],
             description_placeholders=self._psk_placeholders(),
         )
+
+    async def async_step_credential_timeout(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """The credential choice after a confirmed port went quiet, with a retry.
+
+        A timeout is not a refusal: a PSK-only unit does it (#822), and so does
+        one still holding an old association, which a retry or a restart
+        clears. The hint is read as on the refused path, for the PSK forms.
+        """
+        self._credential_hint = await self.hass.async_add_executor_job(
+            probing.read_credential_hint, self._host, self._plaintext_port
+        )
+        return self.async_show_menu(
+            step_id="credential_timeout",
+            menu_options=["retry_probe", "psk_owner", "psk_peer", "fallback_ca"],
+            description_placeholders=self._psk_placeholders(),
+        )
+
+    async def async_step_retry_probe(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Probe the same address again, as resubmitting the address form would."""
+        return await self.async_step_user({CONF_HOST: self._host})
 
     async def async_step_credential_psk(
         self, user_input: dict[str, Any] | None = None
@@ -2140,7 +2204,31 @@ class LocalThingsOptionsFlow(config_entries.OptionsFlow):
             coord.subdevices or self.config_entry.options.get(CONF_DISABLED_SUBDEVICES)
         ):
             menu.insert(1, "subdevices")
+        if (coord is not None and coord.device_type_name == "tv") or (
+            self.config_entry.data.get(CONF_DEVICE_TYPE) == "tv"
+        ):
+            menu.insert(1, "camera_casting")
         return self.async_show_menu(step_id="init", menu_options=menu)
+
+    async def async_step_camera_casting(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """CONF_CAMERA_CASTING: see its comment, and docs/samsung-tv.md."""
+        if user_input is not None:
+            return self.async_create_entry(data={**self.config_entry.options, **user_input})
+        return self.async_show_form(
+            step_id="camera_casting",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_CAMERA_CASTING,
+                        default=self.config_entry.options.get(
+                            CONF_CAMERA_CASTING, DEFAULT_CAMERA_CASTING
+                        ),
+                    ): bool,
+                }
+            ),
+        )
 
     async def async_step_settings(
         self, user_input: dict[str, Any] | None = None
@@ -2364,11 +2452,8 @@ class LocalThingsOptionsFlow(config_entries.OptionsFlow):
         deadline = time.monotonic() + _CLOUD_WAIT_TIMEOUT_S
         while time.monotonic() < deadline:
             slot = await coord.async_probe_cloud_courses()
-            # Only a slot the store actually recorded. The probe reports
-            # whatever payload is loaded, while observe() declines one whose
-            # slot the device doesn't advertise -- offering to name that would
-            # take a name and silently discard it, since there is no record to
-            # hang it on and no payload to replay.
+            # Only a slot the store actually recorded: naming one with no
+            # payload to replay would silently discard the name.
             if (
                 slot is not None
                 and slot != self._cloud_baseline
@@ -2395,7 +2480,7 @@ class LocalThingsOptionsFlow(config_entries.OptionsFlow):
         rep = coord.cloud_course_rep()
         courses = cycle_options(coord.canonical_resources(MAIN))
         record = coord.cloud_courses.snapshot()
-        slots = cloudcourse.cloud_slots(rep, courses)
+        slots = cloudcourse.known_slots(rep, courses, record)
         names = [n for s in slots if (n := (record["slots"].get(s) or {}).get("name"))]
         return {
             "named": str(len(names)),
@@ -2549,10 +2634,11 @@ class LocalThingsOptionsFlow(config_entries.OptionsFlow):
         rep = coord.cloud_course_rep()
         record = store.snapshot()
         slots = record["slots"]
-        advertised = cloudcourse.cloud_slots(rep, cycle_options(coord.canonical_resources(MAIN)))
-        # Learned slots keep the appliance's own ordering; anything learned
-        # but no longer advertised still gets a row so a name isn't stranded.
-        known = [s for s in advertised if s in slots] + [s for s in slots if s not in advertised]
+        courses = cycle_options(coord.canonical_resources(MAIN))
+        advertised = cloudcourse.cloud_slots(rep, courses)
+        # Learned slots in the appliance's own order, then any it doesn't list
+        # (issue #780) or no longer lists, so a name isn't stranded.
+        known = [s for s in cloudcourse.known_slots(rep, courses, record) if s in slots]
 
         if user_input is not None:
             errors = self._apply_cloud_course_names(coord, known, user_input)
@@ -2658,7 +2744,7 @@ class LocalThingsOptionsFlow(config_entries.OptionsFlow):
             errors=errors or {},
             description_placeholders={
                 "found": str(len(known)),
-                "total": str(len(advertised)) if advertised else str(len(known)),
+                "total": str(len(known) + len(pending)),
                 "pending": ", ".join(pending) if pending else "(none)",
             },
         )

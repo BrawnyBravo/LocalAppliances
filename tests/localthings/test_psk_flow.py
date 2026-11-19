@@ -316,6 +316,81 @@ async def test_a_psk_entry_is_not_reused_for_the_next_appliance(
     assert result["step_id"] == "user"
 
 
+class SilentAppliance(PskAppliance):
+    """A PSK appliance that never refuses the certificate (some DA_WM_TP1_21
+    units, #822): the handshake just times out, unlike the Family Hub's
+    unknown_ca. A matching PSK completes as on PskAppliance."""
+
+    def connect(self):
+        if self.auth is None:
+            raise TimeoutError("handshake timed out")
+        super().connect()
+
+
+class _SilentDiagnostic:
+    """The diagnostic handshake sees the same silence: no alert record."""
+
+    alert = None
+    outcome = "timeout"
+    handshake_msgs: ClassVar[list[str]] = []
+    handshake_counts: ClassVar[dict[str, int]] = {}
+
+
+@pytest.fixture
+def silent_appliance(monkeypatch, appliance):
+    monkeypatch.setattr(config_flow, "DtlsTransport", SilentAppliance)
+    monkeypatch.setattr(config_flow, "_diagnostic_alert", lambda *a, **k: _SilentDiagnostic())
+    return SilentAppliance
+
+
+@pytest.mark.parametrize("sct", [1, None])
+async def test_a_timeout_offers_a_retry_ahead_of_the_credentials(
+    hass: HomeAssistant, monkeypatch, silent_appliance, sct
+) -> None:
+    """A timeout isn't a refusal, so it gets its own menu whatever the hint:
+    a unit holding an old association needs a retry, not a key."""
+    _hint(monkeypatch, CredentialHint(sct=sct))
+    result = await _refused(hass)
+    assert result["type"] == FlowResultType.MENU
+    assert result["step_id"] == "credential_timeout"
+    assert result["menu_options"] == ["retry_probe", "psk_owner", "psk_peer", "fallback_ca"]
+
+
+async def test_retry_probes_the_same_address_again(
+    hass: HomeAssistant, monkeypatch, silent_appliance
+) -> None:
+    _hint(monkeypatch, CredentialHint(sct=None))
+    result = await _refused(hass)
+    assert result["step_id"] == "credential_timeout"
+    # Still silent: the retry lands back on the same menu.
+    opened = len(PskAppliance.opened)
+    result = await _choose(hass, result, "retry_probe")
+    assert result["step_id"] == "credential_timeout"
+    assert len(PskAppliance.opened) > opened
+    assert {t.port for t in PskAppliance.opened[opened:]} == {PORT}
+    # Now it answers, and refuses the certificate: the refused menu.
+    monkeypatch.setattr(config_flow, "DtlsTransport", PskAppliance)
+    result = await _choose(hass, result, "retry_probe")
+    assert result["step_id"] == "credential"
+
+
+async def test_owner_psk_after_a_timeout_creates_the_entry(
+    hass: HomeAssistant, monkeypatch, silent_appliance
+) -> None:
+    _hint(monkeypatch, CredentialHint(sct=1, owner_uuid=OWNER_UUID))
+    result = await _choose(hass, await _refused(hass), "psk_owner")
+    assert result["type"] == FlowResultType.FORM
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_PSK_IDENTITY: OWNER_UUID, CONF_PSK_KEY: KEY}
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    data = result["data"]
+    assert data[CONF_AUTH_CARRIER] == AUTH_PSK
+    assert data[CONF_PSK_PROFILE] == PSK_PROFILE_OWNER
+    assert data[CONF_OCF_DEVICE_ID] == DEVICE_ID
+    assert data[CONF_PORT] == PORT
+
+
 def _psk_entry(**extra) -> MockConfigEntry:
     return MockConfigEntry(
         domain=DOMAIN,

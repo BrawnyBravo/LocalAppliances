@@ -146,6 +146,5 @@ def test_range_hood_types_the_same_particulate_readings():
         assert hood[key].device_class == purifier.device_class, key
         assert hood[key].unit == purifier.unit, key
         assert hood[key].state_class == "measurement", key
-    # The graded reading stays as it was.
-    assert hood["clean_level"].device_class is None
+    # The graded reading has no unit (LocalThings made it an enum, #794).
     assert hood["clean_level"].unit is None

@@ -6,8 +6,8 @@ import pytest
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.localthings import _drop_read_only_power_switches
 from custom_components.localthings.binary_sensor import LocalThingsBinarySensor
+from custom_components.localthings.cleanup import async_reconcile_entities
 from custom_components.localthings.const import DOMAIN
 from custom_components.localthings.coordinator import LocalThingsCoordinator
 from custom_components.localthings.entity import LocalThingsEntity, _is_included
@@ -36,7 +36,7 @@ def _power(coordinator):
     ]
 
 
-@pytest.mark.parametrize("subtype", [None, "CombiOven", "Microwave", ""])
+@pytest.mark.parametrize("subtype", [None, "Microwave", ""])
 def test_shared_board_without_wall_oven_type_keeps_existing_power_behavior(subtype):
     bodies = {
         "Information": {
@@ -47,24 +47,41 @@ def test_shared_board_without_wall_oven_type_keeps_existing_power_behavior(subty
     assert model_settings("LCD_OV_WALL_16K", bodies) == {}
 
 
-def test_same_board_combo_cavities_keep_their_existing_power_control():
+def _power_descs(resources):
     from custom_components.localthings.registry.by_type import resolve
+
+    registry = resolve(resources)
+    assert registry is not None
+    return [
+        b.desc
+        for b in discover(resources, registry.capabilities)
+        if b.desc.key == "power_switch"
+        and (b.desc.exists_fn is None or b.desc.exists_fn(resources[b.href], resources))
+    ]
+
+
+def test_same_board_combo_oven_cavities_report_power_without_a_control():
+    """#681: on the NW9300MD's oven, Power off is accepted and does nothing,
+    and every slot reads On whatever the knob says."""
     from tests.test_legacy_http_nw9300md import _canonical, _seed, _sweep
 
     transport = _sweep(divided=True)
-    for index in (0, 2, 3):
+    for index in (2, 3):
         resources = _canonical(_seed(transport, index), index)
-        assert SETINFO_HREF not in resources
-        registry = resolve(resources)
-        assert registry is not None
-        bound = discover(resources, registry.capabilities)
-        power = [
-            b
-            for b in bound
-            if b.desc.key == "power_switch"
-            and (b.desc.exists_fn is None or b.desc.exists_fn(resources[b.href], resources))
-        ]
-        assert len(power) == 1 and isinstance(power[0].desc, SwitchDesc)
+        assert resources[SETINFO_HREF] == {"x.com.samsung.da.isModelSettingPowerOnOff": "false"}
+        power = _power_descs(resources)
+        assert power and not any(isinstance(d, SwitchDesc) for d in power)
+
+
+def test_same_board_combo_microwave_keeps_its_power_control():
+    """Untested on the NW9300MD's microwave slot."""
+    from tests.test_legacy_http_nw9300md import _seed, _sweep
+
+    resources = _seed(_sweep(divided=True), 0)
+
+    assert SETINFO_HREF not in resources
+    power = _power_descs(resources)
+    assert len(power) == 1 and isinstance(power[0], SwitchDesc)
 
 
 @pytest.mark.parametrize("divided", [False, True])
@@ -168,13 +185,13 @@ async def test_cleanup_removes_exact_renamed_switches_and_is_idempotent(hass, di
     )
     kept.append(foreign.entity_id)
     with caplog.at_level("INFO", logger="custom_components.localthings"):
-        _drop_read_only_power_switches(hass, coordinator._entry, coordinator)
-        _drop_read_only_power_switches(hass, coordinator._entry, coordinator)
+        async_reconcile_entities(hass, coordinator._entry, coordinator)
+        async_reconcile_entities(hass, coordinator._entry, coordinator)
     assert len(removed) == 2
     assert all(registry.async_get(entity_id) is None for entity_id in removed)
     assert all(registry.async_get(entity_id) is not None for entity_id in kept)
     for entity_id in removed:
-        assert caplog.text.count(f"Removing {entity_id},") == 1
+        assert caplog.text.count(f"Removing {entity_id}:") == 1
     assert "update any automation or dashboard" in caplog.text
 
 
@@ -193,7 +210,7 @@ async def test_cleanup_also_applies_to_read_only_laundry_power(hass):
     uid = LocalThingsEntity(coordinator, power[0]).unique_id
     assert uid is not None
     old = registry.async_get_or_create("switch", DOMAIN, uid, config_entry=coordinator._entry)
-    _drop_read_only_power_switches(hass, coordinator._entry, coordinator)
+    async_reconcile_entities(hass, coordinator._entry, coordinator)
     assert registry.async_get(old.entity_id) is None
 
 
@@ -219,7 +236,7 @@ async def test_cleanup_requires_owning_entry_and_a_discovered_replacement(hass, 
             resources[bound.href] = {"rt": ["x.com.samsung.da.power"]}
         coordinator._run_discovery(resources, from_snapshot=True)
         coordinator._rehydrate_resources = resources
-    _drop_read_only_power_switches(hass, coordinator._entry, coordinator)
+    async_reconcile_entities(hass, coordinator._entry, coordinator)
     assert registry.async_get(old.entity_id) is not None
 
 
@@ -237,7 +254,7 @@ async def test_offline_snapshot_restores_status_without_using_stale_values(hass)
         assert entity.is_on is None
         assert entity.unique_id is not None
         registry.async_get_or_create("switch", DOMAIN, entity.unique_id, config_entry=online._entry)
-    _drop_read_only_power_switches(hass, online._entry, restored)
+    async_reconcile_entities(hass, online._entry, restored)
     assert not [
         e
         for e in er.async_entries_for_config_entry(registry, online._entry.entry_id)
@@ -267,7 +284,7 @@ async def test_previously_affected_appliances_keep_power_switches(hass, name):
             config_entry=coordinator._entry,
         )
         controls.append(old.entity_id)
-    _drop_read_only_power_switches(hass, coordinator._entry, coordinator)
+    async_reconcile_entities(hass, coordinator._entry, coordinator)
     assert all(registry.async_get(entity_id) is not None for entity_id in controls)
     state = flatten(coordinator.bound, coordinator.last_resources)
     assert "sound" in state

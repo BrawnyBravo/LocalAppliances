@@ -14,7 +14,6 @@ REGISTRY = DeviceRegistry(
         [
             *unpolled(
                 av.IGNORED,
-                av.MEDIA_COVERAGE,
                 soundbar.COVERAGE,
                 # Voice-assistant negotiation state (Alexa account linkage,
                 # locale lists) -- cloud plumbing, not device state.
@@ -24,6 +23,9 @@ REGISTRY = DeviceRegistry(
                 ],
             ),
             av.NETWORK,
+            *soundbar.MEDIA_SURFACE_COVERAGE,
+            *av.MEDIA_RESOURCES,
+            *soundbar.MEDIA_PLAYERS,
             soundbar.TONE,
             soundbar.WOOFER,
             soundbar.AUDIO_SYNC,
@@ -32,7 +34,13 @@ REGISTRY = DeviceRegistry(
             soundbar.ADVANCED_AUDIO,
             soundbar.ACTIVE_VOICE_AMPLIFIER,
             soundbar.SPACEFIT_SOUND,
+            soundbar.AV_SOUND_SETTING,
+            soundbar.REAR_SPEAKER_POSITION,
             soundbar.AUTO_POWER_DOWN,
+            soundbar.AUTO_POWER_DOWN_AV,
+            soundbar.TV_REMOTE,
+            soundbar.PLAYER_INFO,
+            soundbar.IP_CONTROL,
             soundbar.AUTO_UPDATE,
             soundbar.SYMPHONY,
             soundbar.AUDIOPROMPT,

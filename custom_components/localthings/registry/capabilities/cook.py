@@ -390,6 +390,9 @@ def can_start(rep: dict, resources: dict) -> bool:
     modeSpec is empty for now (#600). A press while nothing is startable is
     refused by plan_start."""
     spec = (resources.get(MODE_HREF) or {}).get(MODE_SPEC)
+    # Specless lower cavities use their own modes or the shared fallback (#572).
+    if spec is None and cavity(resources) == "Lower":
+        return True
     if _is_empty_spec(spec):
         return True
     return any(s.startable for s in mode_specs(resources).values())
@@ -615,9 +618,9 @@ class HeldCook:
     kept here rather than written (the board discards them from `Ready`)
     until a start sends them.
 
-    The first mode selection validates earlier entries; reselecting it
-    preserves them. A different mode brings its own defaults. Panel
-    changes or leaving `Ready` discard held choices.
+    The first mode selection validates earlier entries. Unlike #519's washer,
+    reselecting the same mode keeps held values. A different mode brings its
+    own defaults. Panel changes or leaving `Ready` discard held choices.
     """
 
     def __init__(self) -> None:
@@ -648,6 +651,7 @@ class HeldCook:
                 raise
             # Without a default mode (NV51K7770S), one available mode must
             # accept the whole combination before it can be held.
+            # A candidate check must not choose a mode or round its inputs.
             for candidate in startable_modes(resources):
                 try:
                     plan_start(
@@ -662,7 +666,6 @@ class HeldCook:
                 break
             else:
                 raise
-            # A candidate check must not choose a mode or round its inputs.
         else:
             for key, normalized in (
                 (PARAM_TEMPERATURE, plan.temperature),

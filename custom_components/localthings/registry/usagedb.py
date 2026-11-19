@@ -215,9 +215,9 @@ def cumulative_energy_kwh(rep: dict) -> float | None:
 
     See `_energy_scale_is_confirmed` for why this is a positive test rather
     than "not runtime", and `_energy_rate_is_plausible` and
-    `_MAX_TENTHS_KWH_TOTAL` for the checks behind it. The air-conditioner
-    registry also drops this entity outright (see by_type/airconditioner.py),
-    since the bytes alone cannot rule out every low-runtime case.
+    `_MAX_TENTHS_KWH_TOTAL` for the checks behind it. Air conditioners
+    read their plain-Wh file with `cumulative_energy_kwh_from_wh` instead
+    (airconditioner.FILE_TRANSFER).
     """
     parsed = records(rep)
     if not parsed:
@@ -227,6 +227,22 @@ def cumulative_energy_kwh(rep: dict) -> float | None:
     if parsed[-1][1] > _MAX_TENTHS_KWH_TOTAL or not _energy_rate_is_plausible(parsed):
         return None
     return parsed[-1][1] / 10
+
+
+def cumulative_energy_kwh_from_wh(rep: dict) -> float | None:
+    """The newest record's cumulative energy, in kWh, for an air conditioner,
+    which stores plain Wh: the `A-CAWW-TP2-20-COMMON` System AC (#741), whose
+    all-zero third field would otherwise pass for a washer's and read 100x
+    high, as well as the PRAC (#329) and TP2X_RAC (#488).
+
+    Only the all-zero shape is published. A runtime-carrying head's energy
+    is the shared outdoor unit's (#329), so one sensor per head would count
+    it once per head.
+    """
+    parsed = records(rep)
+    if not parsed or any(r[2] for r in parsed):
+        return None
+    return parsed[-1][1] / 1000
 
 
 def cumulative_runtime_hours(rep: dict) -> float | None:

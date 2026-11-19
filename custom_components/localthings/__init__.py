@@ -11,12 +11,13 @@ from homeassistant import const as ha_const
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import Event, HomeAssistant, callback
-from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 
+from . import camera_dash
+from .cleanup import async_delete_removed_issues, async_notify_removed, async_reconcile_entities
 from .const import (
     CONF_DEVICE_TYPE,
     CONF_HOST,
@@ -33,10 +34,7 @@ from .coordinator import (
     mode_spec_store,
     snapshot_store,
 )
-from .entity import LocalThingsEntity, _is_included, async_load_instance_names
-from .registry.by_type.microfiber_filter import WASHER_ONLY_ENTITIES
-from .registry.capabilities.cooktop import is_legacy_radiant_cooktop
-from .registry.entities import BinarySensorDesc
+from .entity import async_load_instance_names, async_migrate_subdevice_case
 from .registry.identity import resolve_serial
 from .rekey import rekey_entry
 from .services import async_setup_services
@@ -217,141 +215,6 @@ def _relabel_particulate_statistics(hass: HomeAssistant, entry: ConfigEntry) -> 
     return True
 
 
-# The dryer's dryLevel and dryTime moved from SensorDesc to SelectDesc in
-# #439. unique_ids are scoped by (integration, platform), so that move can't
-# rewrite the old rows -- they can only be dropped, and until they are, each
-# upgraded dryer keeps a permanently-unavailable `sensor.<name>_dry_level`
-# (and `_dry_time`) carrying the user's rename and area.
-#
-# Tail-matched for the same reason as _PARTICULATE_KEY_RE above: the id is
-# f"{DOMAIN}_{serial}_{state_key}" with an optional subdevice prefix and a
-# trailing `_<n>` instance, and matching the tail keeps working for a renamed
-# entity. No device-type gate is needed -- no registry binds a sensor-domain
-# dry_level or dry_time any more, so the domain check plus this tail is
-# already exact.
-_MOVED_TO_SELECT_KEY_RE = re.compile(r"_(?:dry_level|dry_time)(?:_\d+)?$")
-
-
-@callback
-def _drop_sensors_superseded_by_selects(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Drop the sensor rows dryer.py's dry_level/dry_time selects supersede.
-
-    Runs on every setup rather than as a numbered migration. The sweep is
-    idempotent -- after the first pass there is nothing left matching the
-    pattern in the sensor domain -- so a version gate would buy only running
-    it once, at the cost of a bump that makes the *whole entry* fail to load
-    on a downgrade (`entry.version > 4` in async_migrate_entry) instead of
-    losing two entities. That trade isn't worth it for a registry tidy-up.
-
-    Not gated on the select existing either: dry_level is field-gated and
-    dry_time carries an exists_fn, so on a board reporting neither there is
-    no replacement -- but the sensor is equally dead there, because no
-    registry binds these keys to the sensor platform any more.
-    """
-    ent_reg = er.async_get(hass)
-    for registry_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
-        if registry_entry.domain != "sensor":
-            continue
-        if not _MOVED_TO_SELECT_KEY_RE.search(registry_entry.unique_id):
-            continue
-        # INFO, not debug: this is irreversible and takes the user's rename,
-        # area and any automation reference with it. The replacement is named
-        # by platform only -- deriving `select.<object_id>` from this row
-        # would be a guess, since a renamed sensor's object id is not the one
-        # the new select gets.
-        _LOGGER.info(
-            "Removing %s, superseded by a select entity on the same device; "
-            "update any automation or dashboard that referenced it",
-            registry_entry.entity_id,
-        )
-        ent_reg.async_remove(registry_entry.entity_id)
-
-
-@callback
-def _drop_duplicate_cooktop_timer(
-    hass: HomeAssistant, entry: ConfigEntry, coordinator: LocalThingsCoordinator
-) -> None:
-    """Remove the redundant timer entity only where Timer Remaining replaces it."""
-    resources = coordinator.discovery_resources
-    rep = resources.get("/mode/vs/0") or {}
-    if not is_legacy_radiant_cooktop(rep, resources) or not any(
-        bound.desc.key == "main_timer_set" and _is_included(bound, coordinator)
-        for bound in coordinator.bound
-    ):
-        return
-    ent_reg = er.async_get(hass)
-    unique_id = f"{DOMAIN}_{coordinator.device_key}_main_timer_current"
-    entity_id = ent_reg.async_get_entity_id("sensor", DOMAIN, unique_id)
-    old = ent_reg.async_get(entity_id) if entity_id else None
-    if old is None or old.config_entry_id != entry.entry_id:
-        return
-    # NZ36K7570R reports the same countdown in both fields; retaining the
-    # registry row would leave an unavailable duplicate after this upgrade.
-    _LOGGER.info(
-        "Removing %s, superseded by Timer Remaining on the same cooktop; "
-        "update any automation or dashboard that referenced it",
-        old.entity_id,
-    )
-    ent_reg.async_remove(old.entity_id)
-
-
-@callback
-def _drop_read_only_power_switches(
-    hass: HomeAssistant, entry: ConfigEntry, coordinator: LocalThingsCoordinator
-) -> None:
-    """Remove an old Power switch when discovery now selects its read-only sensor."""
-    ent_reg = er.async_get(hass)
-    for bound in coordinator.bound:
-        if (
-            bound.desc.key != "power_switch"
-            or not isinstance(bound.desc, BinarySensorDesc)
-            or not _is_included(bound, coordinator)
-            or bound.desc.field not in coordinator.discovery_resources.get(bound.href, {})
-        ):
-            continue
-        unique_id = LocalThingsEntity(coordinator, bound).unique_id
-        assert unique_id is not None
-        entity_id = ent_reg.async_get_entity_id("switch", DOMAIN, unique_id)
-        old = ent_reg.async_get(entity_id) if entity_id else None
-        if old is None or old.config_entry_id != entry.entry_id:
-            continue
-        # A platform change cannot reuse the switch's registry row.
-        _LOGGER.info(
-            "Removing %s, superseded by a Power binary sensor; "
-            "update any automation or dashboard that referenced it",
-            old.entity_id,
-        )
-        ent_reg.async_remove(old.entity_id)
-
-
-@callback
-def _drop_washer_entities_from_filters(
-    hass: HomeAssistant, entry: ConfigEntry, coordinator: LocalThingsCoordinator
-) -> None:
-    """Drop the washer rows a microfiber filter kept from #475's routing.
-
-    Runs on every setup for the same reason as
-    _drop_sensors_superseded_by_selects: idempotent, and a version bump would
-    fail the whole entry on a downgrade. Gated on the device type, since
-    every key here is real on a washer. The keys are derived from the two
-    registries, so a washer entity added later is covered too.
-    """
-    if coordinator.device_type_name != "microfiber_filter":
-        return
-    ent_reg = er.async_get(hass)
-    prefix = f"{DOMAIN}_{coordinator.device_key}_"
-    for registry_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
-        key = registry_entry.unique_id.removeprefix(prefix)
-        if (registry_entry.domain, key) not in WASHER_ONLY_ENTITIES:
-            continue
-        _LOGGER.info(
-            "Removing %s, which a microfiber filter has no hardware for; "
-            "update any automation or dashboard that referenced it",
-            registry_entry.entity_id,
-        )
-        ent_reg.async_remove(registry_entry.entity_id)
-
-
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate an entry to the current version.
 
@@ -423,10 +286,6 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
 
-    # Before the platforms register anything, so an upgraded dryer never has
-    # the dead sensor row and its replacement select alive at the same time.
-    _drop_sensors_superseded_by_selects(hass, entry)
-
     coordinator = LocalThingsCoordinator(hass, entry)
 
     # Any failure from here on leaves the entry in a setup error, and Home
@@ -436,6 +295,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # the raw services could still route writes to it. A later reload would
     # then open a second session from the same fixed source port, tearing
     # down the first one's peer on the appliance. Close it and forget it.
+    # That includes the snapshot path, whose first refresh runs in the
+    # background: a later failure here must still close the coordinator.
     try:
         # Before the first refresh, so the coordinator keeps rescheduling even
         # when that refresh fails and leaves nothing subscribed: the base class
@@ -445,22 +306,37 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry.async_on_unload(coordinator.async_add_listener(lambda: None))
         await coordinator.async_load_mode_specs()
 
-        try:
-            await coordinator.async_config_entry_first_refresh()
-        except ConfigEntryNotReady:
-            # An entry that has polled successfully before comes up on its last
-            # known entity set and keeps retrying on the normal poll interval,
-            # rather than sitting in setup-retry with a device that reads as
-            # broken and entities that exist only as registry rows (issue #295).
-            #
+        # An entry that has polled before comes up straight from its discovery
+        # snapshot and makes its first connection in the background. Waiting
+        # for that connection here held up Home Assistant's startup by the full
+        # handshake and poll timeouts whenever the appliance was switched off,
+        # only to end up on the same snapshot anyway.
+        if await coordinator.async_rehydrate():
+            # Start out as an offline load always has: entities unavailable
+            # until the device answers, and no "Error fetching" from the base
+            # class when an appliance that is simply switched off fails that
+            # first poll.
+            coordinator.last_update_success = False
+            # This refresh starts before the platforms are forwarded, so a
+            # device that answers quickly can finish its live discovery while
+            # setup is still going. Either way the platforms register the
+            # snapshot's entities plus the live ones, and add anything later
+            # discovery finds in place (see coordinator.registrable).
+            entry.async_create_background_task(
+                hass, coordinator.async_refresh(), f"{DOMAIN} first refresh {entry.entry_id}"
+            )
+        else:
             # An entry that has never reached the device has no snapshot, so
-            # there is nothing to show and no device metadata to name it with --
-            # that case still fails, which is also what keeps the door open for
-            # setup flows that need to interact with the device (issue #168).
-            if not await coordinator.async_rehydrate():
-                raise
+            # there is nothing to show and no device metadata to name it with
+            # -- that case still fails (closed by the except below), which also
+            # keeps the door open for setup flows that need to interact with the
+            # device (issue #168).
+            await coordinator.async_config_entry_first_refresh()
 
         hass.data[DOMAIN][entry.entry_id] = coordinator
+        # Only an install that opts in serves the camera views (CONF_CAMERA_CASTING).
+        if coordinator.camera_casting_enabled:
+            camera_dash.async_register_views(hass)
 
         # Send the DTLS close_notify on Core shutdown, not just on unload (issue
         # #254): HA doesn't unload entries on a plain Core restart, so a restart
@@ -495,11 +371,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # raises on a plain callback's None.
         entry.async_on_unload(entry.add_update_listener(_async_options_updated))
 
-        _drop_duplicate_cooktop_timer(hass, entry, coordinator)
-        _drop_read_only_power_switches(hass, entry, coordinator)
-        _drop_washer_entities_from_filters(hass, entry, coordinator)
+        # Before the platforms register, so a replaced row and its replacement
+        # are never both alive. Subdevice ids are lowercased first, so the
+        # reconciler judges rows under the spelling the platforms will use.
+        async_migrate_subdevice_case(hass, entry, coordinator)
+        async_notify_removed(hass, entry, async_reconcile_entities(hass, entry, coordinator))
         coordinator.instance_names = await async_load_instance_names(hass)
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+        coordinator.async_watch_late_evidence()
     except BaseException:
         hass.data[DOMAIN].pop(entry.entry_id, None)
         await coordinator.async_close()
@@ -517,6 +396,11 @@ async def _async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> Non
     if disabled_subdevice_keys(entry.options) != coordinator.disabled_keys:
         hass.config_entries.async_schedule_reload(entry.entry_id)
         return
+    if coordinator.camera_casting_enabled:
+        camera_dash.async_register_views(hass)
+    else:
+        # Ends a camera this TV is casting; the views refuse it from now on.
+        await coordinator.playback.async_close()
     coordinator._on_cloud_courses_changed()
 
 
@@ -563,6 +447,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """
     await snapshot_store(hass, entry).async_remove()
     await mode_spec_store(hass, entry).async_remove()
+    async_delete_removed_issues(hass, entry)
     if entry.data.get(CONF_TRANSPORT) == TRANSPORT_LEGACY_HTTP:
         from .legacy_http_transport import forget
 
