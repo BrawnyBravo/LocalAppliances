@@ -255,3 +255,24 @@ async def test_refresh_can_be_left_to_the_caller(coordinator):
     coordinator.async_request_refresh.assert_not_called()
     await coordinator.async_send_command(_bound(), 1)
     coordinator.async_request_refresh.assert_awaited_once()
+
+
+async def test_cache_after_ack_arms_the_settle_window_before_the_optimistic_apply(coordinator):
+    """Review 20 Oct CORE-M1: the acknowledged value must land with its settle
+    guard already armed, so a stale notify cannot slip in between."""
+    coordinator, session = coordinator
+    coordinator._observe.apply(HREF, {"position": 1}, source="poll")
+    session.write.return_value = (0x44, None)
+    observe = coordinator._observe
+    original_apply = observe.apply
+    armed_at_apply: list[float | None] = []
+
+    def _spy(h, rep, source):
+        if source == "optimistic":
+            armed_at_apply.append(observe.settle_deadline(h))
+        return original_apply(h, rep, source)
+
+    observe.apply = _spy
+    bound = _bound(cache_after_ack_fn=lambda payload: True)
+    await coordinator.async_send_command(bound, 2, optimistic_body={"position": 2})
+    assert armed_at_apply and armed_at_apply[0] is not None

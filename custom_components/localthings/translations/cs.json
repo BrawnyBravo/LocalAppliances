@@ -318,6 +318,33 @@
         "name": "Zóna 2"
       }
     },
+    "event": {
+      "alert": {
+        "name": "Upozornění",
+        "state_attributes": {
+          "code": {
+            "name": "Kód"
+          },
+          "event_type": {
+            "state": {
+              "alarm": "Alarm nebo chybový kód",
+              "door_open": "Otevřená dvířka"
+            }
+          }
+        }
+      },
+      "cycle": {
+        "name": "Program",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "finished": "Dokončeno",
+              "started": "Spuštěno"
+            }
+          }
+        }
+      }
+    },
     "fan": {
       "air_purifier_fan": {
         "state_attributes": {
@@ -2809,6 +2836,14 @@
         },
         "data_description": {
           "host": "Lokální IP adresa vašeho spotřebiče Samsung (např. 192.168.1.50)."
+        }
+      },
+      "smartthings_copy": {
+        "title": "Nalezeno ve SmartThings",
+        "description": "Tento spotřebič je také nastaven přes cloudovou integraci SmartThings jako „{name}“. Zkopírovat tento název a jeho oblast do nového zařízení? Zařízení SmartThings se nezmění.",
+        "data": {
+          "copy": "Zkopírovat název a oblast",
+          "copy_from_smartthings_device": "Zařízení SmartThings"
         }
       },
       "confirm_unknown_type": {

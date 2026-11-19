@@ -102,6 +102,14 @@
           "host": "Dirección IP local de tu electrodoméstico Samsung (p. ej. 192.168.1.50)."
         }
       },
+      "smartthings_copy": {
+        "title": "Encontrado en SmartThings",
+        "description": "Este electrodoméstico también está configurado mediante la integración en la nube de SmartThings como \"{name}\". ¿Copiar ese nombre y su área al nuevo dispositivo? El dispositivo de SmartThings no se modifica.",
+        "data": {
+          "copy": "Copiar nombre y área",
+          "copy_from_smartthings_device": "Dispositivo de SmartThings"
+        }
+      },
       "confirm_unknown_type": {
         "title": "Tipo de electrodoméstico no reconocido",
         "description": "Este electrodoméstico informa del modelo «{model}», un tipo que LocalThings aún no reconoce. Se añadirá igualmente, pero solo con las capacidades comunes (alimentación, alarmas, etc. donde existan) en lugar del conjunto completo de su familia. Puedes ayudar a añadir soporte completo después descargando los diagnósticos de este dispositivo (Ajustes > Dispositivos y servicios > este dispositivo > el menú > Descargar diagnósticos) y reportándolos en una nueva incidencia. Envía para añadirlo de todos modos."
@@ -808,6 +816,33 @@
       },
       "zone2_climate": {
         "name": "Zona 2"
+      }
+    },
+    "event": {
+      "alert": {
+        "name": "Alerta",
+        "state_attributes": {
+          "code": {
+            "name": "Código"
+          },
+          "event_type": {
+            "state": {
+              "alarm": "Alarma o código de error",
+              "door_open": "Puerta abierta"
+            }
+          }
+        }
+      },
+      "cycle": {
+        "name": "Ciclo",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "finished": "Finalizado",
+              "started": "Iniciado"
+            }
+          }
+        }
       }
     },
     "fan": {

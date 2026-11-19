@@ -26,6 +26,7 @@ from homeassistant.core import callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import format_mac
 from homeassistant.helpers.selector import (
+    BooleanSelector,
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
@@ -115,6 +116,7 @@ from .legacy_http_token import (
 from .registry.capabilities.laundry import cycle_options, personal_course_labels
 from .registry.subdevices import MAIN
 from .session import psk_provider
+from .smartthings_copy import CONF_COPY_FROM, display_name, find_matches
 from .transport import AuthRejected, DtlsTransport, local_source_port
 
 _TEXT = TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT))
@@ -1136,6 +1138,10 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Reconfigure the (host, fingerprint) of a changed certificate --
         # pending until the user confirms it, then accepted.
         self._legacy_pin: str | None = None
+        # LocalAppliances: the SmartThings device chosen to copy a name and
+        # area from, once the user has been asked (smartthings_copy.py).
+        self._st_info: dict | None = None
+        self._st_copy: dict[str, str] | None = None
         # Set when the flow is closed, to end a running token exchange and
         # free its callback port (see async_remove).
         self._token_stop = threading.Event()
@@ -1181,6 +1187,9 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """
         from .registry.identity import device_display_name
 
+        if self._st_copy is None and (offer := self._offer_smartthings_copy(info)) is not None:
+            return offer
+
         # A PSK entry carries no certificate fields at all, not empty ones:
         # credentials.py refuses an entry holding both kinds.
         credential = self._psk or {
@@ -1206,6 +1215,7 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_MODEL: info["model"],
                 CONF_MANUFACTURER: info["manufacturer"],
                 CONF_DEVICE_TYPE: info["device_type_name"],
+                **(self._st_copy or {}),
                 **({CONF_READ_MODE: info["read_mode"]} if info.get("read_mode") else {}),
                 **(
                     {
@@ -1223,6 +1233,39 @@ class LocalThingsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ),
             },
         )
+
+    def _offer_smartthings_copy(self, info: dict) -> ConfigFlowResult | None:
+        """LocalAppliances: when the cloud SmartThings integration already
+        has this appliance, ask whether to carry its name and area over.
+        None when there is nothing to offer."""
+        matches = find_matches(self.hass, info.get("serial"), info.get("mac"))
+        if not matches:
+            self._st_copy = {}
+            return None
+        self._st_info = info
+        options = [SelectOptionDict(value=d.id, label=display_name(d)) for d in matches]
+        return self.async_show_form(
+            step_id="smartthings_copy",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("copy", default=True): BooleanSelector(),
+                    vol.Required(CONF_COPY_FROM, default=matches[0].id): SelectSelector(
+                        SelectSelectorConfig(options=options, mode=SelectSelectorMode.LIST)
+                    ),
+                }
+            ),
+            # More than one match (the same appliance added twice in the
+            # cloud integration) reads as "A" or "B"; the list picks one.
+            description_placeholders={"name": '" or "'.join(display_name(d) for d in matches)},
+        )
+
+    async def async_step_smartthings_copy(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        assert user_input is not None and self._st_info is not None
+        chosen = user_input.get(CONF_COPY_FROM) if user_input.get("copy") else None
+        self._st_copy = {CONF_COPY_FROM: chosen} if chosen else {}
+        return self._create_entry(self._st_info)
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         existing = self.hass.config_entries.async_entries(DOMAIN)

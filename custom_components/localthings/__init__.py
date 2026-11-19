@@ -38,6 +38,7 @@ from .entity import async_load_instance_names, async_migrate_subdevice_case
 from .registry.identity import resolve_serial
 from .rekey import rekey_entry
 from .services import async_setup_services
+from .smartthings_copy import async_apply_copy
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -379,6 +380,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinator.instance_names = await async_load_instance_names(hass)
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
         coordinator.async_watch_late_evidence()
+        # LocalAppliances: name/area chosen at setup (smartthings_copy.py).
+        async_apply_copy(hass, entry, coordinator.device_info.get("identifiers") or set())
     except BaseException:
         hass.data[DOMAIN].pop(entry.entry_id, None)
         await coordinator.async_close()

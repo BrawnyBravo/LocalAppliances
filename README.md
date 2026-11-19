@@ -33,6 +33,12 @@ LocalAppliances is a modified version of [LocalThings](https://github.com/mbillo
 - Sensors that can't be read show unknown instead of a wrong value (meat probe, locks, air-conditioner mode, filter usage, energy totals).
 - Controls appear only where the appliance reports them (oven and microwave sound, vacuum station UV-C, climate setpoint, fan and preset controls).
 
+It also adds:
+
+- **Cycle** and **Alert** events for washers, dryers, dishwashers and air dressers. Cycle fires `started` and `finished`; Alert fires `door_open` or `alarm` (with the appliance's code) when a new alarm appears; any code with "door" in its name counts as a door alert. Automations can trigger on them directly. Two ready-made [blueprints](blueprints/automation/localappliances) send a notification or run any action when a cycle finishes or an alert arrives.
+- When you add an appliance that Home Assistant's SmartThings integration already has, setup offers to copy its name and area.
+- A [list of models seen so far](docs/supported-models.md), generated from the test captures.
+
 The integration's internal domain stays `localthings`, so LocalAppliances is a drop-in replacement: appliances you already set up with LocalThings keep working. Install one or the other, never both at once.
 
 LocalAppliances is an independent project. It is not affiliated with, endorsed by or supported by Samsung, SmartThings or the author of LocalThings. Report problems with LocalAppliances here, not to LocalThings. Samsung and SmartThings are trademarks of Samsung Electronics; they are used here only to say which appliances this works with.
@@ -65,7 +71,7 @@ An existing OCF credential is required; most owners cannot acquire one yet.
 
 What you see depends on what each appliance reports. Typical controls and sensors include power, program or mode selection, start, pause and stop, temperatures and setpoints, time remaining and finish time, door and child-lock state, energy use, filter status and alarms.
 
-Most Samsung appliances from about 2022 onward work, and so do some earlier washers, air conditioners and wall ovens that use an older local interface. See [Older appliances on TCP 8888](#older-appliances-on-tcp-8888). Setup detects which interface an appliance has, and tells you if it finds none.
+Most Samsung appliances from about 2022 onward work (see [models seen so far](docs/supported-models.md)), and so do some earlier washers, air conditioners and wall ovens that use an older local interface. See [Older appliances on TCP 8888](#older-appliances-on-tcp-8888). Setup detects which interface an appliance has, and tells you if it finds none.
 
 If an appliance sets up but LocalThings doesn't recognize it, or a control is missing, Home Assistant shows a notice asking for a diagnostics download. That download is usually all the maintainers need to add support. See [Reporting a capability gap](#reporting-a-capability-gap).
 

@@ -318,6 +318,33 @@
         "name": "Зона 2"
       }
     },
+    "event": {
+      "alert": {
+        "name": "Оповещение",
+        "state_attributes": {
+          "code": {
+            "name": "Код"
+          },
+          "event_type": {
+            "state": {
+              "alarm": "Сигнал или код ошибки",
+              "door_open": "Дверца открыта"
+            }
+          }
+        }
+      },
+      "cycle": {
+        "name": "Программа",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "finished": "Завершена",
+              "started": "Запущена"
+            }
+          }
+        }
+      }
+    },
     "fan": {
       "air_purifier_fan": {
         "state_attributes": {
@@ -2809,6 +2836,14 @@
         },
         "data_description": {
           "host": "Локальный IP-адрес вашего прибора Samsung (например, 192.168.1.50)."
+        }
+      },
+      "smartthings_copy": {
+        "title": "Найдено в SmartThings",
+        "description": "Этот прибор также настроен через облачную интеграцию SmartThings как «{name}». Скопировать это имя и его пространство в новое устройство? Устройство SmartThings не изменится.",
+        "data": {
+          "copy": "Скопировать имя и пространство",
+          "copy_from_smartthings_device": "Устройство SmartThings"
         }
       },
       "confirm_unknown_type": {

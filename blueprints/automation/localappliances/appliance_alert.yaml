@@ -1,0 +1,54 @@
+blueprint:
+  name: Appliance door or alarm alert
+  description: >-
+    Run actions when a washer, dryer or dishwasher added through
+    LocalAppliances raises a door alarm or another alarm or error code.
+    Pick the appliance's "Alert" event entity and what should happen. The
+    code is available to your actions as {{ code }} and the kind
+    ("door_open" or "alarm") as {{ kind }}.
+    LocalAppliances is not affiliated with Samsung or SmartThings.
+  domain: automation
+  source_url: https://github.com/BrawnyBravo/LocalAppliances/blob/main/blueprints/automation/localappliances/appliance_alert.yaml
+  input:
+    alert_event:
+      name: Alert event
+      description: Pick the appliance's Alert entity (an event entity ending in "Alert").
+      selector:
+        entity:
+          filter:
+            - integration: localthings
+              domain: event
+    include_alarms:
+      name: Include other alarms
+      description: Off to react to door alarms only.
+      default: true
+      selector:
+        boolean: {}
+    alert_actions:
+      name: Actions
+      description: What to do when an alert arrives.
+      selector:
+        action: {}
+
+mode: queued
+max_exceeded: silent
+
+variables:
+  include_alarms: !input include_alarms
+  kind: "{{ trigger.to_state.attributes.event_type if trigger.to_state else '' }}"
+  code: "{{ trigger.to_state.attributes.code if trigger.to_state else '' }}"
+
+triggers:
+  - trigger: state
+    entity_id: !input alert_event
+
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.from_state is not none
+         and trigger.from_state.state not in ['unavailable']
+         and trigger.to_state.state not in ['unavailable', 'unknown']
+         and trigger.from_state.state != trigger.to_state.state
+         and (kind == 'door_open' or (include_alarms and kind == 'alarm')) }}
+
+actions: !input alert_actions

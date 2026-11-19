@@ -22,7 +22,7 @@ Note which automations were built with **Device** triggers, conditions or action
 
 ## 2. Add the appliances to LocalAppliances
 
-[Install LocalAppliances](../README.md#install) and [add each appliance](../README.md#add-an-appliance) by its IP address. Both integrations can run side by side while you compare: LocalAppliances connects to the appliance directly and the cloud integration goes through Samsung, so neither gets in the other's way.
+[Install LocalAppliances](../README.md#install) and [add each appliance](../README.md#add-an-appliance) by its IP address. When setup finds the same appliance in the SmartThings integration, it offers to copy its name and area to the new device; the SmartThings device itself is not changed. Both integrations can run side by side while you compare: LocalAppliances connects to the appliance directly and the cloud integration goes through Samsung, so neither gets in the other's way.
 
 Run a cycle or change a setting at the appliance, and check that the new entities follow it.
 

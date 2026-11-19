@@ -318,6 +318,33 @@
         "name": "Zona 2"
       }
     },
+    "event": {
+      "alert": {
+        "name": "Upozorenje",
+        "state_attributes": {
+          "code": {
+            "name": "Kod"
+          },
+          "event_type": {
+            "state": {
+              "alarm": "Alarm ili kod greške",
+              "door_open": "Vrata otvorena"
+            }
+          }
+        }
+      },
+      "cycle": {
+        "name": "Program",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "finished": "Završeno",
+              "started": "Pokrenuto"
+            }
+          }
+        }
+      }
+    },
     "fan": {
       "air_purifier_fan": {
         "state_attributes": {
@@ -2809,6 +2836,14 @@
         },
         "data_description": {
           "host": "Lokalna IP adresa vašeg Samsung uređaja (npr. 192.168.1.50)."
+        }
+      },
+      "smartthings_copy": {
+        "title": "Pronađeno u SmartThings",
+        "description": "Ovaj uređaj je podešen i preko SmartThings oblačne integracije kao „{name}“. Kopirati taj naziv i njegovu oblast na novi uređaj? SmartThings uređaj se ne menja.",
+        "data": {
+          "copy": "Kopiraj naziv i oblast",
+          "copy_from_smartthings_device": "SmartThings uređaj"
         }
       },
       "confirm_unknown_type": {

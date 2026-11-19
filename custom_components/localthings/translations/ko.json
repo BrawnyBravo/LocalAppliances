@@ -318,6 +318,33 @@
         "name": "구역 2"
       }
     },
+    "event": {
+      "alert": {
+        "name": "알림",
+        "state_attributes": {
+          "code": {
+            "name": "코드"
+          },
+          "event_type": {
+            "state": {
+              "alarm": "알람 또는 오류 코드",
+              "door_open": "도어 열림"
+            }
+          }
+        }
+      },
+      "cycle": {
+        "name": "코스",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "finished": "완료",
+              "started": "시작"
+            }
+          }
+        }
+      }
+    },
     "fan": {
       "air_purifier_fan": {
         "state_attributes": {
@@ -2809,6 +2836,14 @@
         },
         "data_description": {
           "host": "삼성 가전제품의 로컬 IP 주소입니다(예: 192.168.1.50)."
+        }
+      },
+      "smartthings_copy": {
+        "title": "SmartThings에서 찾음",
+        "description": "이 기기는 SmartThings 클라우드 통합에서도 \"{name}\"(으)로 설정되어 있습니다. 그 이름과 영역을 새 기기에 복사할까요? SmartThings 기기는 변경되지 않습니다.",
+        "data": {
+          "copy": "이름과 영역 복사",
+          "copy_from_smartthings_device": "SmartThings 기기"
         }
       },
       "confirm_unknown_type": {
