@@ -3992,8 +3992,10 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 await self.async_request_refresh()
             raise
         if cache_after_ack and not write_only:
-            self._observe.apply(write_href, _optimistic(body), source="optimistic")
+            # Armed first, as on the cache-before-send path: a stale push
+            # landing between the two would otherwise be held as settled.
             self._observe.mark_write_pending(write_href, settle_s=self._write_settle_s)
+            self._observe.apply(write_href, _optimistic(body), source="optimistic")
         # A key press changes nothing a poll would read back promptly, and
         # awaiting one per key stalls a send_command burst behind it.
         if refresh and not isinstance(desc, RemoteDesc):
