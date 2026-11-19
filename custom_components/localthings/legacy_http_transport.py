@@ -633,18 +633,27 @@ class LegacyHttpTransport:
         except Exception as err:
             if settings_first:
                 # The settings body carries no Run, so the oven is still idle.
-                raise mark_not_started(err) from None
+                mark_not_started(err)
             raise
         if not 200 <= status < 300:
             return http_status_to_coap(status), response
         held.clear()
-        time.sleep(
-            min(_OVEN_START_SETTLE_S, _remaining(deadline)) if settings_first else _START_SETTLE_S
-        )
+        try:
+            time.sleep(
+                min(_OVEN_START_SETTLE_S, _remaining(deadline))
+                if settings_first
+                else _START_SETTLE_S
+            )
+        except TimeoutError as err:
+            # The budget ran out before the Run went out: nothing started.
+            raise mark_not_started(err) from None
         if not settings_first and self._running(index, timeout):
             return http_status_to_coap(status), response
         _LOGGER.debug("%s: programme loaded but not running; sending Run", self._host)
-        run_timeout = _remaining(deadline) if settings_first else timeout
+        try:
+            run_timeout = _remaining(deadline) if settings_first else timeout
+        except TimeoutError as err:
+            raise mark_not_started(err) from None
         try:
             run_status, run_response = self._request("PUT", base, body=_RUN, timeout=run_timeout)
         except AuthRejected as err:

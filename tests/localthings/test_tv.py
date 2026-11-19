@@ -48,6 +48,9 @@ async def test_tv_registers_its_selects_and_writes_the_advertised_picture_mode_i
     entities = [selects["picture_mode"]]
     state = hass.states.get(entities[0])
     assert state is not None and state.attributes["options"] == ["Game"]
+    # The fixture reports modeGamePCHDR, which its own list does not offer:
+    # it is not added as a choice, since it could not be written back.
+    assert "modeGamePCHDR" not in state.attributes["options"]
     await hass.services.async_call(
         "select",
         "select_option",

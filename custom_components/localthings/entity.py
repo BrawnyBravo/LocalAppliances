@@ -166,8 +166,9 @@ def async_migrate_subdevice_case(
     same reasoning as rekey.py. Every UUID on record is already lowercase,
     so this is a no-op for them.
 
-    Called by every platform before it adds entities, because each platform
-    registers its own; idempotent and cheap, so there is nothing to track.
+    Called once at setup, before the registry reconciler, and again by every
+    platform before it adds entities, because each platform registers its
+    own; idempotent and cheap, so there is nothing to track.
     Where both spellings already exist (an earlier case flip left a
     duplicate) neither is touched: which one the user has customized cannot
     be told from here, so it is logged instead.
