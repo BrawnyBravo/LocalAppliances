@@ -189,6 +189,7 @@ def test_hood_alarms_use_the_shared_parser():
         {"x.com.samsung.da.code": "FilterAlarm_OFF"},
         {"x.com.samsung.da.code": "OldCode", "x.com.samsung.da.state": "Deleted"},
     ]
+    assert desc.rep_fn is not None
     assert desc.rep_fn({"x.com.samsung.da.items": items}) == "none"
     items.append({"x.com.samsung.da.code": "FilterAlarm"})
     assert desc.rep_fn({"x.com.samsung.da.items": items}) == "FilterAlarm"
