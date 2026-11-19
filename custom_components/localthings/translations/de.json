@@ -318,6 +318,33 @@
         "name": "Zone 2"
       }
     },
+    "event": {
+      "alert": {
+        "name": "Warnung",
+        "state_attributes": {
+          "code": {
+            "name": "Code"
+          },
+          "event_type": {
+            "state": {
+              "alarm": "Alarm oder Fehlercode",
+              "door_open": "Tür offen"
+            }
+          }
+        }
+      },
+      "cycle": {
+        "name": "Programm",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "finished": "Beendet",
+              "started": "Gestartet"
+            }
+          }
+        }
+      }
+    },
     "fan": {
       "air_purifier_fan": {
         "state_attributes": {
@@ -2809,6 +2836,14 @@
         },
         "data_description": {
           "host": "Lokale IP-Adresse Ihres Samsung-Geräts (z. B. 192.168.1.50)."
+        }
+      },
+      "smartthings_copy": {
+        "title": "In SmartThings gefunden",
+        "description": "Dieses Gerät ist auch über die SmartThings-Cloud-Integration als „{name}“ eingerichtet. Diesen Namen und seinen Bereich auf das neue Gerät übernehmen? Das SmartThings-Gerät wird nicht verändert.",
+        "data": {
+          "copy": "Name und Bereich übernehmen",
+          "copy_from_smartthings_device": "SmartThings-Gerät"
         }
       },
       "confirm_unknown_type": {

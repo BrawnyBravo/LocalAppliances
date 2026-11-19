@@ -318,6 +318,33 @@
         "name": "Zona 2"
       }
     },
+    "event": {
+      "alert": {
+        "name": "Alerta",
+        "state_attributes": {
+          "code": {
+            "name": "Código"
+          },
+          "event_type": {
+            "state": {
+              "alarm": "Alarme ou código de erro",
+              "door_open": "Porta aberta"
+            }
+          }
+        }
+      },
+      "cycle": {
+        "name": "Ciclo",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "finished": "Concluído",
+              "started": "Iniciado"
+            }
+          }
+        }
+      }
+    },
     "fan": {
       "air_purifier_fan": {
         "state_attributes": {
@@ -2809,6 +2836,14 @@
         },
         "data_description": {
           "host": "Endereço IP local do seu aparelho Samsung (por exemplo, 192.168.1.50)."
+        }
+      },
+      "smartthings_copy": {
+        "title": "Encontrado no SmartThings",
+        "description": "Este eletrodoméstico também está configurado pela integração em nuvem do SmartThings como \"{name}\". Copiar esse nome e a área dele para o novo dispositivo? O dispositivo do SmartThings não é alterado.",
+        "data": {
+          "copy": "Copiar nome e área",
+          "copy_from_smartthings_device": "Dispositivo do SmartThings"
         }
       },
       "confirm_unknown_type": {

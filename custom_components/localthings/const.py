@@ -16,6 +16,8 @@ PLATFORMS = [
     "media_player",
     "remote",
     "notify",
+    # LocalAppliances: cycle/alert events for laundry and dishwashers.
+    "event",
 ]
 
 CONF_HOST = "host"

@@ -318,6 +318,33 @@
         "name": "Zone 2"
       }
     },
+    "event": {
+      "alert": {
+        "name": "Alert",
+        "state_attributes": {
+          "code": {
+            "name": "Code"
+          },
+          "event_type": {
+            "state": {
+              "alarm": "Alarm or error code",
+              "door_open": "Door open"
+            }
+          }
+        }
+      },
+      "cycle": {
+        "name": "Cycle",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "finished": "Finished",
+              "started": "Started"
+            }
+          }
+        }
+      }
+    },
     "fan": {
       "air_purifier_fan": {
         "state_attributes": {
@@ -2809,6 +2836,14 @@
         },
         "data_description": {
           "host": "Local IP address of your Samsung appliance (e.g. 192.168.1.50)."
+        }
+      },
+      "smartthings_copy": {
+        "title": "Found in SmartThings",
+        "description": "This appliance is also set up through the SmartThings cloud integration as \"{name}\". Copy that name and its area to the new device? The SmartThings device is not changed.",
+        "data": {
+          "copy": "Copy name and area",
+          "copy_from_smartthings_device": "SmartThings device"
         }
       },
       "confirm_unknown_type": {

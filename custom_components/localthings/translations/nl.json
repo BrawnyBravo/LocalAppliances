@@ -318,6 +318,33 @@
         "name": "Zone 2"
       }
     },
+    "event": {
+      "alert": {
+        "name": "Melding",
+        "state_attributes": {
+          "code": {
+            "name": "Code"
+          },
+          "event_type": {
+            "state": {
+              "alarm": "Alarm of foutcode",
+              "door_open": "Deur open"
+            }
+          }
+        }
+      },
+      "cycle": {
+        "name": "Programma",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "finished": "Klaar",
+              "started": "Gestart"
+            }
+          }
+        }
+      }
+    },
     "fan": {
       "air_purifier_fan": {
         "state_attributes": {
@@ -2809,6 +2836,14 @@
         },
         "data_description": {
           "host": "Het lokale IP-adres van je Samsung-apparaat (bijvoorbeeld 192.168.1.50)."
+        }
+      },
+      "smartthings_copy": {
+        "title": "Gevonden in SmartThings",
+        "description": "Dit apparaat is ook ingesteld via de SmartThings-cloudintegratie als \"{name}\". Die naam en het bijbehorende gebied naar het nieuwe apparaat kopiëren? Het SmartThings-apparaat wordt niet gewijzigd.",
+        "data": {
+          "copy": "Naam en gebied kopiëren",
+          "copy_from_smartthings_device": "SmartThings-apparaat"
         }
       },
       "confirm_unknown_type": {
